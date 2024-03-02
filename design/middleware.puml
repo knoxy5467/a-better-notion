@@ -18,9 +18,35 @@ stereotype      stereotype
 struct          struct
 @enduml
 
-@startuml thing 
-database DB
-actor User
-Entity mid
+@startuml
+package "Middlware" {
+	package "UI State" {
+		enum "TaskPropertyVariant" as task_prop_var {
+			Date(Date)
+		}
+		entity "TaskProperty" as task_prop {
+			+ name : String
+			+ prop: TaskPropertyVariant
+		}
+		task_prop_var --* task_prop : prop
+		entity "Task" as task {
+			+ task_id : TableID
+			+ properties : Vec<TaskProperty>
+			+ description : String
+			+ completed : bool
+			+ dependencies : Vec<Task>
+		}
+		task_prop --* task : properties
+
+		entity "TaskTable" as task_table {
+			+ tasks: Vec<Task>
+			+ indexes: Vec<Indexes>
+		}
+		task_table -> task
+	}
+	package "API" {
+
+	}
+
 
 @enduml
