@@ -23,6 +23,9 @@ package "Middlware" {
 	package "UI State" {
 		enum "TaskPropertyVariant" as task_prop_var {
 			Date(Date)
+			String(String),
+			Number(f64),
+			Boolean(bool),
 		}
 		entity "TaskProperty" as task_prop {
 			+ name : String
@@ -30,23 +33,29 @@ package "Middlware" {
 		}
 		task_prop_var --* task_prop : prop
 		entity "Task" as task {
-			+ task_id : TableID
-			+ properties : Vec<TaskProperty>
+			+ task_id : TaskID
+			+ properties : Vec<String, Option<TaskProperty>>
 			+ description : String
 			+ completed : bool
-			+ dependencies : Vec<Task>
+			+ dependencies : Vec<TaskID>
 		}
 		task_prop --* task : properties
 
 		entity "TaskTable" as task_table {
-			+ tasks: Vec<Task>
-			+ indexes: Vec<Indexes>
+			+ tasks: SlotMap<TaskID, Task>
 		}
 		task_table -> task
 	}
-	package "API" {
-
+	package "Frontend API" {
+		interface "Thing" {
+			async ExecuteRequest<R>(request: R) -> R::Result
+		}
+		interface "Tasks" {
+			CreateTasks(Vec<Task>) -> CreateTaskRequest
+			UpdateTasks(Vec<Task>) -> UpdateTaskRequest
+			DeleteTasks(Vec<TaskID>) -> DeleteTaskRequest
+			GetTasks(Vec<TaskID>) -> GetTaskRequest
+		}
 	}
-
-
+}
 @enduml

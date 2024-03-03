@@ -8,6 +8,7 @@ use ratatui::{
 };
 
 mod term;
+mod mid;
 
 fn main() -> io::Result<()> {
     let mut terminal = term::init()?;
