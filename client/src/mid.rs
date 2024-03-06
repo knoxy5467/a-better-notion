@@ -1,4 +1,4 @@
-//! Middleware File
+//! Middleware Structs
 
 #[derive(Serilize, Deserialize)]
 #[serde(tag="type")]
@@ -17,7 +17,7 @@ struct TaskProp {
 type ScriptID = u64;
 slotmap::new_key_type! { struct TaskID; }
 struct Task {
-	task_id: u64,
+	task_id: TaskID,
 	name: String,
 	completed: bool,
 	properties: SlotHashMap<String, TaskPropVariant>,
@@ -25,10 +25,15 @@ struct Task {
 	scripts: Vec<ScriptID>,
 }
 
-// API
+/// State 
+struct State {
+	tasks: SlotMap<TaskID, Task>,
+	// other state stored by UI
+	// ui: UIState,
+}
 
 
-
+// BACKEND API
 /// reqwest::post("/task").body(CreateTaskRequest {})    
 #[derive(Serilize, Deserialize)]
 struct CreateTaskRequest {
@@ -56,7 +61,7 @@ struct ReadTaskShortResponse {
 	scripts: Vec<ScriptID>
 }
 
-/// reqwuest::put("/task")
+/// reqwest::put("/task")
 struct UpdateTaskData {
 	task_id: TaskID,
 	name: Option<String>,
@@ -95,7 +100,7 @@ struct FilterTaskIDsData {
 }
 type FilterTaskIDsResponse = Vec<TaskID>;
 /// reqwest::get("/filter")
-struct FitlerTasksData {
+struct FilterTaskResponse {
 	filter: Filter,
 	props: Vec<String>
 }

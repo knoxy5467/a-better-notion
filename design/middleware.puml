@@ -21,41 +21,74 @@ struct          struct
 @startuml
 package "Middlware" {
 	package "UI State" {
-		enum "TaskPropertyVariant" as task_prop_var {
+		enum "TaskPropVariant" as task_prop_var {
 			Date(Date)
 			String(String),
 			Number(f64),
 			Boolean(bool),
 		}
-		entity "TaskProperty" as task_prop {
+		entity "TaskProp" as task_prop {
 			+ name : String
-			+ prop: TaskPropertyVariant
+			+ prop: TaskPropVariant
 		}
 		task_prop_var --* task_prop : prop
 		entity "Task" as task {
 			+ task_id : TaskID
-			+ properties : Vec<String, Option<TaskProperty>>
-			+ description : String
+			+ name: String
 			+ completed : bool
+			+ properties : Vec<String, Option<TaskProperty>>
 			+ dependencies : Vec<TaskID>
+			+ scripts: Vec<ScriptID>
 		}
 		task_prop --* task : properties
 
-		entity "TaskTable" as task_table {
+		entity "UIState" as ui_state {
+			...
+		}
+
+		entity "State" as main_state {
 			+ tasks: SlotMap<TaskID, Task>
+			+ ui: UIState
 		}
-		task_table -> task
+		main_state *-- ui_state : ui
+		main_state *-- task : tasks
 	}
-	package "Frontend API" {
-		interface "Thing" {
-			async ExecuteRequest<R>(request: R) -> R::Result
+	package "Backend API" {
+		interface "/task" as task_api {
+			POST: CreateTaskRequest -> CreateTaskResponse
+			GET: GetTaskRequest(Vec<TaskID>) -> GetTaskResponse
+			PUT: UpdateTasks(Vec<Task>) -> UpdateTaskRequest
+			DELETE: DeleteTasks(Vec<TaskID>) -> DeleteTaskRequest
 		}
-		interface "Tasks" {
-			CreateTasks(Vec<Task>) -> CreateTaskRequest
-			UpdateTasks(Vec<Task>) -> UpdateTaskRequest
-			DeleteTasks(Vec<TaskID>) -> DeleteTaskRequest
-			GetTasks(Vec<TaskID>) -> GetTaskRequest
+		interface "/tasks" as tasks_api {
+			POST: CreateTasksRequest -> CreateTaskResponse
+			GET: GetTasksResponse -> GetTasksResponse
+			PUT: UpdateTasksRequest -> UpdateTasksResponse
+			DELETE: DeleteTasksRequest -> DeleteTasksResponse
 		}
+		interface "/filterid" as filterid_api {
+			GET: GetTasksResponse -> GetTasksResponse
+		}
+		interface "/filter" as filter_api {
+			GET: FilterTasksRequest -> FilterTaskResponse
+		}
+		interface "/view" as view_api {
+			...
+		}
+
+		interface "CreateTaskRequest" {
+			name: String
+			completed: bool
+			properties: Vec<TaskProp>
+			dependencies: Vec<TaskID>
+		}
+		CreateTaskRequest --* task_api
+		interface "CreateTaskResponse" {
+			TaskID
+		}
+		CreateTaskResponse --* task_api
+		CreateTasksRequest --* tasks_api
+		CreateTasksResponse --* tasks_api
 	}
 }
 @enduml
