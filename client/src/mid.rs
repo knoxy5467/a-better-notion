@@ -60,9 +60,11 @@ struct ReadTaskShortResponse {
 	deps: Vec<TaskID>,
 	scripts: Vec<ScriptID>
 }
+type ReadTasksShortData = Vec<ReadTaskShortData>;
+type ReadTasksShortResponse = Vec<ReadTaskShortResponse>;
 
 /// reqwest::put("/task")
-struct UpdateTaskData {
+struct UpdateTaskRequest {
 	task_id: TaskID,
 	name: Option<String>,
 	checked: Option<bool>,
@@ -75,15 +77,15 @@ struct UpdateTaskData {
 }
 type UpdateTaskResponse = TaskID;
 /// reqwest::put("/tasks")
-type UpdateTasksData = Vec<UpdateTaskData>;
+type UpdateTasksRequest = Vec<UpdateTaskRequest>;
 type UpdateTasksResponse = Vec<TaskID>;
 /// reqwest::delete("/task")
-struct DeleteTaskData {
+struct DeleteTaskRequest {
 	task_id: TaskID
 }
 type DeleteTaskResponse = ();
 /// reawest::delete("/tasks")
-type DeleteTasksData = Vec<DeleteTaskData>;
+type DeleteTasksRequest = Vec<DeleteTaskRequest>;
 type DeleteTasksResponse = ();
 
 ////// FILTER STUFF
@@ -95,12 +97,12 @@ enum Filter {
 }
 
 /// reqwest::get("/filterid")
-struct FilterTaskIDsData {
+struct FilterTaskIDsRequest {
 	filter: Filter
 }
 type FilterTaskIDsResponse = Vec<TaskID>;
 /// reqwest::get("/filter")
-struct FilterTaskResponse {
+struct FilterTaskRequest {
 	filter: Filter,
 	props: Vec<String>
 }
@@ -126,10 +128,4 @@ enum Value {
 struct Prop {
 	name: String,
 	item: Value,
-}
-struct Task {
-	props: Vec<Prop>,
-}
-struct State {
-	tasks: Vec<Task>
 }
