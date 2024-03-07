@@ -20,19 +20,19 @@ struct          struct
 
 @startuml
 package "Middlware" {
-	package "UI State" {
+	package "State" {
 		enum "TaskPropVariant" {
 			Date(Date)
 			String(String),
 			Number(f64),
 			Boolean(bool),
 		}
-		entity "TaskProp" {
+		struct "TaskProp" {
 			+ name : String
 			+ prop: TaskPropVariant
 		}
-		TaskPropVariant --* TaskProp : prop
-		entity "Task" {
+		TaskPropVariant -* TaskProp : prop
+		struct "Task" {
 			+ task_id : TaskID
 			+ name: String
 			+ completed : bool
@@ -42,16 +42,46 @@ package "Middlware" {
 		}
 		TaskProp --* Task : properties
 
-		entity "UIState" as ui_state {
+		struct "UIState" as ui_state {
 			...
 		}
 
-		entity "State" as main_state {
+		struct "State" as main_state {
 			+ tasks: SlotMap<TaskID, Task>
 			+ ui: UIState
 		}
 		main_state *-- ui_state : ui
 		main_state *-- Task : tasks
+
+		enum "Comparator" {
+			LT, LEQ, GT, GEQ, EQ, NEQ, CONTAINS, NOTCONTAINS, REGEX
+		}
+		enum "Operator" {
+			AND, OR
+		}
+		enum "Filter" {
+			Leaf [
+				comparator: Comparator
+				field: TaskProp
+				immediate: TaskPropVariant
+			]
+			Operator [
+				op: Operator
+				childs: Vec<Filter>
+			]
+		}
+		Comparator --* Filter : Leaf.comparator
+		Operator --* Filter : Operator.op
+		TaskProp --* Filter : Leaf.field
+		TaskPropVariant --* Filter : Leaf.immediate
+		Filter --* Filter : Operator.childs
+
+		struct "View" {
+			filter: Filter,
+			props: Vec<String>
+			max_tasks: Option<u64>
+		}
+		View *-- Filter : filter
 	}
 	package "Backend API" {
 		interface "/task" as task_api {
@@ -66,33 +96,33 @@ package "Middlware" {
 			PUT: UpdateTasksRequest -> UpdateTasksResponse
 			DELETE: DeleteTasksRequest -> DeleteTasksResponse
 		}
-		interface "/view" as view_api {
-			...
-		}
 
 		package "CreateTask" {
-			interface "CreateTaskRequest" {
+			struct "CreateTaskRequest" {
 				name: String
 				completed: bool
 				properties: Vec<TaskProp>
 				dependencies: Vec<TaskID>
 			}
-			TaskProp *-- CreateTaskRequest
-			CreateTaskRequest --* task_api
-			interface "CreateTaskResponse" {
+			TaskProp *---- CreateTaskRequest
+			CreateTaskRequest ---* task_api
+			struct "CreateTaskResponse" {
 				TaskID
 			}
-			CreateTaskResponse --* task_api
-			CreateTasksRequest --* tasks_api
-			CreateTasksResponse --* tasks_api
+			CreateTaskResponse ---* task_api
+			CreateTasksRequest ---* tasks_api
+			CreateTasksResponse ---* tasks_api
 		}
+
+		CreateTask -[hidden]d- task_api
+		CreateTask -[hidden]d- tasks_api
 		
 		package "ReadTask" {
-			interface "ReadTaskShortRequest" {
+			struct "ReadTaskShortRequest" {
 				task_id: TaskID
 			}
 			ReadTaskShortRequest --* task_api
-			interface "ReadTaskShortResponse" {
+			struct "ReadTaskShortResponse" {
 				task_id: TaskID
 				name: String
 				completed: bool
@@ -106,7 +136,7 @@ package "Middlware" {
 		}
 		
 		package "UpdateTask" {
-			interface "UpdateTaskRequest" {
+			struct "UpdateTaskRequest" {
 				task_id: TaskID,
 				name: Option<String>,
 				checked: Option<bool>,
@@ -117,82 +147,60 @@ package "Middlware" {
 				scripts_to_add: Vec<ScriptID>,
 				scripts_to_remove: Vec<ScriptID>
 			}
-			TaskProp *-- UpdateTaskRequest
-			UpdateTaskRequest --* task_api
-			interface "UpdateTaskResponse" {
+			TaskProp *---- UpdateTaskRequest : props_to_add
+			UpdateTaskRequest ---* task_api
+			struct "UpdateTaskResponse" {
 				TaskID
 			}
-			UpdateTaskResponse --* task_api
+			UpdateTaskResponse ---* task_api
 
-			UpdateTasksRequest --* tasks_api
-			UpdateTasksResponse --* tasks_api
+			UpdateTasksRequest ---* tasks_api
+			UpdateTasksResponse ---* tasks_api
 		}
+		UpdateTask -[hidden]u- task_api
+		UpdateTask -[hidden]u- tasks_api
 
 		package "DeleteTask" {
-			interface "DeleteTaskRequest" {
+			struct "DeleteTaskRequest" {
 				task_id: TaskID
 			}
-			interface "DeleteTaskResponse"
-			DeleteTaskRequest --* task_api
-			DeleteTaskResponse --* task_api
-			DeleteTasksRequest --* tasks_api
-			DeleteTasksResponse --* tasks_api
+			struct "DeleteTaskResponse"
+			DeleteTaskRequest ---* task_api
+			DeleteTaskResponse ---* task_api
+			DeleteTasksRequest ---* tasks_api
+			DeleteTasksResponse ---* tasks_api
 		}
 		
-
-		package "Filter" {
-			interface "Comparator" {
-				LT, LEQ, GT, GEQ, EQ, NEQ, CONTAINS, NOTCONTAINS, REGEX
-			}
-			interface "Operator" {
-				AND, OR
-			}
-			interface "Filter" {
-				Leaf [
-					comparator: Comparator
-					field: TaskProp
-					immediate: TaskPropVariant
-				]
-				Operator [
-					op: Operator
-					childs: Vec<Filter>
-				]
-			}
-			Comparator --* Filter : Leaf.comparator
-			Operator --* Filter : Operator.op
-			TaskProp --* Filter : Leaf.field
-			TaskPropVariant --* Filter : Leaf.immediate
-			Filter --* Filter : Operator.childs
-
-			interface "FilterTaskIDsRequest" {
-				filter: Filter
-			}
-			FilterTaskIDsRequest *-- Filter : filter
-			FilterTaskIDsRequest --* filterid_api
-			interface "FilterTaskIDsResponse" {
-				Vec<TaskID>
-			}
-			FilterTaskIDsResponse --* filterid_api
-			interface "FilterTaskRequest" {
-				filter: Filter
-				props: Vec<String>
-			}
-			FilterTaskRequest *-- Filter : filter
-			FilterTaskRequest --* filter_api
-
-			interface "FilterTaskResponse" {
-				Vec<Task>
-			}
-			FilterTaskResponse *-- Task
-			FilterTaskResponse --* filter_api
-
-			interface "/filterid" as filterid_api {
-				GET: FilterTaskIDsRequest -> FilterTaskIDsResponse
-			}
-			interface "/filter" as filter_api {
-				GET: FilterTasksRequest -> FilterTaskResponse
-			}
+		struct "FilterTaskIDsRequest" {
+			filter: Filter
 		}
+		FilterTaskIDsRequest *---- Filter : filter
+		FilterTaskIDsRequest --* filterid_api
+		struct "FilterTaskIDsResponse" {
+			Vec<TaskID>
+		}
+		FilterTaskIDsResponse --* filterid_api
+		struct "FilterTaskRequest" {
+			filter: Filter
+			props: Vec<String>
+		}
+		FilterTaskRequest *---- Filter : filter
+		FilterTaskRequest --* filter_api
+
+		struct "FilterTaskResponse" {
+			Vec<Task>
+		}
+		FilterTaskResponse *---- Task
+		FilterTaskResponse --* filter_api
+
+		interface "/filterid" as filterid_api {
+			GET: FilterTaskIDsRequest -> FilterTaskIDsResponse
+		}
+		interface "/filter" as filter_api {
+			GET: FilterTasksRequest -> FilterTaskResponse
+		}
+		
 	}
+	"Backend API" ----[hidden]u----------------- "State"
 }
 @enduml

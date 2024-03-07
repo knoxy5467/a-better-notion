@@ -115,17 +115,3 @@ struct View {
 	props: Vec<String>,
 	max_tasks: Option<u64>,
 }
-
-trait API {
-	// API stuff here
-}
-
-enum Value {
-	String(String),
-	Decimal(f64),
-	Number(i64),
-}
-struct Prop {
-	name: String,
-	item: Value,
-}
