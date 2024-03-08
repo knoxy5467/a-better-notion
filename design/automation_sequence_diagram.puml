@@ -1,0 +1,23 @@
+@startuml
+autoactivate on
+actor ABNUser
+ABNUser -> UI : interacts with region to create new Lua script
+UI -> ABNUser : displays script edit interface
+ABNUser -> UI : writes and saves lua script, exits
+UI -> ABNUser : displays default view
+ABNUser -> UI : runScript()
+UI -> App : sends script to App
+App -> App : converts lua script to a Vec<Request>
+    loop 10 times
+        App -> Backend : send <Request>
+        Backend -> Backend
+        alt response sends sucessfully
+            Backend -> App : send <Response> 
+        else bad response
+            Backend -> App : send bad response
+            App -> UI : trigger bad connection error message
+        end
+    end
+App -> UI : update view with changes to tasks
+return success
+@enduml

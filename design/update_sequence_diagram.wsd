@@ -1,0 +1,17 @@
+@startuml
+autoactivate on
+actor ABNUser
+ABNUser -> UI : interacts with UI to trigger task update interface view
+UI -> ABNUser : prompts user to edit task data
+ABNUser -> UI : edits task data
+UI -> App : sends task data changes
+App -> Backend : compiles changes into <UpdateTaskRequest>
+Backend -> App : triggers bad <FilterTaskRequest> error
+App -> UI : trigger view to display bad <FilterTaskRequest> error message, return to default view
+UI -> ABNUser : reprompt user to update task
+Backend -> App : sends <UpdateTaskResponse>
+App -> UI : bad <FilterTaskResponse>, trigger update view to display server connection error
+UI -> ABNUser : reprompt user to enter task
+App -> UI : update view with updated task
+return success
+@enduml
