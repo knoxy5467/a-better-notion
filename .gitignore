@@ -9,3 +9,6 @@ target/
 
 # Nix Stuff
 .direnv
+
+# Puml Render DIR
+design/render

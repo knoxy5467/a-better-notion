@@ -19,6 +19,7 @@ struct          struct
 @enduml
 
 @startuml
+'!pragma layout smetana
 package "Middlware" {
 	package "State" {
 		enum "TaskPropVariant" {
@@ -84,44 +85,23 @@ package "Middlware" {
 		View *-- Filter : filter
 	}
 	package "Backend API" {
-		interface "/task" as task_api {
-			POST: CreateTaskRequest -> CreateTaskResponse
-			GET: GetTaskRequest -> GetTaskResponse
-			PUT: UpdateTasks -> UpdateTaskRequest
-			DELETE: DeleteTasks -> DeleteTaskRequest
-		}
-		interface "/tasks" as tasks_api {
-			POST: CreateTasksRequest -> CreateTaskResponse
-			GET: GetTasksResponse -> GetTasksResponse
-			PUT: UpdateTasksRequest -> UpdateTasksResponse
-			DELETE: DeleteTasksRequest -> DeleteTasksResponse
-		}
-
-		package "CreateTask" {
+		package "Task API" {
+			'POST
 			struct "CreateTaskRequest" {
 				name: String
 				completed: bool
 				properties: Vec<TaskProp>
 				dependencies: Vec<TaskID>
 			}
-			TaskProp *---- CreateTaskRequest
-			CreateTaskRequest ---* task_api
+			CreateTaskRequest *---- TaskProp
 			struct "CreateTaskResponse" {
 				TaskID
 			}
-			CreateTaskResponse ---* task_api
-			CreateTasksRequest ---* tasks_api
-			CreateTasksResponse ---* tasks_api
-		}
 
-		CreateTask -[hidden]d- task_api
-		CreateTask -[hidden]d- tasks_api
-		
-		package "ReadTask" {
+			'GET
 			struct "ReadTaskShortRequest" {
 				task_id: TaskID
 			}
-			ReadTaskShortRequest --* task_api
 			struct "ReadTaskShortResponse" {
 				task_id: TaskID
 				name: String
@@ -130,12 +110,8 @@ package "Middlware" {
 				deps: Vec<TaskID>
 				scripts: Vec<ScriptID>
 			}
-			ReadTaskShortResponse --* task_api
-			ReadTasksShortData --* tasks_api
-			ReadTasksShortResponse --* tasks_api
-		}
-		
-		package "UpdateTask" {
+
+			'PUT
 			struct "UpdateTaskRequest" {
 				task_id: TaskID,
 				name: Option<String>,
@@ -147,58 +123,112 @@ package "Middlware" {
 				scripts_to_add: Vec<ScriptID>,
 				scripts_to_remove: Vec<ScriptID>
 			}
-			TaskProp *---- UpdateTaskRequest : props_to_add
-			UpdateTaskRequest ---* task_api
+			TaskProp *------ UpdateTaskRequest : props_to_add
 			struct "UpdateTaskResponse" {
 				TaskID
 			}
-			UpdateTaskResponse ---* task_api
+			UpdateTaskResponse -[hidden]r- UpdateTaskRequest
 
-			UpdateTasksRequest ---* tasks_api
-			UpdateTasksResponse ---* tasks_api
-		}
-		UpdateTask -[hidden]u- task_api
-		UpdateTask -[hidden]u- tasks_api
-
-		package "DeleteTask" {
+			'DELETE
 			struct "DeleteTaskRequest" {
 				task_id: TaskID
 			}
 			struct "DeleteTaskResponse"
-			DeleteTaskRequest ---* task_api
-			DeleteTaskResponse ---* task_api
-			DeleteTasksRequest ---* tasks_api
-			DeleteTasksResponse ---* tasks_api
+			DeleteTaskRequest -[hidden]d- DeleteTaskResponse
+
+
+			interface "/task" as task_api {
+				POST: CreateTaskRequest -> CreateTaskResponse
+				GET: GetTaskRequest -> GetTaskResponse
+				PUT: UpdateTasks -> UpdateTaskRequest
+				DELETE: DeleteTasks -> DeleteTaskRequest
+			}
+			task_api *-u- CreateTaskRequest
+			task_api *-u- CreateTaskResponse
+			task_api *-r- ReadTaskShortRequest
+			task_api *-r- ReadTaskShortResponse
+			task_api *-d- UpdateTaskRequest
+			task_api *-d- UpdateTaskResponse
+			task_api *-l- DeleteTaskRequest
+			task_api *-l- DeleteTaskResponse
 		}
 		
-		struct "FilterTaskIDsRequest" {
-			filter: Filter
-		}
-		FilterTaskIDsRequest *---- Filter : filter
-		FilterTaskIDsRequest --* filterid_api
-		struct "FilterTaskIDsResponse" {
-			Vec<TaskID>
-		}
-		FilterTaskIDsResponse --* filterid_api
-		struct "FilterTaskRequest" {
-			filter: Filter
-			props: Vec<String>
-		}
-		FilterTaskRequest *---- Filter : filter
-		FilterTaskRequest --* filter_api
+		package "Tasks API" {
+			ReadTasksShortRequest -[hidden]u- ReadTasksShortResponse
+			DeleteTasksRequest -[hidden]u- DeleteTasksResponse
 
-		struct "FilterTaskResponse" {
-			Vec<Task>
+			interface "/tasks" as tasks_api {
+				POST: CreateTasksRequest -> CreateTaskResponse
+				GET: GetTasksResponse -> GetTasksResponse
+				PUT: UpdateTasksRequest -> UpdateTasksResponse
+				DELETE: DeleteTasksRequest -> DeleteTasksResponse
+			}
+			tasks_api *-u- CreateTasksRequest
+			tasks_api *-u- CreateTasksResponse
+			tasks_api *-r- ReadTasksShortRequest 
+			tasks_api *-r- ReadTasksShortResponse 
+			tasks_api *-d- UpdateTasksRequest
+			tasks_api *-d- UpdateTasksResponse
+			tasks_api *-l- DeleteTasksRequest 
+			tasks_api *-l- DeleteTasksResponse
 		}
-		FilterTaskResponse *---- Task
-		FilterTaskResponse --* filter_api
+		package "Filter API" {
+			struct "FilterTaskIDsRequest" {
+				filter: Filter
+			}
+			FilterTaskIDsRequest *---- Filter : filter
+			struct "FilterTaskIDsResponse" {
+				Vec<TaskID>
+			}
+			struct "FilterTaskRequest" {
+				filter: Filter
+				props: Vec<String>
+			}
+			FilterTaskRequest *---- Filter : filter
 
-		interface "/filterid" as filterid_api {
-			GET: FilterTaskIDsRequest -> FilterTaskIDsResponse
+			struct "FilterTaskResponse" {
+				Vec<Task>
+			}
+			FilterTaskResponse *---- Task
+
+			interface "/filterid" as filterid_api {
+				GET: FilterTaskIDsRequest -> FilterTaskIDsResponse
+			}
+			interface "/filter" as filter_api {
+				GET: FilterTasksRequest -> FilterTaskResponse
+			}
+
+			filter_api *-d- FilterTaskRequest
+			filter_api *-d- FilterTaskResponse
+
+			filterid_api *-d- FilterTaskIDsRequest
+			filterid_api *-d- FilterTaskIDsResponse
 		}
-		interface "/filter" as filter_api {
-			GET: FilterTasksRequest -> FilterTaskResponse
+
+		package "View API" {
+			struct "CreateViewRequest" {
+				view: View
+			}
+			CreateViewRequest *-- View
+			interface "/view" as view_api {
+				POST: CreateViewRequest -> CreateViewResponse
+				GET: GetViewRequest -> GetViewResponse
+				PUT: UpdateViewRequest -> UpdateViewResponse
+				DELETE: DeleteViewRequest -> DeleteViewResponse
+			}
+			GetViewRequest -[hidden]d- GetViewResponse
+			DeleteViewRequest -[hidden]- DeleteViewResponse
+
+			view_api *-u- CreateViewRequest
+			view_api *-u- CreateViewResponse
+			view_api *-r- GetViewRequest
+			view_api *-r- GetViewResponse
+			view_api *-d- UpdateViewRequest
+			view_api *-d- UpdateViewResponse
+			view_api *-l- DeleteViewRequest
+			view_api *-l- DeleteViewResponse
 		}
+		
 		
 	}
 	"Backend API" ----[hidden]u----------------- "State"

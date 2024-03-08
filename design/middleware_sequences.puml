@@ -1,0 +1,38 @@
+	
+
+@startuml
+participant Participant as Foo
+actor       Actor       as Foo1
+boundary    Boundary    as Foo2
+control     Control     as Foo3
+entity      Entity      as Foo4
+database    Database    as Foo5
+collections Collections as Foo6
+queue       Queue       as Foo7
+Foo -> Foo1 : To actor 
+Foo -> Foo2 : To boundary
+Foo -> Foo3 : To control
+Foo -> Foo4 : To entity
+Foo -> Foo5 : To database
+Foo -> Foo6 : To collections
+Foo -> Foo7: To queue
+@enduml
+
+@startuml
+group "Create New Task"
+	User -> App : User activates <<New Task>> sequence
+	App -> User : Displays New Task, enables "unsaved" marker
+	App -> App : Checks local state for unsyncronized data.
+	App -> Backend : POST <<CreateTaskRequest>> to /task
+	alt request successful
+		Backend -> App : App receives <<CreateTaskResponse>> 
+		App -> User : Removes "unsaved" marker.
+	else request error
+		App -> Backend : repeat request, exponential backoff 
+		alt request eventually successful
+			App -> 
+		else
+		end
+	end
+end
+@enduml
