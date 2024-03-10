@@ -49,7 +49,7 @@ type CreateTasksRequest = Vec<CreateTaskRequest>;
 type CreateTaskResponse = Vec<TaskID>;
 
 /// reawest::get("/task")
-struct ReadTaskShortData {
+struct ReadTaskShortRequest {
 	task_id: TaskID,
 }
 struct ReadTaskShortResponse {
@@ -60,7 +60,7 @@ struct ReadTaskShortResponse {
 	deps: Vec<TaskID>,
 	scripts: Vec<ScriptID>
 }
-type ReadTasksShortData = Vec<ReadTaskShortData>;
+type ReadTasksShortRequest = Vec<ReadTaskShortRequest>;
 type ReadTasksShortResponse = Vec<ReadTaskShortResponse>;
 
 /// reqwest::put("/task")
@@ -87,6 +87,20 @@ type DeleteTaskResponse = ();
 /// reawest::delete("/tasks")
 type DeleteTasksRequest = Vec<DeleteTaskRequest>;
 type DeleteTasksResponse = ();
+
+///// PROPERTIES STUFF
+/// reqwest::get("/prop")
+struct PropertyRequest {
+	task_id: TaskID,
+	properties: Vec<String>,
+}
+type PropertyResponse = Vec<(String, TaskPropVariant)>;
+/// reqwest::get("/props")
+struct PropertiesRequest {
+	task_id: Vec<TaskID>,
+	properties: Vec<String>,
+}
+type PropertiesResponse = Vec<(String, Vec<TaskPropVariant>)>;
 
 ////// FILTER STUFF
 enum Comparator { LT, LEQ, GT, GEQ, EQ, NEQ, CONTAINS, NOTCONTAINS, REGEX }

@@ -87,6 +87,34 @@ package "Middlware" {
 		View *-- Filter : filter
 	}
 	package "Backend API" {
+		package "Properties" {
+			interface "/prop" as prop_api {
+				GET: PropertyRequest -> PropertyResponse 
+			}
+			interface "/props" as props_api {
+				GET: PropertiesRequest -> PropertiesResponse
+			}
+			struct PropertyRequest {
+				task_id: TaskID
+				properties: Vec<String>
+			}
+			struct PropertyResponse {
+				Vec<TaskProp>
+			}
+			TaskProp *------ PropertyResponse 
+			struct PropertiesRequest {
+				task_ids: Vec<TaskID>
+				poperties: Vec<String>
+			}
+			struct PropertiesResponse {
+				Vec<(String, Vec<TaskPropVariant>)>
+			}
+			PropertiesResponse -------* TaskPropVariant
+			prop_api *-- PropertyRequest
+			prop_api *-- PropertyResponse
+			props_api *-- PropertiesRequest
+			props_api *-- PropertiesResponse
+		}
 		package "Task API" {
 			'POST
 			struct "CreateTaskRequest" {
@@ -94,6 +122,7 @@ package "Middlware" {
 				completed: bool
 				properties: Vec<TaskProp>
 				dependencies: Vec<TaskID>
+				scripts: Vec<ScriptID>
 			}
 			CreateTaskRequest *---- TaskProp
 			struct "CreateTaskResponse" {
