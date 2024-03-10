@@ -1,4 +1,4 @@
-@startuml test
+@startuml class_demo
 abstract        abstract
 abstract class  "abstract class"
 annotation      annotation
@@ -20,6 +20,8 @@ struct          struct
 
 @startuml
 '!pragma layout smetana
+skinparam dpi 300
+
 package "Middlware" {
 	package "State" {
 		enum "TaskPropVariant" {

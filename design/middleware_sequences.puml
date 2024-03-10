@@ -1,6 +1,6 @@
 	
 
-@startuml
+@startuml sequence_demo
 participant Participant as Foo
 actor       Actor       as Foo1
 boundary    Boundary    as Foo2
@@ -18,7 +18,7 @@ Foo -> Foo6 : To collections
 Foo -> Foo7: To queue
 @enduml
 
-@startuml
+@startuml middleware_create_task
 group "Create New Task"
 	User -> App : User activates <<New Task>> sequence
 	App -> User : Displays New Task, enables "unsaved" marker
