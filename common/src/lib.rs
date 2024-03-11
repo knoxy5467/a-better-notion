@@ -1,6 +1,9 @@
+#![warn(rustdoc::private_doc_tests)]
+#![warn(missing_docs)]
+#![warn(rustdoc::missing_crate_level_docs)]
 /// Primary key for tasks
 /// Note: Database should ensure IDs are never re-used.
-type TaskID = u64; 
+type TaskID = u64;
 
 /// Primary key for scripts
 /// Note: Database should ensure IDs are never re-used.
@@ -13,11 +16,11 @@ type ViewID = u64;
 struct View {
     filter: Filter,
     props: Vec<String>,
-	tasks: Vec<TaskID>,
+    tasks: Vec<TaskID>,
 }
 
 struct Script {
-	content: String,
+    content: String,
 }
 
 /// Types of Comparators for filters
