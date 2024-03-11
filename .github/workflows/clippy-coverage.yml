@@ -1,0 +1,35 @@
+name: Coverage
+
+on: [pull_request, push]
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+      RUSTFLAGS: "-Dwarnings"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup update stable
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Generate code coverage
+        run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+      - name: Report LCOV
+  # You may pin to the exact commit or the version.
+  # uses: zgosalvez/github-actions-report-lcov@3b60071009dbaf817edeaa3c7226f7889a4171b8
+        uses: zgosalvez/github-actions-report-lcov@v4.1.2
+        with:
+          # The coverage files to scan. For example, `coverage/lcov.*.info`
+          # The minimum coverage to pass the check. Optional. Default: `0` (always passes)
+          minimum-coverage: 90 # optional, default is 0
+          on: push
+  clippy_check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features
+
+                
