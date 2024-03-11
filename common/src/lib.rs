@@ -1,31 +1,34 @@
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
+use serde::{Deserialize, Serialize};
 /// Primary key for tasks
 /// Note: Database should ensure IDs are never re-used.
-type TaskID = u64;
+pub type TaskID = u64;
 
 /// Primary key for scripts
 /// Note: Database should ensure IDs are never re-used.
-type ScriptID = u64;
+pub type ScriptID = u64;
 
 /// Primary key for views
 /// Note: Database should ensure IDs are never re-used.
-type ViewID = u64;
+pub type ViewID = u64;
+
+pub type PropID = String;
 /// A view is list of filtered tasks
-struct View {
+pub struct View {
     filter: Filter,
     props: Vec<String>,
     tasks: Vec<TaskID>,
 }
 
-struct Script {
+pub struct Script {
     content: String,
 }
 
 /// Types of Comparators for filters
 #[derive(Serialize, Deserialize)]
-enum Comparator {
+pub enum Comparator {
     LT,
     LEQ,
     GT,
@@ -37,12 +40,25 @@ enum Comparator {
     REGEX,
 }
 #[derive(Serialize, Deserialize)]
-enum Operator {
+pub enum Operator {
     AND,
     OR,
 }
 #[derive(Serialize, Deserialize)]
-enum Filter {
+#[serde(tag = "type")]
+pub enum TaskPropVariant {
+    Date(()),
+    String(String),
+    Number(f64),
+    Boolean(bool),
+}
+#[derive(Serialize, Deserialize)]
+pub struct TaskProp {
+    name: String,
+    value: TaskPropVariant,
+}
+#[derive(Serialize, Deserialize)]
+pub enum Filter {
     Leaf {
         comparator: Comparator,
         field: TaskProp,

@@ -11,4 +11,4 @@ ratatui = { version = "0.26.1", features = ["crossterm"] }
 slotmap = { version = "1.0.7", features = ["serde"] }
 serde = { version = "1.0.197", features = ["derive"]}
 serde_json = "1.0.114"
-common = {path = "common"}
+common = {path = "../common"}
