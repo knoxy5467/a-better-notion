@@ -24,6 +24,5 @@ jobs:
           coverage-files: lcov.info
           # The minimum coverage to pass the check. Optional. Default: `0` (always passes)
           minimum-coverage: 90 # optional, default is 0
-          on: push
 
                 
