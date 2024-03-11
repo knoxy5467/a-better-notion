@@ -1,6 +1,12 @@
 name: Coverage
 
-on: [pull_request, push]
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
 
 jobs:
   coverage:
@@ -15,6 +21,8 @@ jobs:
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
         run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+      - name: Setup LCOV
+        uses: hrishikesh-kadam/setup-lcov@v1
       - name: Report LCOV
   # You may pin to the exact commit or the version.
   # uses: zgosalvez/github-actions-report-lcov@3b60071009dbaf817edeaa3c7226f7889a4171b8
