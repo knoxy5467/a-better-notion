@@ -1,6 +1,7 @@
-//! Middleware Structs
+use serde::{Deserialize, Serialize};
+use slotmap::SlotMap;
 
-#[derive(Serilize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(tag = "type")]
 enum TaskPropVariant {
     Date(()),
@@ -8,7 +9,7 @@ enum TaskPropVariant {
     Number(f64),
     Boolean(bool),
 }
-#[serde(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct TaskProp {
     name: String,
     value: TaskPropVariant,
@@ -16,11 +17,12 @@ struct TaskProp {
 
 type ScriptID = u64;
 slotmap::new_key_type! { struct TaskID; }
-struct Task {
+slotmap::new_key_type! { struct PropertyName;}
+pub struct Task {
     task_id: TaskID,
     name: String,
     completed: bool,
-    properties: SlotHashMap<String, TaskPropVariant>,
+    properties: SlotMap<PropertyName, TaskPropVariant>,
     dependencies: Vec<Task>,
     scripts: Vec<ScriptID>,
 }
@@ -33,8 +35,8 @@ struct State {
 }
 
 // BACKEND API
-/// reqwest::post("/task").body(CreateTaskRequest {})    
-#[derive(Serilize, Deserialize)]
+/// reqwest::post("/task").body(CreateTaskRequest {})
+#[derive(Serialize, Deserialize)]
 struct CreateTaskRequest {
     name: String,
     completed: bool,
@@ -42,7 +44,6 @@ struct CreateTaskRequest {
     /// [name, date, value]
     dependencies: Vec<TaskID>,
 }
-type CreateTaskResponse = TaskID;
 /// reqwest::post("/tasks").body(CreateTaskRequest {})
 type CreateTasksRequest = Vec<CreateTaskRequest>;
 type CreateTaskResponse = Vec<TaskID>;
