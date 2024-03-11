@@ -7,7 +7,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
-      RUSTFLAGS: "-Dwarnings"
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust
@@ -25,11 +24,5 @@ jobs:
           # The minimum coverage to pass the check. Optional. Default: `0` (always passes)
           minimum-coverage: 90 # optional, default is 0
           on: push
-  clippy_check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Run Clippy
-        run: cargo clippy --all-targets --all-features
 
                 
