@@ -133,35 +133,111 @@ package "Middleware State" {
 @startuml "backend_api"
 left to right direction
 package "Backend API" {
-		package "Properties" {
-			interface "/prop" as prop_api {
-				GET: PropertyRequest -> PropertyResponse 
-			}
-			interface "/props" as props_api {
-				GET: PropertiesRequest -> PropertiesResponse
-			}
-			struct PropertyRequest {
-				task_id: TaskID
-				properties: Vec<String>
-			}
-			struct PropertyResponse {
-				Vec<TaskProp>
-			}
-			TaskProp *------ PropertyResponse 
-			struct PropertiesRequest {
-				task_ids: Vec<TaskID>
-				poperties: Vec<String>
-			}
-			struct PropertiesResponse {
-				Vec<(String, Vec<TaskPropVariant>)>
-			}
-			PropertiesResponse -------* TaskPropVariant
-			prop_api *-- PropertyRequest
-			prop_api *-- PropertyResponse
-			props_api *-- PropertiesRequest
-			props_api *-- PropertiesResponse
+	package "Properties" {
+		interface "/prop" as prop_api {
+			GET: PropertyRequest -> PropertyResponse 
 		}
+		interface "/props" as props_api {
+			GET: PropertiesRequest -> PropertiesResponse
+		}
+		struct PropertyRequest {
+			task_id: TaskID
+			properties: Vec<String>
+		}
+		struct PropertyResponse {
+			Vec<TaskProp>
+		}
+		struct PropertiesRequest {
+			task_ids: Vec<TaskID>
+			poperties: Vec<String>
+		}
+		struct PropertiesResponse {
+			Vec<(String, Vec<TaskPropVariant>)>
+		}
+		prop_api *-- PropertyRequest
+		prop_api *-- PropertyResponse
+		props_api *-- PropertiesRequest
+		props_api *-- PropertiesResponse
+	}
+	
+		
+	package "Tasks API" {
+
+		interface "/tasks" as tasks_api {
+			POST: CreateTasksRequest -> CreateTaskResponse
+			GET: GetTasksResponse -> GetTasksResponse
+			PUT: UpdateTasksRequest -> UpdateTasksResponse
+			DELETE: DeleteTasksRequest -> DeleteTasksResponse
+		}
+		struct CreateTasksRequest {
+			Vec<CreateTaskRequest>
+		}
+		struct CreateTasksResponse {
+			Vec<Option<TaskID>>
+		}
+		struct ReadTasksShortRequest {
+			Vec<ReadTaskShortRequest>
+		}
+		struct ReadTasksShortResponse {
+			Vec<Option<ReadTaskShortResponse>>
+		}
+		struct UpdateTasksRequest {
+			Vec<UpdateTaskRequest>
+		}
+		struct UpdateTasksResponse {
+			Vec<Option<UpdateTaskResponse>>
+		}
+		struct DeleteTasksRequest {
+			Vec<DeleteTaskRequest>
+		}
+		struct DeleteTasksResponse {
+			Vec<Option<DeleteTaskResponse>>
+		}
+		ReadTasksShortRequest -[hidden]u- ReadTasksShortResponse
+		DeleteTasksRequest -[hidden]u- DeleteTasksResponse
+		tasks_api *-u- CreateTasksRequest
+		tasks_api *-u- CreateTasksResponse
+		tasks_api *-r- ReadTasksShortRequest 
+		tasks_api *-r- ReadTasksShortResponse 
+		tasks_api *-d- UpdateTasksRequest
+		tasks_api *-d- UpdateTasksResponse
+		tasks_api *-l- DeleteTasksRequest 
+		tasks_api *-l- DeleteTasksResponse
+	}
+	package "Filter API" {
+		struct "FilterTaskIDsRequest" {
+			filter: Filter
+		}
+		FilterTaskIDsRequest *---- Filter : filter
+		struct "FilterTaskIDsResponse" {
+			Vec<TaskID>
+		}
+		struct "FilterTaskRequest" {
+			filter: Filter
+			props: Vec<String>
+		}
+		FilterTaskRequest *---- Filter : filter
+
+		struct "FilterTaskResponse" {
+			Vec<Task>
+		}
+		FilterTaskResponse *---- Task
+
+		interface "/filterid" as filterid_api {
+			GET: FilterTaskIDsRequest -> FilterTaskIDsResponse
+		}
+		interface "/filter" as filter_api {
+			GET: FilterTasksRequest -> FilterTaskResponse
+		}
+
+		filter_api *-d- FilterTaskRequest
+		filter_api *-d- FilterTaskResponse
+
+		filterid_api *-d- FilterTaskIDsRequest
+		filterid_api *-d- FilterTaskIDsResponse
+	}
 	package "Task API" {
+
 		'POST
 		struct "CreateTaskRequest" {
 			name: String
