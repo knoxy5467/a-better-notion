@@ -1,5 +1,11 @@
 name: Clippy check
-on: [pull_request, push]
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
 
 # Make sure CI fails on all warnings, including Clippy lints
 env:
