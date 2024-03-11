@@ -8,5 +8,12 @@ edition = "2021"
 [dependencies]
 crossterm = "0.27.0"
 ratatui = { version = "0.26.1", features = ["crossterm"] }
+<<<<<<< HEAD
 slotmap = { version = "1.0.7", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
+=======
+serde = { version = "1.0.197", features = ["derive"]}
+serde_json = "1.0.114"
+slotmap = "1.0.7"
+common = {path = "common"}
+>>>>>>> e152537c83b1d7dd0bb05d17f73e8ab01bf7121d

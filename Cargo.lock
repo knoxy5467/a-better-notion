@@ -367,8 +367,13 @@ dependencies = [
  "crossterm",
  "ratatui",
  "serde",
+ "serde_json",
  "slotmap",
 ]
+
+[[package]]
+name = "common"
+version = "0.1.0"
 
 [[package]]
 name = "compact_str"
@@ -1113,6 +1118,8 @@ dependencies = [
  "actix-web",
  "diesel",
  "dotenvy",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
