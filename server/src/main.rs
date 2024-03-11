@@ -1,4 +1,7 @@
-use actix_web::{web, App, HttpServer, Responder, HttpResponse};
+#![warn(rustdoc::private_doc_tests)]
+#![warn(missing_docs)]
+#![warn(rustdoc::missing_crate_level_docs)]
+use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 #[get("/")]
 async fn index() -> impl Responder {
     HttpResponse::Ok().body("ABN Server")
