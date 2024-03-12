@@ -42,7 +42,6 @@ jobs:
         done
     - name: Run clippy on changed files
       run: |
-        for file in ${{ steps.files.outputs.modified }}; do
+        for file in ${ALL_CHANGED_FILES}; do
           cargo clippy -- $file || exit 1
         done
-      shell: bash
