@@ -12,9 +12,30 @@ env:
   RUSTFLAGS: "-Dwarnings"
 
 jobs:
-  clippy_check:
+  clippy:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-      - name: Run Clippy
-        run: cargo clippy --all-targets --all-features
+    - name: Checkout code
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0  # this is required to get the full history
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        components: clippy
+
+    - name: Get changed files
+      id: files
+      run: |
+        echo "::set-output name=modified::$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | grep '\.rs$' | xargs)"
+      shell: bash
+
+    - name: Run clippy on changed files
+      run: |
+        for file in ${{ steps.files.outputs.modified }}; do
+          cargo clippy -- $file || exit 1
+        done
+      shell: bash
