@@ -1,8 +1,7 @@
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
-#![allow(dead_code)]
-#![allow()]
+#![allow(dead_code)] // this is for
 //! this crate provides the common types and traits for interacting
 //! with the backend and middleware
 use serde::{Deserialize, Serialize};
