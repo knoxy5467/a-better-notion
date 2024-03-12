@@ -3,23 +3,25 @@ use common::{
     View, ViewID,
 };
 use serde::{Deserialize, Serialize};
-use slotmap::SlotMap;
+use slotmap::{new_key_type, SlotMap};
 use std::collections::HashMap;
 
 /// local unique property id for storing props in dense slotmap
-//new_key_type! { struct PropID; }
+new_key_type! { struct PropKey; }
+new_key_type! { struct TaskKey; }
 
 /// State
 struct State {
-    tasks: HashMap<TaskID, TaskShort>,
-    /// map property names to slotmap ids
-    prop_names: HashMap<String, PropID>,
-    /// efficient, dense storage of all locally-stored task properties
-    // commended out for now to get main workingprops: SlotMap<PropID, TaskPropVariant>,
-    /// scripts
-    scripts: HashMap<ScriptID, Script>,
-    /// view data
-    views: HashMap<ViewID, View>,
+    task_map: HashMap<TaskID, TaskKey>,
+	tasks: SlotMap<TaskKey, TaskShort>,
+	/// map property names to slotmap ids
+	prop_map: HashMap<(TaskID, String), PropKey>,
+	/// efficient, dense storage of all locally-stored task properties
+	props: SlotMap<PropKey, TaskPropVariant>,
+	/// scripts
+	scripts: HashMap<ScriptID, Script>,
+	/// view data
+	views: HashMap<ViewID, View>,
 }
 
 struct TaskShort {
