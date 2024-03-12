@@ -1,0 +1,27 @@
+@startuml middleware_create_task
+title CreateTasksRequest
+participant Middleware
+participant API
+database Database
+Middleware -> API : Requests creation of multiple tasks
+API -> API : Parse Request
+API -> API : Validate Request
+loop for every new task 
+    alt Invalid request
+    API -> API : Add None to response
+    else Valid Request
+        API -> Database : Request creation of task
+        Database -> Database : Dependancy cycle detection
+        alt Cycle detected
+            Database -> API : Cycle detected
+            API -> API : Add None to response
+        else No cycles
+            Database -> API : TaskID
+            API -> API : Add TaskID to response
+        end
+    
+    end
+
+end
+API -> Middleware : send back response
+@enduml

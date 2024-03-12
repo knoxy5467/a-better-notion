@@ -1,3 +1,6 @@
+#![warn(rustdoc::private_doc_tests)]
+#![warn(missing_docs)]
+#![warn(rustdoc::missing_crate_level_docs)]
 use std::io;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
@@ -7,8 +10,8 @@ use ratatui::{
     widgets::{block::*, *},
 };
 
-mod term;
 mod mid;
+mod term;
 
 fn main() -> io::Result<()> {
     let mut terminal = term::init()?;
