@@ -60,13 +60,13 @@ pub struct TaskProp {
 /// A filter is a tree of comparators and operators that can be used to filter tasks
 #[derive(Serialize, Deserialize)]
 pub enum Filter {
-    //! A leaf node in the filter tree
+    // A leaf node in the filter tree
     Leaf {
         comparator: Comparator,
         field: TaskProp,
         immediate: TaskPropVariant,
     },
-    //! A node in the filter tree with children cannot be a leaf
+    // A node in the filter tree with children cannot be a leaf
     Operator {
         op: Operator,
         childs: Vec<Filter>,
