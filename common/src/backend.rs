@@ -1,3 +1,8 @@
+//! This file outlines all the structures required for the middleware and backend to communicate via REST API
+
+use serde::{Deserialize, Serialize};
+
+use crate::*;
 
 /// # TASK API
 
