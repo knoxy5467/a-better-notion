@@ -21,5 +21,4 @@ jobs:
           components: clippy
       - run: cargo install cargo-diff-tools
       - run: |
-          git fetch origin $GITHUB_BASE_REF --depth=1
-          cargo-clippy-diff --output=github $(git merge-base origin/$GITHUB_BASE_REF $GITHUB_SHA) $GITHUB_SHA -- --no-deps
+          cargo-clippy-diff HEAD --output=github 
