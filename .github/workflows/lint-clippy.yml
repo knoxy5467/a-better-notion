@@ -21,4 +21,4 @@ jobs:
           components: clippy
       - run: cargo install cargo-diff-tools
       - run: |
-          cargo-clippy-diff HEAD --output=github 
+          cargo-clippy-diff origin/main HEAD --output=github 
