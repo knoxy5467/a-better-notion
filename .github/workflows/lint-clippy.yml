@@ -2,31 +2,24 @@ name: Clippy check
 on:
   push:
     branches:
-    - main
+      - main
   pull_request:
     branches:
-    - main
+      - main
 
 # Make sure CI fails on all warnings, including Clippy lints
 env:
   RUSTFLAGS: "-Dwarnings"
 jobs:
-    clippy:
-        name: Clippy
-        runs-on: ubuntu-latest
-        steps:
-        - uses: actions/checkout@v2
-        - uses: actions-rs/toolchain@v1
-          with:
-              toolchain: nightly
-              components: clippy
-              override: true
-        - name: clippy-check
-          # You may pin to the exact commit or the version.
-          # uses: loliGothicK/clippy-check@c267b18864fd79a1bb9bbde99fb51a9cd9822b9a
-          uses: loliGothicK/clippy-check@v0.3.2
-          with:
-            # GitHub token
-            token: ${{secrets.GITHUB_TOKEN}} 
-            # Rust toolchain to use
-           
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - run: cargo install cargo-diff-tools
+      - run: |
+          git fetch origin $GITHUB_BASE_REF --depth=1
+          cargo-clippy-diff --output=github $(git merge-base origin/$GITHUB_BASE_REF $GITHUB_SHA) $GITHUB_SHA
