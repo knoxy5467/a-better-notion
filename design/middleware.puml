@@ -186,7 +186,6 @@ package "Backend API" {
 	
 		
 	package "Tasks API" {
-
 		interface "/tasks" as tasks_api {
 			POST: CreateTasksRequest -> CreateTaskResponse
 			GET: GetTasksResponse -> GetTasksResponse
@@ -232,7 +231,6 @@ package "Backend API" {
 		struct "FilterTaskIDsRequest" {
 			filter: Filter
 		}
-		FilterTaskIDsRequest *---- Filter : filter
 		struct "FilterTaskIDsResponse" {
 			Vec<TaskID>
 		}
@@ -240,12 +238,10 @@ package "Backend API" {
 			filter: Filter
 			props: Vec<String>
 		}
-		FilterTaskRequest *---- Filter : filter
 
 		struct "FilterTaskResponse" {
 			Vec<Task>
 		}
-		FilterTaskResponse *---- Task
 
 		interface "/filterid" as filterid_api {
 			GET: FilterTaskIDsRequest -> FilterTaskIDsResponse
@@ -380,7 +376,7 @@ package "Backend API" {
 		struct "CreateViewRequest" {
 			view: View
 		}
-		CreateViewRequest *-- View
+		' CreateViewRequest *-- View
 		interface "/view" as view_api {
 			POST: CreateViewRequest -> CreateViewResponse
 			GET: GetViewRequest -> GetViewResponse
