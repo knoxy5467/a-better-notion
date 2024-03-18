@@ -1,3 +1,5 @@
+//! Client
+
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
@@ -20,15 +22,17 @@ fn main() -> io::Result<()> {
     app_result
 }
 
+/// UI App State
 #[derive(Debug, Default)]
 pub struct App {
-    counter: i8,
+    counter: i16,
     exit: bool,
 }
 
 impl App {
     /// runs the application's main loop until the user quits
     pub fn run(&mut self, terminal: &mut term::Tui) -> io::Result<()> {
+        self.counter = 9001;
         while !self.exit {
             terminal.draw(|frame| self.render_frame(frame))?;
             self.handle_events()?;
@@ -96,10 +100,16 @@ impl Widget for &App {
             .borders(Borders::ALL)
             .border_set(border::THICK);
 
-        let counter_text = Text::from(vec![Line::from(vec![
-            "Value: ".into(),
-            self.counter.to_string().yellow(),
-        ])]);
+        let counter_text = Text::from(vec![
+            "Usage:".into(),
+            "Press <Button> To Do <X>".into(),
+            "Press <Other Button> To Do <Y>".into(),
+            "↑ ↑ ↓ ↓ ← → ← → B A".into(),
+            Line::from(vec![
+                "Level: ".into(),
+                self.counter.to_string().yellow(),
+            ])
+        ]);
 
         Paragraph::new(counter_text)
             .centered()

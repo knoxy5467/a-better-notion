@@ -44,3 +44,6 @@ pub async fn init(url: &str) -> Result<State, reqwest::Error> {
 
     Ok(state)
 }
+/* fn test() {
+    init("test").
+} */

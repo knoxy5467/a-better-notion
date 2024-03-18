@@ -62,6 +62,8 @@ pub enum Comparator {
     NOTCONTAINS,
     REGEX,
 }
+
+/// Operator that combines multiple Filters
 #[derive(Serialize, Deserialize)]
 pub enum Operator {
     AND,
