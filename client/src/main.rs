@@ -105,10 +105,7 @@ impl Widget for &App {
             "Press <Button> To Do <X>".into(),
             "Press <Other Button> To Do <Y>".into(),
             "↑ ↑ ↓ ↓ ← → ← → B A".into(),
-            Line::from(vec![
-                "Level: ".into(),
-                self.counter.to_string().yellow(),
-            ])
+            Line::from(vec!["Level: ".into(), self.counter.to_string().yellow()]),
         ]);
 
         Paragraph::new(counter_text)

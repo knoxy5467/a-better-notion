@@ -42,13 +42,13 @@ enum ScriptEvent {
 }
 
 /// Event sent to UI via channel to notify UI that some data has changed and the render should be updated.
-enum StateUpdate {
+enum StateEvent {
     TaskUpdate(TaskKey),
     PropUpdate(PropKey),
     ViewUpdate(ViewID),
     ScriptUpdate(ScriptID),
-    MultiStateUpdate,
-    ServerStatusUpdate(bool),
+    MultiState,
+    ServerStatus(bool),
 }
 
 /// Frontend API Trait
@@ -61,7 +61,12 @@ trait FrontendAPI {
 
     /// create/view/modify task properties
     fn prop_def(&mut self, task_key: TaskKey, name: &str, prop: TaskPropVariant) -> PropKey;
-    fn prop_mod(&mut self, task_key: TaskKey, name: &str, edit_fn: impl FnOnce(&mut TaskPropVariant)) -> Option<()>;
+    fn prop_mod(
+        &mut self,
+        task_key: TaskKey,
+        name: &str,
+        edit_fn: impl FnOnce(&mut TaskPropVariant),
+    ) -> Option<()>;
     fn prop_get(&self, task_key: TaskKey, string: &str) -> Result<&TaskPropVariant, PropDataError>;
     fn prop_rm(&mut self, task_key: TaskKey, name: &str);
 
@@ -76,7 +81,7 @@ trait FrontendAPI {
     fn script_get(&self, view_id: ScriptID) -> &View;
     fn script_mod(&mut self, view_id: ScriptID, edit_fn: impl FnOnce(&mut Script));
     fn script_rm(&mut self, view_id: ScriptID);
-    
+
     /// register ui events with middleware, (i.e. so scripts can run when they are triggered)
     fn register_event(&mut self, name: &str);
     /// notify middleware of registered event
@@ -104,7 +109,12 @@ impl FrontendAPI for State {
         todo!()
     }
 
-    fn prop_mod(&mut self, task_key: TaskKey, name: &str, edit_fn: impl FnOnce(&mut TaskPropVariant)) -> Option<()> {
+    fn prop_mod(
+        &mut self,
+        task_key: TaskKey,
+        name: &str,
+        edit_fn: impl FnOnce(&mut TaskPropVariant),
+    ) -> Option<()> {
         todo!()
     }
 
@@ -147,15 +157,14 @@ impl FrontendAPI for State {
     fn script_rm(&mut self, view_id: ScriptID) {
         todo!()
     }
-    
+
     fn register_event(&mut self, name: &str) {
         todo!()
     }
-    
+
     fn event_notify(&mut self, name: &str) -> bool {
         todo!()
     }
-    
 }
 
 /// Init middleware state

@@ -60,7 +60,6 @@ type DeleteTaskResponse = ();
 type DeleteTasksRequest = Vec<DeleteTaskRequest>;
 type DeleteTasksResponse = ();
 
-
 /// # PROPERTIES API
 
 /// reqwest::get("/prop")
