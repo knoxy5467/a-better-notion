@@ -66,7 +66,9 @@ pub enum Comparator {
 /// Operator that combines multiple Filters
 #[derive(Serialize, Deserialize)]
 pub enum Operator {
+    /// AND operator, takes the intersection of the results of a set of filters.
     AND,
+    /// OR operator, appends the results of all the filters to each other.
     OR,
 }
 
@@ -74,9 +76,13 @@ pub enum Operator {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum TaskPropVariant {
+    /// Local-time-zone representation of postgresql's timestamp
     Date(chrono::DateTime<chrono::Local>),
+    /// String variant
     String(String),
+    /// Decimal variant (NOTE: should we have an integer variant?)
     Number(f64),
+    /// Boolean variant
     Boolean(bool),
 }
 /// A task property and its corresponding name.
@@ -89,13 +95,21 @@ pub struct TaskProp {
 /// Represents a filter on tasks applied to the database serverside.
 #[derive(Serialize, Deserialize)]
 pub enum Filter {
+    /// Filter leaf, represents a comparator that filters properties
     Leaf {
-        comparator: Comparator,
+        /// Property name to filter on.
         field: TaskProp,
+        /// Method by which a task's property is compared to `immediate` to determine if
+        /// property should be filtered out or not.
+        comparator: Comparator,
+        /// Immediate value to use with the comparator
         immediate: TaskPropVariant,
     },
+    /// Filter branch, combines multiple leaves based on Operator.
     Operator {
+        /// operator used to combined a set of nested filters
         op: Operator,
+        /// the nested filters
         childs: Vec<Filter>,
     },
 }
