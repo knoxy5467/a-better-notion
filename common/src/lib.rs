@@ -74,7 +74,7 @@ pub enum Operator {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum TaskPropVariant {
-    Date(()),
+    Date(chrono::DateTime<chrono::Local>),
     String(String),
     Number(f64),
     Boolean(bool),
