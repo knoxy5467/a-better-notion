@@ -3,11 +3,13 @@
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
-#![allow(unused)]
+
+#[allow(dead_code)]
 
 pub mod backend;
 
 use serde::{Deserialize, Serialize};
+
 /// Primary key for tasks
 /// Note: Database should ensure IDs are never re-used.
 pub type TaskID = u64;
@@ -43,7 +45,8 @@ pub struct TaskShort {
     scripts: Vec<ScriptID>,
 }
 
-/// The content of a lua script
+/// The content of a lua script.
+/// Scripts are used to modify tasks based on events.
 pub struct Script {
     content: String,
 }
@@ -52,14 +55,23 @@ pub struct Script {
 #[derive(Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub enum Comparator {
+    /// Less than
     LT,
+    /// Less than or equal to
     LEQ,
+    /// Greater than
     GT,
+    /// Greater than or equal to
     GEQ,
+    /// Equal to
     EQ,
+    /// Not equal to
     NEQ,
+    /// Contains
     CONTAINS,
+    /// Does not contain
     NOTCONTAINS,
+    /// Regular expression match
     REGEX,
 }
 
@@ -92,7 +104,7 @@ pub struct TaskProp {
     value: TaskPropVariant,
 }
 
-/// Represents a filter on tasks applied to the database serverside.
+/// Represents a filter on tasks using their properties that the database computes.
 #[derive(Serialize, Deserialize)]
 pub enum Filter {
     /// Filter leaf, represents a comparator that filters properties
@@ -102,14 +114,14 @@ pub enum Filter {
         /// Method by which a task's property is compared to `immediate` to determine if
         /// property should be filtered out or not.
         comparator: Comparator,
-        /// Immediate value to use with the comparator
+        /// Immediate value to use in the comparison
         immediate: TaskPropVariant,
     },
     /// Filter branch, combines multiple leaves based on Operator.
     Operator {
         /// operator used to combined a set of nested filters
         op: Operator,
-        /// the nested filters
+        /// the nested filters to be combined
         childs: Vec<Filter>,
     },
 }

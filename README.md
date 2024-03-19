@@ -28,6 +28,14 @@ To format all of your rust code
 cargo fmt
 ```
 
+to read the documentation of a crate run
+
+```
+cargo rustdoc -p <crate_name> --open
+```
+
+currently we have 3 crates, [client, common, server]
+
 # Pull requests
 
 Pull requests should have 100% coverage for tests and should be formatted and have no warnings from linting.

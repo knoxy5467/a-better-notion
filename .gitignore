@@ -13,3 +13,4 @@ target/
 # Puml Render DIR
 design/render
 a-better-notion.code-workspace
+lcov.info
