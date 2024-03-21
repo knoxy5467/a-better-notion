@@ -4,7 +4,7 @@
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
 
-#[allow(dead_code)]
+#![allow(unused)]
 
 pub mod backend;
 

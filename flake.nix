@@ -24,6 +24,8 @@
             eza
             fd
             (rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
+            cargo-llvm-cov
+            cargo-edit
           ];
 
           shellHook = ''
