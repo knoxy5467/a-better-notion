@@ -11,8 +11,6 @@ use ratatui::{
     symbols::border,
     widgets::{block::*, *},
 };
-
-mod mid;
 mod term;
 
 fn main() -> io::Result<()> {
@@ -23,6 +21,7 @@ fn main() -> io::Result<()> {
 }
 
 /// UI App State
+#[derive(Debug, Default)]
 pub struct App {
     counter: i8,
     exit: bool,
