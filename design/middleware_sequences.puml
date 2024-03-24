@@ -27,29 +27,31 @@ group "Create New Task"
 	User -> UI : User interacts with UI: <<New Task>>
 	activate UI
 	
-	UI -> State : async fn <<createNewTask()>>
+	UI -> State : fn <<task_create()>>
 	activate State
-	State -> UI : Notify frontend of state change. (Task marked as unsaved)
-	UI -> User : User sees new unsaved task that has been created.
+	State -> UI : Sends back reference to a new Task reference
+	UI -> User : User sees new task they can edit.
 	deactivate UI
 
-	State -> State : Checks local state for unsyncronized data.
-	alt found unsyncronized data
+	State -> State : Checks local state for unsaved data.
+	alt found unsaved data
 		State -> Backend : POST <<CreateTaskRequest>> to /task
 		alt request successful
 			Backend -> State : State receives <<CreateTaskResponse>> 
-			
+			State -> State : Queue Event <<TaskUpdate(TaskID)>>
 		else request error
 			State -> Backend : repeat request, exponential backoff 
+			State -> State : Queue Event <<ServerStatus(false)>>
 			alt request eventually successful
-				State -> 
+				State -> State : Queue Event <<ServerStatus(true)>>
 			else
+				State -> State : Queue Event <<ServerStatus(false)>>
 			end
 		end
-		State -> UI : notify UI of state change.
-		activate UI
 	end
-	UI -> User : User sees task has been saved in DB.
+	activate UI
+	State -> UI : Send queued events to UI.
+	UI -> User : User sees queued events notifying of new task/server status
 	deactivate UI
 end
 @enduml
@@ -64,29 +66,31 @@ group "Activate View"
 	User -> UI : User interacts with UI: <<View "Main">>
 	activate UI
 	
-	UI -> State : async fn <<getView(view_id, range)>>
+	UI -> State : fn <<view_get(view_id)>>
 	activate State
-	State -> UI : Notify frontend of state change. (Task marked as unsaved)
+	State -> UI : Returns `View` reference
 	UI -> User : User sees new unsaved task that has been created.
 	deactivate UI
 
-	State -> State : Checks local state for unsyncronized data.
-	alt found unsyncronized data
-		State -> Backend : POST <<CreateTaskRequest>> to /task
+	State -> State : Checks local state for unsaved data.
+	alt found unsaved data
+		State -> Backend : POST <<CreateViewRequest>> to /task
 		alt request successful
-			Backend -> State : State receives <<CreateTaskResponse>> 
+			Backend -> State : State receives <<CreateViewResponse>> 
+			State -> State : ViewUpdate(ViewID)
 			
 		else request error
 			State -> Backend : repeat request, exponential backoff 
 			alt request eventually successful
-				State -> 
+				State -> State : Queue UI Event to notify UI that task has been saved to server.
 			else
+				State -> State : Queue UI Event to notify that Server is unavailable.
 			end
 		end
-		State -> UI : notify UI of state change.
 		activate UI
 	end
-	UI -> User : User sees task has been saved in DB.
+	State -> UI : notify UI of queued events.
+	UI -> User : User sees relevant UI display of save/disconnect event
 	deactivate UI
 end
 @enduml
