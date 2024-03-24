@@ -20,26 +20,36 @@ struct          struct
 
 @startuml "frontend_api"
 package "Frontend API" {
+	enum PropDataError {
+		InvalidTask
+		UndefinedProp(String)
+	}
 
-	interface StateAPI {
-		task_create(&mut self) -> TaskID;
-		task_get(&self) -> &Task
-		task_mod(&mut self, task_id: TaskID, edit_fn: impl FnOnce(&mut Task))
-		task_rm(&mut self, task_id: TaskID)
+	interface DataAPI {
+		task_def(&mut self, task: Task) -> TaskKey;
+		task_get(&self) -> Option<&Task>
+		task_mod(&mut self, key: TaskKey, edit_fn: impl FnOnce(&mut TaskShort))
+		task_rm(&mut self, key: TaskKey)
 
-		view_create(&mut self) -> ViewID
-		view_get(&self, view_id: ViewID) -> &View
-		view_mod(&mut self, view_id: ViewID, edit_fn: impl FnOnce(&mut View))
-		view_rm(&mut self, view_id: ViewID)
+		prop_def(&mut self, task_key: TaskKey, name: &str, prop: TaskPropVariant) -> PropKey;
+		prop_mod(&mut self, task_key: TaskKey, name: &str, edit_fn: impl FnOnce(&mut TaskPropVariant)) -> Option<()>
+		prop_get(&self, task_key: TaskKey, string: &str) -> Result<&Prop, PropDataError>
+		prop_rm(&mut self, task_key: TaskKey, name: &str)
+
+		view_def(&mut self, view: View) -> ViewKey
+		view_get(&self, view_id: ViewKey) -> Option<&View>
+		view_mod(&mut self, view_id: ViewKey, edit_fn: impl FnOnce(&mut View)) -> Option<()>
+		view_rm(&mut self, view_id: ViewKey)
 
 		script_create(&mut self) -> ScriptID
 		script_get(&self, view_id: ScriptID) -> &View
 		script_mod(&mut self, view_id: ScriptID, edit_fn: impl FnOnce(&mut Script))
 		script_rm(&mut self, view_id: ScriptID)
 		
-		register_event(&mut self, String)
+		ui_event(&mut self, &str)
 		script_event_notify(&mut self, UIEvent)
 	}
+	DataAPI *-- PropDataError
 
 	enum ScriptEvent {
 		' UI Triggers that cause
@@ -48,9 +58,10 @@ package "Frontend API" {
 	
 	enum StateUpdate {
 		TaskUpdate(TaskID)
-		ViewUpdate(ViewID)
+		ViewUpdate(ViewKey)
 		ScriptUpdate(ScriptID)
-		MultiStateUpdate(())
+		MultiStateUpdate
+		ServerStatusUpdate(bool)
 	}
 
 	note bottom of StateUpdate
@@ -74,15 +85,13 @@ package "Middleware State" {
 		+ prop: TaskPropVariant
 	}
 	TaskPropVariant -* TaskProp : prop
-	struct "Task" {
+	struct "TaskShort" {
 		+ task_id : TaskID
 		+ name: String
 		+ completed : bool
-		+ properties : Vec<String, Option<TaskProp>>
 		+ dependencies : Vec<TaskID>
 		+ scripts: Vec<ScriptID>
 	}
-	TaskProp --* Task : properties
 
 	struct "Script" {
 		+ content: String
@@ -112,21 +121,36 @@ package "Middleware State" {
 	Filter --* Filter : Operator.childs
 
 	struct "View" {
-		filter: Filter,
+		filter: Filter
 		props: Vec<String>
 		max_tasks: Option<u64>
+		tasks: Vec<TaskID>
 	}
 	View *-- Filter : filter
 
-	struct "State" as main_state {
-		+ tasks: SlotMap<TaskID, Task>
-		+ views: SlotMap<ViewID, View>
-		+ scripts: SlotMap<ScriptID, Script>
+	struct "PropKey" {
+		key: u32
+		version: u32
+	}
+	struct "TaskKey" {
+		key: u32
+		version: u32
 	}
 
-	main_state *-- Task : tasks
+	struct "State" as main_state {
+		+ tasks: HashMap<TaskID, TaskShort>
+		+ prop_map: HashMap<(TaskID, String), PropKey>
+		+ props: SlotMap<PropKey, TaskPropVariant>
+		+ views: HashMap<ViewKey, View>
+		+ scripts: HashMap<ScriptID, Script>
+	}
+
+	main_state *-- TaskShort : tasks
+	main_state *-- PropKey : props
+	main_state *-- TaskPropVariant : props
 	main_state *-- View : views
 	main_state *-- Script : scripts
+
 }
 @enduml
 
@@ -149,7 +173,7 @@ package "Backend API" {
 		}
 		struct PropertiesRequest {
 			task_ids: Vec<TaskID>
-			poperties: Vec<String>
+			properties: Vec<String>
 		}
 		struct PropertiesResponse {
 			Vec<(String, Vec<TaskPropVariant>)>
@@ -162,7 +186,6 @@ package "Backend API" {
 	
 		
 	package "Tasks API" {
-
 		interface "/tasks" as tasks_api {
 			POST: CreateTasksRequest -> CreateTaskResponse
 			GET: GetTasksResponse -> GetTasksResponse
@@ -208,7 +231,6 @@ package "Backend API" {
 		struct "FilterTaskIDsRequest" {
 			filter: Filter
 		}
-		FilterTaskIDsRequest *---- Filter : filter
 		struct "FilterTaskIDsResponse" {
 			Vec<TaskID>
 		}
@@ -216,12 +238,10 @@ package "Backend API" {
 			filter: Filter
 			props: Vec<String>
 		}
-		FilterTaskRequest *---- Filter : filter
 
 		struct "FilterTaskResponse" {
 			Vec<Task>
 		}
-		FilterTaskResponse *---- Task
 
 		interface "/filterid" as filterid_api {
 			GET: FilterTaskIDsRequest -> FilterTaskIDsResponse
@@ -356,7 +376,7 @@ package "Backend API" {
 		struct "CreateViewRequest" {
 			view: View
 		}
-		CreateViewRequest *-- View
+		' CreateViewRequest *-- View
 		interface "/view" as view_api {
 			POST: CreateViewRequest -> CreateViewResponse
 			GET: GetViewRequest -> GetViewResponse

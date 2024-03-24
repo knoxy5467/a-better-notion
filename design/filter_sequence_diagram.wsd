@@ -1,0 +1,16 @@
+@startuml
+autoactivate on
+actor ABNUser
+ABNUser -> UI : enters filter parameters
+UI -> App : Sends filter parameters to app
+UI -> UI : Display invalid parameters error message
+App -> backend : sends a <FilterTaskRequest> to backend
+backend -> App : triggers bad <FilterTaskRequest> error
+App -> UI : trigger update view to display bad <FilterTaskRequest> error message
+UI -> ABNUser : reprompt user to enter parameters
+backend -> App : sends a <FilterTaskResponse> to app
+App -> UI : bad <FilterTaskResponse>, trigger update view to display server connection error
+UI -> ABNUser : reprompt user to enter parameters
+App -> UI : update view with Vec<TaskID> in the <FilterTaskResponse>
+return success
+@enduml
