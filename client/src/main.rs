@@ -6,27 +6,38 @@
 use std::io;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use mid::*;
 use ratatui::{
     prelude::*,
     symbols::border,
     widgets::{block::*, *},
 };
+mod mid;
 mod term;
+
+const BACKGROUND: Color = Color::DarkGray;
+const TEXT_COLOR: Color = Color::White;
+const SELECTED_STYLE_FG: Color = Color::LightYellow;
+const COMPLETED_TEXT_COLOR: Color = Color::Green;
 
 fn main() -> io::Result<()> {
     term::wrap_terminal(|term| App::default().run(term))
 }
 
 /// UI App State
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct App {
-    counter: i8,
+    counter: i16,
     exit: bool,
+    state: State,
+    selected_task: TaskKey,
 }
 
 impl App {
     /// runs the application's main loop until the user quits
     pub fn run(&mut self, terminal: &mut term::Tui) -> io::Result<()> {
+        self.counter = 9001;
+        self.state = init_example();
         while !self.exit {
             terminal.draw(|frame| frame.render_widget(&*self, frame.size()))?;
             self.handle_event(event::read()?)?;
@@ -40,13 +51,12 @@ impl App {
             // it's important to check that the event is a key press event as
             // crossterm also emits key release and repeat events on Windows.
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                self.handle_key_event(key_event)
+                self.handle_key_event(key_event);
             }
             _ => {}
         };
         Ok(())
     }
-
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Char('q') => self.exit = true,
@@ -60,12 +70,13 @@ impl App {
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let title = Title::from(" Task Management ".bold());
+        // bottom bar instructions
         let instructions = Title::from(Line::from(vec![
-            " Decrement ".into(),
-            "<Left>".blue().bold(),
-            " Increment ".into(),
-            "<Right>".blue().bold(),
-            " Quit ".into(),
+            " Select: ".into(),
+            "<Up>".blue().bold(),
+            "/".into(),
+            "<Down>".blue().bold(),
+            ", Quit: ".into(),
             "<Q> ".blue().bold(),
         ]));
         let block = Block::default()
@@ -78,15 +89,25 @@ impl Widget for &App {
             .borders(Borders::ALL)
             .border_set(border::THICK);
 
-        let counter_text = Text::from(vec![Line::from(vec![
-            "Value: ".into(),
-            self.counter.to_string().yellow(),
-        ])]);
+        let items = self.state.tasks().enumerate().map(|(_, task)| {
+            match task.completed {
+                false => Line::styled(format!(" ☐ {}", task.name), TEXT_COLOR),
+                true => Line::styled(format!(" ✓ {}", task.name), COMPLETED_TEXT_COLOR),
+            }
+        }).collect::<Vec<Line>>();
 
-        Paragraph::new(counter_text)
-            .centered()
+        let list = List::new(items)
             .block(block)
-            .render(area, buf);
+            .highlight_style(
+                Style::default()
+                    .add_modifier(Modifier::BOLD)
+                    .add_modifier(Modifier::REVERSED)
+                    .fg(SELECTED_STYLE_FG),
+            )
+            .highlight_symbol(">")
+            .highlight_spacing(HighlightSpacing::Always);
+
+        Widget::render(list, area, buf)
     }
 }
 
@@ -105,14 +126,17 @@ mod tests {
     #[test]
     fn render() {
         let app = App::default();
-        let mut buf = Buffer::empty(Rect::new(0, 0, 50, 4));
+        let mut buf = Buffer::empty(Rect::new(0, 0, 50, 7));
 
         app.render(buf.area, &mut buf);
 
         let mut expected = Buffer::with_lines(vec![
             "┏━━━━━━━━━━━━━━━ Task Management ━━━━━━━━━━━━━━━━┓",
-            "┃                    Value: 0                    ┃",
-            "┃                                                ┃",
+            "┃                     Usage:                     ┃",
+            "┃            Press <Button> To Do <X>            ┃",
+            "┃         Press <Other Button> To Do <Y>         ┃",
+            "┃               ↑ ↑ ↓ ↓ ← → ← → B A              ┃",
+            "┃                   Level: 9001                  ┃",
             "┗━ Decrement <Left> Increment <Right> Quit <Q> ━━┛",
         ]);
         let title_style = Style::new().bold();
