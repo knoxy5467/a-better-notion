@@ -1,3 +1,5 @@
+//! This file outlines all the structures required for the middleware and backend to communicate via REST API
+
 
 /// # TASK API
 
@@ -54,7 +56,6 @@ type DeleteTaskResponse = ();
 /// reawest::delete("/tasks")
 type DeleteTasksRequest = Vec<DeleteTaskRequest>;
 type DeleteTasksResponse = ();
-
 
 /// # PROPERTIES API
 
