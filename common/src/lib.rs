@@ -1,40 +1,60 @@
+//! The common crate contains shared structures and functions in use by the client/middleware and server implementations.
+
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
-#![allow(dead_code)] // this is for
-//! this crate provides the common types and traits for interacting
-//! with the backend and middleware
+#![allow(unused)]
+
+pub mod backend;
+
 use serde::{Deserialize, Serialize};
 
-/// Primary key for tasks
+/// Database Primary key for tasks
 /// Note: Database should ensure IDs are never re-used.
 pub type TaskID = u64;
 
-/// Primary key for scripts
+/// Database Primary key for scripts
 /// Note: Database should ensure IDs are never re-used.
 pub type ScriptID = u64;
 
-/// Primary key for views
+/// Database Primary key for views
 /// Note: Database should ensure IDs are never re-used.
 pub type ViewID = u64;
 
-/// Type alias for property ID
-pub type PropID = String;
-
+/// Identification of a property, from database
+pub type PropName = String;
 /// A view is list of filtered tasks
+#[derive(Debug, Default)]
 pub struct View {
     filter: Filter,
     props: Vec<String>,
     tasks: Vec<TaskID>,
 }
 
-/// A script is a piece of code that can be run to modify tasks
+/// Primary Task Data (doesn't include properties)
+#[derive(Debug, Default)]
+pub struct TaskShort {
+    /// DB Primary Key
+    task_id: TaskID,
+    /// Short name of the task (description is a property)
+    name: String,
+    /// Whether the task is completed or not
+    completed: bool,
+    /// Dependencies of this task
+    dependencies: Vec<TaskID>,
+    /// Associated scripts
+    scripts: Vec<ScriptID>,
+}
+
+/// The content of a lua script.
+/// Scripts are used to modify tasks based on events.
+#[derive(Debug, Default)]
 pub struct Script {
     content: String,
 }
 
 /// Types of Comparators for filters
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Comparator {
     /// Less than
     LT,
@@ -56,51 +76,56 @@ pub enum Comparator {
     REGEX,
 }
 
-/// Types of logical operators for filters
-#[derive(Serialize, Deserialize)]
+/// Operator that combines multiple Filters
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Operator {
-    /// Logical AND
+    /// AND operator, takes the intersection of the results of a set of filters.
     AND,
-    /// Logical OR
+    /// OR operator, appends the results of all the filters to each other.
     OR,
 }
-/// the types of properties that can be stored for tasks
-#[derive(Serialize, Deserialize)]
+
+/// The variants of Task Properties
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum TaskPropVariant {
-    /// Date variant
+    /// Local-time-zone representation of postgresql's timestamp
     Date(chrono::DateTime<chrono::Local>),
     /// String variant
     String(String),
-    /// Number variant
+    /// Decimal variant (NOTE: should we have an integer variant?)
     Number(f64),
     /// Boolean variant
     Boolean(bool),
 }
-/// A property of a task is a name-value pair
-#[derive(Serialize, Deserialize)]
+/// A task property and its corresponding name.
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TaskProp {
     name: String,
     value: TaskPropVariant,
 }
 
-/// A filter is a tree of comparators and operators that can be used to filter tasks
-#[derive(Serialize, Deserialize)]
+/// Represents a filter on tasks using their properties that the database computes.
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub enum Filter {
-    /// A leaf node in the filter tree
+    /// Filter leaf, represents a comparator that filters properties
     Leaf {
-        /// the comparator to apply to the field
-        comparator: Comparator,
-        /// the field to compare
+        /// Property name to filter on.
         field: TaskProp,
-        /// the value to compare to
+        /// Method by which a task's property is compared to `immediate` to determine if
+        /// property should be filtered out or not.
+        comparator: Comparator,
+        /// Immediate value to use with the comparator
         immediate: TaskPropVariant,
     },
-    /// A node in the filter tree with children cannot be a leaf
+    /// Filter branch, combines multiple leaves based on Operator.
     Operator {
-        /// the operator to apply to the children
+        /// operator used to combined a set of nested filters
         op: Operator,
-        /// the children of this node they are also filters
+        /// the nested filters
         childs: Vec<Filter>,
     },
+    #[default]
+    /// "Null" Filter (so we can implement Default)
+    None,
 }
