@@ -10,15 +10,15 @@ pub mod backend;
 
 use serde::{Deserialize, Serialize};
 
-/// Primary key for tasks
+/// Database Primary key for tasks
 /// Note: Database should ensure IDs are never re-used.
 pub type TaskID = u64;
 
-/// Primary key for scripts
+/// Database Primary key for scripts
 /// Note: Database should ensure IDs are never re-used.
 pub type ScriptID = u64;
 
-/// Primary key for views
+/// Database Primary key for views
 /// Note: Database should ensure IDs are never re-used.
 pub type ViewID = u64;
 
