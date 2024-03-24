@@ -69,7 +69,7 @@ pub enum Operator {
 #[serde(tag = "type")]
 pub enum TaskPropVariant {
     /// Date variant
-    Date(()),
+    Date(chrono::DateTime<chrono::Local>),
     /// String variant
     String(String),
     /// Number variant
