@@ -7,7 +7,7 @@ use crate::*;
 /// # TASK API
 
 /// reqwest::post("/task").body(CreateTaskRequest {})    
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 struct CreateTaskRequest {
     name: String,
     completed: bool,
@@ -88,3 +88,28 @@ struct FilterTaskRequest {
     props: Vec<String>,
 }
 type FilterTaskRespone = Vec<TaskShort>;
+
+#[cfg(test)]
+mod tests {
+    use chrono::DateTime;
+
+    use super::*;
+
+    fn test_serde_commutes<T: std::fmt::Debug + Serialize + for<'a> Deserialize<'a> + PartialEq>(
+        obj: T,
+    ) {
+        let serialized = serde_json::to_string(&obj).unwrap();
+        let deser_obj = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(obj, deser_obj);
+    }
+
+    #[test]
+    fn serde_create_task_request() {
+        test_serde_commutes(CreateTaskRequest {
+            name: "test".to_owned(),
+            completed: false,
+            properties: vec![],
+            dependencies: vec![],
+        });
+    }
+}

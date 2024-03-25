@@ -32,7 +32,7 @@ pub struct View {
 }
 
 /// Primary Task Data (doesn't include properties)
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct TaskShort {
     /// DB Primary Key
     task_id: TaskID,
@@ -48,13 +48,13 @@ pub struct TaskShort {
 
 /// The content of a lua script.
 /// Scripts are used to modify tasks based on events.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct Script {
     content: String,
 }
 
 /// Types of Comparators for filters
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum Comparator {
     /// Less than
     LT,
@@ -77,7 +77,7 @@ pub enum Comparator {
 }
 
 /// Operator that combines multiple Filters
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum Operator {
     /// AND operator, takes the intersection of the results of a set of filters.
     AND,
@@ -86,11 +86,11 @@ pub enum Operator {
 }
 
 /// The variants of Task Properties
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "type")]
+/// Note: serialization with serde(tag = "...") doesn't work for tuple enums.
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum TaskPropVariant {
     /// Local-time-zone representation of postgresql's timestamp
-    Date(chrono::DateTime<chrono::Local>),
+    Date(chrono::DateTime<chrono::Utc>),
     /// String variant
     String(String),
     /// Decimal variant (NOTE: should we have an integer variant?)
@@ -99,19 +99,19 @@ pub enum TaskPropVariant {
     Boolean(bool),
 }
 /// A task property and its corresponding name.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct TaskProp {
     name: String,
     value: TaskPropVariant,
 }
 
 /// Represents a filter on tasks using their properties that the database computes.
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
 pub enum Filter {
     /// Filter leaf, represents a comparator that filters properties
     Leaf {
         /// Property name to filter on.
-        field: TaskProp,
+        field: String,
         /// Method by which a task's property is compared to `immediate` to determine if
         /// property should be filtered out or not.
         comparator: Comparator,
@@ -128,4 +128,55 @@ pub enum Filter {
     #[default]
     /// "Null" Filter (so we can implement Default)
     None,
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::DateTime;
+
+    use super::*;
+
+    fn test_serde_commutes<T: std::fmt::Debug + Serialize + for<'a> Deserialize<'a> + PartialEq>(
+        obj: T,
+    ) {
+        let serialized = serde_json::to_string(&obj).unwrap();
+        let deser_obj = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(obj, deser_obj);
+    }
+
+    #[test]
+    fn serde_task_prop() {
+        test_serde_commutes(TaskProp {
+            name: "test".to_owned(),
+            value: TaskPropVariant::Date(chrono::Utc::now()),
+        });
+    }
+    #[test]
+    fn serde_filter() {
+        test_serde_commutes(Filter::None);
+        test_serde_commutes(Filter::Leaf {
+            field: "test".to_owned(),
+            comparator: Comparator::EQ,
+            immediate: TaskPropVariant::Boolean(true),
+        });
+        test_serde_commutes(Filter::Operator {
+            op: Operator::AND,
+            childs: vec![],
+        });
+    }
+
+    #[test]
+    fn test_view() {
+        dbg!(View::default());
+    }
+
+    #[test]
+    fn serde_task_short() {
+        test_serde_commutes(TaskShort::default());
+    }
+
+    #[test]
+    fn serde_script() {
+        test_serde_commutes(Script::default());
+    }
 }

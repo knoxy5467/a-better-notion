@@ -6,3 +6,14 @@
 fn main() {
     println!("hello world");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn does_it_test_main() {
+        main();
+        assert!(true);
+    }
+}
