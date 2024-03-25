@@ -14,10 +14,7 @@ use ratatui::{
 mod term;
 
 fn main() -> io::Result<()> {
-    let mut terminal = term::init()?;
-    let app_result = App::default().run(&mut terminal);
-    term::restore()?;
-    app_result
+    term::wrap_terminal(|term| App::default().run(term))
 }
 
 /// UI App State
@@ -31,19 +28,15 @@ impl App {
     /// runs the application's main loop until the user quits
     pub fn run(&mut self, terminal: &mut term::Tui) -> io::Result<()> {
         while !self.exit {
-            terminal.draw(|frame| self.render_frame(frame))?;
-            self.handle_events()?;
+            terminal.draw(|frame| frame.render_widget(&*self, frame.size()))?;
+            self.handle_event(event::read()?)?;
         }
         Ok(())
     }
 
-    fn render_frame(&self, frame: &mut Frame) {
-        frame.render_widget(self, frame.size());
-    }
-
     /// updates the application's state based on user input
-    fn handle_events(&mut self) -> io::Result<()> {
-        match event::read()? {
+    fn handle_event(&mut self, event: Event) -> io::Result<()> {
+        match event {
             // it's important to check that the event is a key press event as
             // crossterm also emits key release and repeat events on Windows.
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
@@ -56,23 +49,11 @@ impl App {
 
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
-            KeyCode::Char('q') => self.exit(),
-            KeyCode::Left => self.increment_counter(),
-            KeyCode::Right => self.decrement_counter(),
+            KeyCode::Char('q') => self.exit = true,
+            KeyCode::Left => self.counter -= 1,
+            KeyCode::Right => self.counter += 1,
             _ => {}
         }
-    }
-
-    fn exit(&mut self) {
-        self.exit = true;
-    }
-
-    fn decrement_counter(&mut self) {
-        self.counter += 1;
-    }
-
-    fn increment_counter(&mut self) {
-        self.counter -= 1;
     }
 }
 
@@ -111,7 +92,15 @@ impl Widget for &App {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::*;
+
+    #[test]
+    fn dummy_test_main() {
+        std::thread::spawn(|| main());
+        std::thread::sleep(Duration::from_millis(250));
+    }
 
     #[test]
     fn render() {
@@ -143,15 +132,23 @@ mod tests {
     #[test]
     fn handle_key_event() -> io::Result<()> {
         let mut app = App::default();
-        app.handle_key_event(KeyCode::Right.into());
+        app.handle_event(Event::Key(KeyCode::Right.into()))?;
         assert_eq!(app.counter, 1);
 
-        app.handle_key_event(KeyCode::Left.into());
+        app.handle_event(Event::Key(KeyCode::Left.into()))?;
         assert_eq!(app.counter, 0);
 
         let mut app = App::default();
         app.handle_key_event(KeyCode::Char('q').into());
         assert_eq!(app.exit, true);
+
+        let mut app = App::default();
+        app.handle_key_event(KeyCode::Char('.').into());
+        assert_eq!(app.exit, false);
+
+        let mut app = App::default();
+        app.handle_event(Event::FocusLost.into())?;
+        assert_eq!(app.exit, false);
 
         Ok(())
     }
