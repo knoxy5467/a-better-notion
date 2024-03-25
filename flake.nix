@@ -21,11 +21,11 @@
           buildInputs = [
             openssl
             pkg-config
-            eza
-            fd
             (rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
             cargo-llvm-cov
             cargo-edit
+            # llvmPackages.bintools-unwrapped
+            lcov
           ];
 
           shellHook = ''
