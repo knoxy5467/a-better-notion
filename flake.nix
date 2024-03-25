@@ -7,7 +7,7 @@
     flake-utils.url  = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, rust-overlay, flake-utils, ... }:
+  outputs = { nixpkgs, rust-overlay, flake-utils, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         overlays = [ (import rust-overlay) ];
@@ -24,14 +24,8 @@
             (rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
             cargo-llvm-cov
             cargo-edit
-            # llvmPackages.bintools-unwrapped
             lcov
           ];
-
-          shellHook = ''
-            alias ls=eza
-            alias find=fd
-          '';
         };
       }
     );
