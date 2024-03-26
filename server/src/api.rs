@@ -9,12 +9,11 @@ async fn get_task_request(req: web::Json<ReadTaskShortRequest>) -> Result<impl R
     // do diesel stuff here
 
     Ok(web::Json(ReadTaskShortResponse {
-        task_id: 0,
+        task_id: req.task_id,
         name: "heyo".to_string(),
         completed: false,
         props: Vec::new(),
         deps: Vec::new(),
-        scripts: Vec::new()
+        scripts: Vec::new(),
     }))
 }
-

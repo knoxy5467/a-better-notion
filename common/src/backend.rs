@@ -23,23 +23,23 @@ type CreateTasksResponse = Vec<TaskID>;
 /// reawest::get("/task")
 #[derive(Serialize, Deserialize)]
 pub struct ReadTaskShortRequest {
-    // task id to request
+    /// task id to request
     pub task_id: TaskID,
 }
-// response to GET /task
+/// response to GET /task
 #[derive(Serialize, Deserialize)]
 pub struct ReadTaskShortResponse {
-    // task id of response, should be the same as request
+    /// task id of response, should be the same as request
     pub task_id: TaskID,
-    // name of task
+    /// name of task
     pub name: String,
-    // completion status of task
+    /// completion status of task
     pub completed: bool,
-    // list of string names of properties
+    /// list of string names of properties
     pub props: Vec<String>,
-    // list of task ids that are dependants
+    /// list of task ids that are dependants
     pub deps: Vec<TaskID>,
-    // list of script ids that apply to this task
+    /// list of script ids that apply to this task
     pub scripts: Vec<ScriptID>,
 }
 type ReadTasksShortRequest = Vec<ReadTaskShortRequest>;
