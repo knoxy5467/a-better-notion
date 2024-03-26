@@ -30,7 +30,13 @@ pub struct App {
     counter: i16,
     exit: bool,
     state: State,
-    selected_task: TaskKey,
+    selected_task: Option<TaskKey>,
+    list_state: ListState,
+}
+
+#[derive(Default)]
+pub struct TaskList {
+    
 }
 
 impl App {
@@ -39,7 +45,7 @@ impl App {
         self.counter = 9001;
         self.state = init_example();
         while !self.exit {
-            terminal.draw(|frame| frame.render_widget(&*self, frame.size()))?;
+            terminal.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
             self.handle_event(event::read()?)?;
         }
         Ok(())
@@ -58,16 +64,18 @@ impl App {
         Ok(())
     }
     fn handle_key_event(&mut self, key_event: KeyEvent) {
+        use KeyCode::*;
         match key_event.code {
-            KeyCode::Char('q') => self.exit = true,
-            KeyCode::Left => self.counter -= 1,
-            KeyCode::Right => self.counter += 1,
+            Char('q') => self.exit = true,
+            Up => self.counter -= 1,
+            Down => self.counter += 1,
+            
             _ => {}
         }
     }
 }
 
-impl Widget for &App {
+impl Widget for &mut App {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let title = Title::from(" Task Management ".bold());
         // bottom bar instructions
@@ -107,7 +115,7 @@ impl Widget for &App {
             .highlight_symbol(">")
             .highlight_spacing(HighlightSpacing::Always);
 
-        Widget::render(list, area, buf)
+        StatefulWidget::render(list, area, buf, &mut self.list_state)
     }
 }
 
@@ -125,7 +133,7 @@ mod tests {
 
     #[test]
     fn render() {
-        let app = App::default();
+        let mut app = App::default();
         let mut buf = Buffer::empty(Rect::new(0, 0, 50, 7));
 
         app.render(buf.area, &mut buf);
