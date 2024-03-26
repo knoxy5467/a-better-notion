@@ -1,8 +1,8 @@
-# a-better-notion
+# ABN: A Better Notion
 
 Made in rust.
 
-make sure you have rust installed for your specific platform (see: https://rustup.rs/)
+Make sure you have rust installed for your specific platform (see: https://rustup.rs/)
 
 Run client:
 
@@ -16,39 +16,25 @@ Run server:
 cargo run -p server
 ```
 
-Run all tests and generate coverage reports
-
-```
-cargo llvm-cov --lcov --output-path lcov.info
-```
-
-To format all of your rust code
-
-```
-cargo fmt
-```
-
-to read the documentation of a crate run
+to read the documentation of a crate, run:
 
 ```
 cargo rustdoc -p <crate_name> --open
 ```
 
-currently we have 3 crates, [client, common, server]
+currently we have 3 crates: `client`, `common`, and `server`.
 
-# Pull requests
+# Contributing
 
 Pull requests should have 100% coverage for tests and should be formatted and have no warnings from linting.
 
-therefore before creating a pull request please run these commands.
-
-Run all tests and generate coverage reports
+Run clippy and generate coverage reports for tests:
 
 ```
-cargo llvm-cov --lcov --output-path lcov.info
+zsh pr-checks.sh
 ```
 
-To format all of your rust code
+Please also format your rust code before submitting a PR:
 
 ```
 cargo fmt
