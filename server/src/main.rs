@@ -18,7 +18,9 @@ async fn main() -> std::io::Result<()> {
     let db_data: Data<DatabaseConnection> = Data::new(db);
     HttpServer::new(move || {
         let db_data = db_data.clone();
-        App::new().app_data(db_data).service(get_task_request)
+        App::new().app_data(db_data)
+            .service(get_task_request)
+            .service(get_tasks_request)
     })
     .bind(("127.0.0.1", 8080))?
     .run()
