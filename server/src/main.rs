@@ -11,10 +11,14 @@ use api::*;
 async fn main() -> std::io::Result<()> {
     println!("Starting server");
 
-    HttpServer::new(|| App::new().service(get_task_request))
-        .bind(("127.0.0.1", 8080))?
-        .run()
-        .await
+    HttpServer::new(|| {
+        App::new()
+            .service(get_task_request)
+            .service(get_tasks_request)
+    })
+    .bind(("127.0.0.1", 8080))?
+    .run()
+    .await
 }
 
 #[cfg(test)]
