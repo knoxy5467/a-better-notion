@@ -1,0 +1,12 @@
+version: '3'
+services:
+  db:
+    image: postgres
+    environment:
+      POSTGRES_USER: abn
+      POSTGRES_PASSWORD: abn
+      POSTGRES_DB: abn
+    volumes:
+      - ./createTable.sql:/docker-entrypoint-initdb.d/createTable.sql
+    ports:
+      - "5432:5432"
