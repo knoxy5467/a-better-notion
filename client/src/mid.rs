@@ -25,7 +25,20 @@ pub struct Task {
     pub db_id: Option<TaskID>,
 }
 
+/// Middleware stored View
+#[derive(Debug, Default)]
+pub struct View {
+    /// Filter for view
+    pub filter: Filter,
+    /// Properties shown in view
+    pub props: Vec<String>,
+    /// Computed task list for view
+    pub db_id: Option<ViewID>,
+    pub tasks: Option<Vec<TaskKey>>,
+}
+
 new_key_type! { pub struct PropNameKey; }
+new_key_type! { pub struct ViewKey; }
 
 /// Middleware State structure.
 #[derive(Default)]
@@ -47,7 +60,8 @@ pub struct State {
     /// scripts are identified by database's ScriptID
     scripts: HashMap<ScriptID, Script>,
     /// views are identified by database's ViewID
-    views: HashMap<ViewID, View>,
+    views_map: HashMap<ViewID, ViewKey>,
+    views: SlotMap<ViewKey, View>,
     /// connected url
     url: String,
     /// Connection status
@@ -85,7 +99,7 @@ enum StateEvent {
 }
 
 /// Frontend API Trait
-trait FrontendAPI {
+pub trait FrontendAPI {
 
     /// create/view/modify tasks
     fn task_def(&mut self, task: Task) -> TaskKey;
@@ -105,16 +119,17 @@ trait FrontendAPI {
     fn prop_rm(&mut self, task_key: TaskKey, name: PropNameKey) -> Result<TaskPropVariant, PropDataError>;
 
     /// create/get/modify views
-    fn view_def(&mut self, view: View) -> ViewID;
-    fn view_get(&self, view_id: ViewID) -> Option<&View>;
-    fn view_mod(&mut self, view_id: ViewID, edit_fn: impl FnOnce(&mut View)) -> Option<()>;
-    fn view_rm(&mut self, view_id: ViewID);
+    fn view_def(&mut self, view: View) -> ViewKey;
+    fn view_get(&self, view_key: ViewKey) -> Option<&View>;
+    fn view_tasks(&self, view_key: ViewKey) -> Option<&[TaskKey]>;
+    fn view_mod(&mut self, view_key: ViewKey, edit_fn: impl FnOnce(&mut View)) -> Option<()>;
+    fn view_rm(&mut self, view_key: ViewKey);
 
     /// create/get/modify script data.
     fn script_create(&mut self) -> ScriptID;
-    fn script_get(&self, view_id: ScriptID) -> &View;
-    fn script_mod(&mut self, view_id: ScriptID, edit_fn: impl FnOnce(&mut Script));
-    fn script_rm(&mut self, view_id: ScriptID);
+    fn script_get(&self, script_id: ScriptID) -> &View;
+    fn script_mod(&mut self, script_id: ScriptID, edit_fn: impl FnOnce(&mut Script));
+    fn script_rm(&mut self, script_id: ScriptID);
 
     /// register ui events with middleware, (i.e. so scripts can run when they are triggered)
     fn register_event(&mut self, name: &str);
@@ -124,9 +139,9 @@ trait FrontendAPI {
 
 impl FrontendAPI for State {
     fn task_def(&mut self, task: Task) -> TaskKey {
-        self.tasks.insert(task)
+        let key = self.tasks.insert(task);
         // TODO: register definition to queue so that we can sync to server
-        
+        key
     }
 
     fn task_get(&self, key: TaskKey) -> Option<&Task> {
@@ -179,19 +194,27 @@ impl FrontendAPI for State {
         self.props.remove(*key).ok_or_else(||PropDataError::UndefinedProp(self.prop_names[name].clone()))
     }
 
-    fn view_def(&mut self, view: View) -> ViewID {
-        todo!()
+    fn view_def(&mut self, view: View) -> ViewKey {
+        let key = self.views.insert(view);
+        // TODO: register to save updated view
+        key
     }
 
-    fn view_get(&self, view_id: ViewID) -> Option<&View> {
-        todo!()
+    fn view_get(&self, view_key: ViewKey) -> Option<&View> {
+        self.views.get(view_key)
     }
 
-    fn view_mod(&mut self, view_id: ViewID, edit_fn: impl FnOnce(&mut View)) -> Option<()> {
-        todo!()
+    fn view_tasks(&self, view_key: ViewKey) -> Option<&[TaskKey]> {
+        self.views.get(view_key).and_then(|v|v.tasks.as_ref()).map(|v|v.as_slice())
     }
 
-    fn view_rm(&mut self, view_id: ViewID) {
+    fn view_mod(&mut self, view_key: ViewKey, edit_fn: impl FnOnce(&mut View)) -> Option<()> {
+        let mut view = self.views.get_mut(view_key)?;
+        edit_fn(&mut view);
+        None
+    }
+
+    fn view_rm(&mut self, view_key: ViewKey) {
         todo!()
     }
 
@@ -199,15 +222,15 @@ impl FrontendAPI for State {
         todo!()
     }
 
-    fn script_get(&self, view_id: ScriptID) -> &View {
+    fn script_get(&self, view_key: ScriptID) -> &View {
         todo!()
     }
 
-    fn script_mod(&mut self, view_id: ScriptID, edit_fn: impl FnOnce(&mut Script)) {
+    fn script_mod(&mut self, view_key: ScriptID, edit_fn: impl FnOnce(&mut Script)) {
         todo!()
     }
 
-    fn script_rm(&mut self, view_id: ScriptID) {
+    fn script_rm(&mut self, view_key: ScriptID) {
         todo!()
     }
 
@@ -240,11 +263,13 @@ pub async fn init(url: &str) -> Result<State, reqwest::Error> {
     Ok(state)
 }
 
-pub fn init_example() -> State {
+pub fn init_example() -> (State, ViewKey) {
     let mut state = State::default();
-    state.task_def(Task { name: "Eat Lunch".to_owned(), completed: true, ..Default::default() });
-    state.task_def(Task { name: "Finish ABN".to_owned(), ..Default::default() });
-    state
+    let task1 = state.task_def(Task { name: "Eat Lunch".to_owned(), completed: true, ..Default::default() });
+    let task2 = state.task_def(Task { name: "Finish ABN".to_owned(), ..Default::default() });
+    let view_key = state.view_def(View { ..View::default() });
+    state.view_mod(view_key, |v|v.tasks = Some(vec![task1, task2]));
+    (state, view_key)
 }
 
 /* fn test() {

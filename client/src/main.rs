@@ -7,6 +7,7 @@ use std::io;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use mid::*;
+use num_modular::ModularCoreOps;
 use ratatui::{
     prelude::*,
     symbols::border,
@@ -27,23 +28,64 @@ fn main() -> io::Result<()> {
 /// UI App State
 #[derive(Default)]
 pub struct App {
-    counter: i16,
-    exit: bool,
-    state: State,
-    selected_task: Option<TaskKey>,
-    list_state: ListState,
+    exit: bool, // should exit
+    state: State, // middleware state
+    task_list: TaskList,
 }
 
 #[derive(Default)]
+/// Task list widget
 pub struct TaskList {
-    
+    current_view: ViewKey,
+    list_state: ListState,
+}
+impl TaskList {
+    fn up(&mut self, state: &State) {
+        let Some(tasks) = state.view_tasks(self.current_view)
+        else { self.list_state.select(None); return; };
+
+        self.list_state.select(Some(self.list_state.selected().as_mut().map_or(0, |v|v.subm(1, &tasks.len()))));
+    }
+    fn down(&mut self, state: &State) {
+        let Some(tasks) = state.view_tasks(self.current_view)
+        else { self.list_state.select(None); return; };
+        self.list_state.select(Some(self.list_state.selected().map_or(1, |v|v.addm(1, &tasks.len()))));
+    }
+    fn render(&mut self, state: &State, block: Block<'_>, area: Rect, buf: &mut Buffer) {
+        let items = state.view_tasks(self.current_view).and_then(|tasks| Some(tasks.iter().flat_map(|key| {
+            let Some(task) = state.task_get(*key)
+            else { return None };
+
+            Some(match task.completed {
+                false => Line::styled(format!(" ☐ {}", task.name), TEXT_COLOR),
+                true => Line::styled(format!(" ✓ {}", task.name), COMPLETED_TEXT_COLOR),
+            })
+        }).collect::<Vec<Line>>()));
+
+        let list = List::new(items)
+            .block(block)
+            .highlight_style(
+                Style::default()
+                    .add_modifier(Modifier::BOLD)
+                    .add_modifier(Modifier::REVERSED)
+                    .fg(SELECTED_STYLE_FG),
+            )
+            .highlight_symbol(">")
+            .highlight_spacing(HighlightSpacing::Always);
+
+        StatefulWidget::render(list, area, buf, &mut self.list_state)
+    }
 }
 
 impl App {
     /// runs the application's main loop until the user quits
     pub fn run(&mut self, terminal: &mut term::Tui) -> io::Result<()> {
-        self.counter = 9001;
-        self.state = init_example();
+        // initialize state for testing
+        let state = init_example();
+        self.state = state.0;
+        self.task_list.current_view = state.1;
+
+        // main loop
         while !self.exit {
             terminal.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
             self.handle_event(event::read()?)?;
@@ -67,9 +109,15 @@ impl App {
         use KeyCode::*;
         match key_event.code {
             Char('q') => self.exit = true,
-            Up => self.counter -= 1,
-            Down => self.counter += 1,
-            
+            Up => self.task_list.up(&self.state),
+            Down => self.task_list.down(&self.state),
+            Enter => {
+                if let Some(selection) = self.task_list.list_state.selected() {
+                    if let Some(tasks) = self.state.view_tasks(self.task_list.current_view) {
+                        self.state.task_mod(tasks[selection], |t|t.completed = !t.completed);
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -97,25 +145,7 @@ impl Widget for &mut App {
             .borders(Borders::ALL)
             .border_set(border::THICK);
 
-        let items = self.state.tasks().enumerate().map(|(_, task)| {
-            match task.completed {
-                false => Line::styled(format!(" ☐ {}", task.name), TEXT_COLOR),
-                true => Line::styled(format!(" ✓ {}", task.name), COMPLETED_TEXT_COLOR),
-            }
-        }).collect::<Vec<Line>>();
-
-        let list = List::new(items)
-            .block(block)
-            .highlight_style(
-                Style::default()
-                    .add_modifier(Modifier::BOLD)
-                    .add_modifier(Modifier::REVERSED)
-                    .fg(SELECTED_STYLE_FG),
-            )
-            .highlight_symbol(">")
-            .highlight_spacing(HighlightSpacing::Always);
-
-        StatefulWidget::render(list, area, buf, &mut self.list_state)
+        self.task_list.render(&self.state, block, area, buf);
     }
 }
 
@@ -163,13 +193,6 @@ mod tests {
 
     #[test]
     fn handle_key_event() -> io::Result<()> {
-        let mut app = App::default();
-        app.handle_event(Event::Key(KeyCode::Right.into()))?;
-        assert_eq!(app.counter, 1);
-
-        app.handle_event(Event::Key(KeyCode::Left.into()))?;
-        assert_eq!(app.counter, 0);
-
         let mut app = App::default();
         app.handle_key_event(KeyCode::Char('q').into());
         assert_eq!(app.exit, true);
