@@ -44,6 +44,8 @@ pub struct TaskShort {
     dependencies: Vec<TaskID>,
     /// Associated scripts
     scripts: Vec<ScriptID>,
+    /// last edited timestamp
+    last_edited: chrono::NaiveDateTime,
 }
 
 /// The content of a lua script.
