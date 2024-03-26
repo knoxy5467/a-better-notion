@@ -70,5 +70,6 @@ async fn get_tasks_request(req: web::Json<Vec<ReadTaskShortRequest>>) -> Result<
         props: Vec::new(),
         deps: Vec::new(),
         scripts: Vec::new(),
+        last_edited: chrono::NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().and_hms_opt(9, 10, 11).unwrap(),
     }]))
 }
