@@ -18,9 +18,11 @@ pub struct CreateTaskRequest {
     /// [name, date, value]
     pub dependencies: Vec<TaskID>,
 }
+/// response to POST /task contains the ID of the created task.
 pub type CreateTaskResponse = TaskID;
 /// reqwest::post("/tasks").body(CreateTaskRequest {})
 pub type CreateTasksRequest = Vec<CreateTaskRequest>;
+/// a list of task ids that were created
 pub type CreateTasksResponse = Vec<TaskID>;
 
 /// reawest::get("/task")
