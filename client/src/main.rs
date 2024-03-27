@@ -5,7 +5,8 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 use std::io;
 
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{self, Event, EventStream, KeyCode, KeyEvent, KeyEventKind};
+use futures::StreamExt;
 use mid::*;
 use num_modular::ModularCoreOps;
 use ratatui::{
@@ -15,25 +16,31 @@ use ratatui::{
 };
 mod mid;
 mod term;
+mod event_handler;
 
 const BACKGROUND: Color = Color::Reset;
 const TEXT_COLOR: Color = Color::White;
 const SELECTED_STYLE_FG: Color = Color::LightYellow;
 const COMPLETED_TEXT_COLOR: Color = Color::Green;
 
-fn main() -> io::Result<()> {
-    term::wrap_terminal(|term| App::default().run(term))
+#[tokio::main]
+async fn main() -> io::Result<()> {
+    let mut term = term::init()?;
+    let res = App::default().run(&mut term).await;
+    term::restore()?;
+    res
 }
 
 /// UI App State
 #[derive(Default)]
 pub struct App {
     /// should exit
-    exit: bool,
+    should_exit: bool,
     /// middleware state
     state: State,
     /// task list widget
     task_list: TaskList,
+    updates: usize,
 }
 
 #[derive(Default)]
@@ -110,36 +117,42 @@ impl TaskList {
 
 impl App {
     /// runs the application's main loop until the user quits
-    pub fn run(&mut self, terminal: &mut term::Tui) -> io::Result<()> {
+    pub async fn run(&mut self, term: &mut term::Tui) -> io::Result<()> {
+        let mut events = crossterm::event::EventStream::new();
+
         // initialize state for testing
         let state = init_example();
         self.state = state.0;
         self.task_list.current_view = state.1;
 
         // main loop
-        while !self.exit {
-            terminal.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
-            self.handle_event(event::read()?)?;
+        while !self.should_exit {
+            self.updates += 1;
+            term.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
+
+            let mut do_render = false;
+            while !do_render {
+                let Some(event) = events.next().await
+                else {continue};
+                do_render = self.handle_event(event?)?
+            }
         }
         Ok(())
     }
 
     /// updates the application's state based on user input
-    fn handle_event(&mut self, event: Event) -> io::Result<()> {
+    fn handle_event(&mut self, event: Event) -> io::Result<bool> {
         match event {
             // it's important to check that the event is a key press event as
             // crossterm also emits key release and repeat events on Windows.
-            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                self.handle_key_event(key_event);
-            }
-            _ => {}
-        };
-        Ok(())
+            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => Ok(self.handle_key_event(key_event)),
+            _ => Ok(false),
+        }
     }
-    fn handle_key_event(&mut self, key_event: KeyEvent) {
+    fn handle_key_event(&mut self, key_event: KeyEvent) -> bool {
         use KeyCode::*;
         match key_event.code {
-            Char('q') => self.exit = true,
+            Char('q') => self.should_exit = true,
             Up => self.task_list.up(&self.state),
             Down => self.task_list.down(&self.state),
             Enter => {
@@ -150,8 +163,9 @@ impl App {
                     }
                 }
             }
-            _ => {}
+            _ => return false,
         }
+        return true; // assume if didn't explicitly return false, that we should re-render
     }
 }
 
@@ -167,6 +181,7 @@ impl Widget for &mut App {
             ", Quit: ".into(),
             "<Q> ".blue().bold(),
         ]));
+        let update_counter = Title::from(format!("Updates: {}", self.updates));
         let block = Block::default()
             .bg(BACKGROUND)
             .title(title.alignment(Alignment::Center))
@@ -175,6 +190,7 @@ impl Widget for &mut App {
                     .alignment(Alignment::Center)
                     .position(Position::Bottom),
             )
+            .title(update_counter.alignment(Alignment::Right).position(Position::Bottom))
             .borders(Borders::ALL)
             .border_set(border::ROUNDED);
 
@@ -262,15 +278,15 @@ mod tests {
 
         let mut app = App::default();
         app.handle_key_event(KeyCode::Char('q').into());
-        assert!(app.exit);
+        assert_eq!(app.should_exit, true);
 
         let mut app = App::default();
         app.handle_key_event(KeyCode::Char('.').into());
-        assert!(!app.exit);
+        assert_eq!(app.should_exit, false);
 
         let mut app = App::default();
-        app.handle_event(Event::FocusLost)?;
-        assert!(!app.exit);
+        app.handle_event(Event::FocusLost.into())?;
+        assert_eq!(app.should_exit, false);
 
         Ok(())
     }

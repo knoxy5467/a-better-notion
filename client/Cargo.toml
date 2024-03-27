@@ -18,10 +18,11 @@ reqwest = "0.11.25"
 common = {path = "../common"}
 
 # UI
-crossterm = "0.27.0"
+crossterm = { version = "0.27.0", features = ["event-stream"] }
 ratatui = { version = "0.26.1", features = ["crossterm"] }
 color-eyre = "0.6.3"
 thiserror = "1.0.58"
 num-modular = "0.6.1"
+futures = "0.3.30"
 
 
