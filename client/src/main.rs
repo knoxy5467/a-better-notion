@@ -28,8 +28,11 @@ fn main() -> io::Result<()> {
 /// UI App State
 #[derive(Default)]
 pub struct App {
-    exit: bool, // should exit
-    state: State, // middleware state
+    /// should exit
+    exit: bool,
+    /// middleware state
+    state: State,
+    /// task list widget
     task_list: TaskList,
 }
 
@@ -41,44 +44,62 @@ pub struct TaskList {
 }
 impl TaskList {
     fn up(&mut self, state: &State) {
-        let Some(tasks) = state.view_tasks(self.current_view)
-        else { self.list_state.select(None); return; };
+        let Some(tasks) = state.view_tasks(self.current_view) else {
+            self.list_state.select(None);
+            return;
+        };
 
-        self.list_state.select(Some(self.list_state.selected().as_mut().map_or(0, |v|v.subm(1, &tasks.len()))));
+        self.list_state.select(Some(
+            self.list_state
+                .selected()
+                .as_mut()
+                .map_or(0, |v| v.subm(1, &tasks.len())),
+        ));
     }
     fn down(&mut self, state: &State) {
-        let Some(tasks) = state.view_tasks(self.current_view)
-        else { self.list_state.select(None); return; };
-        self.list_state.select(Some(self.list_state.selected().map_or(1, |v|v.addm(1, &tasks.len()))));
+        let Some(tasks) = state.view_tasks(self.current_view) else {
+            self.list_state.select(None);
+            return;
+        };
+        self.list_state.select(Some(
+            self.list_state
+                .selected()
+                .map_or(1, |v| v.addm(1, &tasks.len())),
+        ));
     }
     fn render(&mut self, state: &State, block: Block<'_>, area: Rect, buf: &mut Buffer) {
         // take items from the current view and render them into a list
-        if let Some(items) = state.view_tasks(self.current_view).map(|tasks| tasks.iter().flat_map(|key| {
-            let task = state.task_get(*key)?;
-            Some(match task.completed {
-                false => Line::styled(format!(" ☐ {}", task.name), TEXT_COLOR),
-                true => Line::styled(format!(" ✓ {}", task.name), COMPLETED_TEXT_COLOR),
-            })
-        }).collect::<Vec<Line>>()) {
+        if let Some(items) = state.view_tasks(self.current_view).map(|tasks| {
+            tasks
+                .iter()
+                .flat_map(|key| {
+                    let task = state.task_get(*key)?;
+                    Some(match task.completed {
+                        false => Line::styled(format!(" ☐ {}", task.name), TEXT_COLOR),
+                        true => Line::styled(format!(" ✓ {}", task.name), COMPLETED_TEXT_COLOR),
+                    })
+                })
+                .collect::<Vec<Line>>()
+        }) {
             // create the list from the list items and customize it
             let list = List::new(items)
-            .block(block)
-            .highlight_style(
-                Style::default()
-                    .add_modifier(Modifier::BOLD)
-                    .add_modifier(Modifier::REVERSED)
-                    .fg(SELECTED_STYLE_FG),
-            )
-            .highlight_symbol(">")
-            .highlight_spacing(HighlightSpacing::Always);
+                .block(block)
+                .highlight_style(
+                    Style::default()
+                        .add_modifier(Modifier::BOLD)
+                        .add_modifier(Modifier::REVERSED)
+                        .fg(SELECTED_STYLE_FG),
+                )
+                .highlight_symbol(">")
+                .highlight_spacing(HighlightSpacing::Always);
 
             // render the list using the list state
             StatefulWidget::render(list, area, buf, &mut self.list_state)
-        } else { // No view available
-            let no_view_text = Text::from(vec![Line::from(vec![
-                "No Task Views to Display".into(),
-            ])]);
-    
+        } else {
+            // No view available
+            let no_view_text =
+                Text::from(vec![Line::from(vec!["No Task Views to Display".into()])]);
+
             Paragraph::new(no_view_text)
                 .centered()
                 .block(block)
@@ -124,7 +145,8 @@ impl App {
             Enter => {
                 if let Some(selection) = self.task_list.list_state.selected() {
                     if let Some(tasks) = self.state.view_tasks(self.task_list.current_view) {
-                        self.state.task_mod(tasks[selection], |t|t.completed = !t.completed);
+                        self.state
+                            .task_mod(tasks[selection], |t| t.completed = !t.completed);
                     }
                 }
             }
@@ -190,7 +212,7 @@ mod tests {
         ]);
         buf.set_style(Rect::new(0, 0, 50, 7), Style::reset());
 
-        // don't bother checking styles, they change to frequently
+        // don't bother checking styles, they change too frequently
         /*
         let title_style = Style::new().bold();
         let counter_style = Style::new().yellow();
@@ -214,7 +236,7 @@ mod tests {
         app.state = state.0;
         app.task_list.current_view = state.1;
         app.handle_event(Event::Key(KeyCode::Up.into()))?;
-        
+
         assert_eq!(app.task_list.list_state.selected(), Some(0));
 
         app.handle_event(Event::Key(KeyCode::Down.into()))?;
@@ -222,7 +244,13 @@ mod tests {
 
         // test enter key
         app.handle_key_event(KeyCode::Enter.into());
-        assert_eq!(app.state.task_get(app.state.view_tasks(state.1).unwrap()[1]).unwrap().completed, true); // second task in example view is marked as completed, so the Enter key should uncomplete it
+        assert_eq!(
+            app.state
+                .task_get(app.state.view_tasks(state.1).unwrap()[1])
+                .unwrap()
+                .completed,
+            true
+        ); // second task in example view is marked as completed, so the Enter key should uncomplete it
 
         // test up and down in regular state
         let mut app = App::default();

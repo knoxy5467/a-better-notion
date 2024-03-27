@@ -5,8 +5,8 @@ use common::*;
 
 use serde::{Deserialize, Serialize};
 use slotmap::{new_key_type, SlotMap};
-use thiserror::Error;
 use std::collections::HashMap;
+use thiserror::Error;
 
 new_key_type! { pub struct PropKey; }
 new_key_type! { pub struct TaskKey; }
@@ -87,7 +87,7 @@ pub enum PropDataError {
 }
 
 /// Anything in this enum is sent to the middleware script executor when a UI event is triggered.
-enum ScriptEvent { 
+enum ScriptEvent {
     /// Name of the event
     RegisteredEvent(String),
 }
@@ -160,20 +160,29 @@ impl State {
     }
 
     pub fn task_mod(&mut self, key: TaskKey, edit_fn: impl FnOnce(&mut Task)) {
-        if let Some(task) = self.tasks.get_mut(key) { edit_fn(task) }
+        if let Some(task) = self.tasks.get_mut(key) {
+            edit_fn(task)
+        }
     }
 
     pub fn task_rm(&mut self, key: TaskKey) {
-        if let Some(db_id) = self.tasks.remove(key).and_then(|t|t.db_id) {
+        if let Some(db_id) = self.tasks.remove(key).and_then(|t| t.db_id) {
             self.task_map.remove(&db_id);
         }
     }
 
-    pub fn prop_def(&mut self, task_key: TaskKey, name_key: PropNameKey, prop: TaskPropVariant) -> Result<PropKey, PropDataError> {
-        let Some(_) = self.tasks.get(task_key)
-        else { return Err(PropDataError::Task(task_key)); };
-        let Some(_) = self.prop_names.get(name_key)
-        else { return Err(PropDataError::PropertyName(name_key)); };
+    pub fn prop_def(
+        &mut self,
+        task_key: TaskKey,
+        name_key: PropNameKey,
+        prop: TaskPropVariant,
+    ) -> Result<PropKey, PropDataError> {
+        let Some(_) = self.tasks.get(task_key) else {
+            return Err(PropDataError::Task(task_key));
+        };
+        let Some(_) = self.prop_names.get(name_key) else {
+            return Err(PropDataError::PropertyName(name_key));
+        };
 
         let prop_key = self.props.insert(prop);
         self.prop_map.insert((task_key, name_key), prop_key);
@@ -186,18 +195,30 @@ impl State {
         key
     }
     pub fn prop_rm_name(&mut self, name_key: PropNameKey) -> Result<String, PropDataError> {
-        let name = self.prop_names.remove(name_key).ok_or(PropDataError::PropertyName(name_key))?;
+        let name = self
+            .prop_names
+            .remove(name_key)
+            .ok_or(PropDataError::PropertyName(name_key))?;
         self.prop_name_map.remove(&name);
         Ok(name)
     }
 
-    pub fn prop_get(&self, task_key: TaskKey, name_key: PropNameKey) -> Result<&TaskPropVariant, PropDataError> {
-        let Some(_) = self.tasks.get(task_key)
-        else { return Err(PropDataError::Task(task_key)); };
-        let Some(_) = self.prop_names.get(name_key)
-        else { return Err(PropDataError::PropertyName(name_key)); };
+    pub fn prop_get(
+        &self,
+        task_key: TaskKey,
+        name_key: PropNameKey,
+    ) -> Result<&TaskPropVariant, PropDataError> {
+        let Some(_) = self.tasks.get(task_key) else {
+            return Err(PropDataError::Task(task_key));
+        };
+        let Some(_) = self.prop_names.get(name_key) else {
+            return Err(PropDataError::PropertyName(name_key));
+        };
 
-        let key = self.prop_map.get(&(task_key, name_key)).ok_or(PropDataError::Prop(task_key, name_key))?;
+        let key = self
+            .prop_map
+            .get(&(task_key, name_key))
+            .ok_or(PropDataError::Prop(task_key, name_key))?;
         Ok(&self.props[*key])
     }
 
@@ -207,24 +228,44 @@ impl State {
         name_key: PropNameKey,
         edit_fn: impl FnOnce(&mut TaskPropVariant),
     ) -> Result<(), PropDataError> {
-        let Some(_) = self.tasks.get(task_key)
-        else { return Err(PropDataError::Task(task_key)); };
-        let Some(_) = self.prop_names.get(name_key)
-        else { return Err(PropDataError::PropertyName(name_key)); };
+        let Some(_) = self.tasks.get(task_key) else {
+            return Err(PropDataError::Task(task_key));
+        };
+        let Some(_) = self.prop_names.get(name_key) else {
+            return Err(PropDataError::PropertyName(name_key));
+        };
 
-        let key = self.prop_map.get(&(task_key, name_key)).ok_or(PropDataError::Prop(task_key, name_key))?;
-        edit_fn(self.props.get_mut(*key).ok_or(PropDataError::Prop(task_key, name_key))?);
+        let key = self
+            .prop_map
+            .get(&(task_key, name_key))
+            .ok_or(PropDataError::Prop(task_key, name_key))?;
+        edit_fn(
+            self.props
+                .get_mut(*key)
+                .ok_or(PropDataError::Prop(task_key, name_key))?,
+        );
         Ok(())
     }
 
-    pub fn prop_rm(&mut self, task_key: TaskKey, name_key: PropNameKey) -> Result<TaskPropVariant, PropDataError> {
-        let Some(_) = self.tasks.get(task_key)
-        else { return Err(PropDataError::Task(task_key)); };
-        let Some(_) = self.prop_names.get(name_key)
-        else { return Err(PropDataError::PropertyName(name_key)); };
+    pub fn prop_rm(
+        &mut self,
+        task_key: TaskKey,
+        name_key: PropNameKey,
+    ) -> Result<TaskPropVariant, PropDataError> {
+        let Some(_) = self.tasks.get(task_key) else {
+            return Err(PropDataError::Task(task_key));
+        };
+        let Some(_) = self.prop_names.get(name_key) else {
+            return Err(PropDataError::PropertyName(name_key));
+        };
 
-        let key = self.prop_map.remove(&(task_key, name_key)).ok_or(PropDataError::Prop(task_key, name_key))?;
-        self.props.remove(key).ok_or(PropDataError::Prop(task_key, name_key))
+        let key = self
+            .prop_map
+            .remove(&(task_key, name_key))
+            .ok_or(PropDataError::Prop(task_key, name_key))?;
+        self.props
+            .remove(key)
+            .ok_or(PropDataError::Prop(task_key, name_key))
     }
 
     pub fn view_def(&mut self, view: View) -> ViewKey {
@@ -237,7 +278,10 @@ impl State {
     }
 
     pub fn view_tasks(&self, view_key: ViewKey) -> Option<&[TaskKey]> {
-        self.views.get(view_key).and_then(|v|v.tasks.as_ref()).map(|v|v.as_slice())
+        self.views
+            .get(view_key)
+            .and_then(|v| v.tasks.as_ref())
+            .map(|v| v.as_slice())
     }
 
     pub fn view_mod(&mut self, view_key: ViewKey, edit_fn: impl FnOnce(&mut View)) -> Option<()> {
@@ -291,10 +335,20 @@ pub async fn init(url: &str) -> Result<State, reqwest::Error> {
 
 pub fn init_example() -> (State, ViewKey) {
     let mut state = State::default();
-    let task1 = state.task_def(Task { name: "Eat Lunch".to_owned(), completed: true, ..Default::default() });
-    let task2 = state.task_def(Task { name: "Finish ABN".to_owned(), ..Default::default() });
-    let view_key = state.view_def(View { name: "Main View".to_string(), ..View::default() });
-    state.view_mod(view_key, |v|v.tasks = Some(vec![task1, task2]));
+    let task1 = state.task_def(Task {
+        name: "Eat Lunch".to_owned(),
+        completed: true,
+        ..Default::default()
+    });
+    let task2 = state.task_def(Task {
+        name: "Finish ABN".to_owned(),
+        ..Default::default()
+    });
+    let view_key = state.view_def(View {
+        name: "Main View".to_string(),
+        ..View::default()
+    });
+    state.view_mod(view_key, |v| v.tasks = Some(vec![task1, task2]));
     (state, view_key)
 }
 
@@ -317,7 +371,7 @@ mod tests {
 
         let tasks = view.tasks.as_ref().unwrap().clone();
         // test task_mod
-        state.task_mod(tasks[0], |t|t.name = "Eat Dinner".to_owned());
+        state.task_mod(tasks[0], |t| t.name = "Eat Dinner".to_owned());
         assert_eq!(state.task_get(tasks[0]).unwrap().name, "Eat Dinner");
 
         // test task_rm (& db key removal)
@@ -326,7 +380,7 @@ mod tests {
         state.task_rm(tasks[1]);
         assert!(state.task_get(tasks[1]).is_none());
         assert!(state.task_map.is_empty());
-        
+
         let name_key = state.prop_def_name("Due Date");
         // test prop def removal
         let invalid_name_key = state.prop_def_name("Invalid");
@@ -335,28 +389,48 @@ mod tests {
 
         // test prop_def
         state.prop_def(tasks[0], name_key, TaskPropVariant::Boolean(false));
-        assert!(state.prop_def(tasks[0], invalid_name_key, TaskPropVariant::Boolean(false)).is_err());
-        assert!(state.prop_def(tasks[1], name_key, TaskPropVariant::Boolean(false)).is_err());
-        
+        assert!(state
+            .prop_def(tasks[0], invalid_name_key, TaskPropVariant::Boolean(false))
+            .is_err());
+        assert!(state
+            .prop_def(tasks[1], name_key, TaskPropVariant::Boolean(false))
+            .is_err());
+
         // test prop_mod
-        assert!(state.prop_mod(tasks[1], name_key, |t|*t = TaskPropVariant::Boolean(true)).is_err());
-        assert!(state.prop_mod(tasks[0], invalid_name_key, |t|*t = TaskPropVariant::Boolean(true)).is_err());
-        assert!(state.prop_mod(tasks[0], name_key, |t|*t = TaskPropVariant::Boolean(true)).is_ok());
+        assert!(state
+            .prop_mod(tasks[1], name_key, |t| *t = TaskPropVariant::Boolean(true))
+            .is_err());
+        assert!(state
+            .prop_mod(tasks[0], invalid_name_key, |t| *t =
+                TaskPropVariant::Boolean(true))
+            .is_err());
+        assert!(state
+            .prop_mod(tasks[0], name_key, |t| *t = TaskPropVariant::Boolean(true))
+            .is_ok());
         // test prop_get
-        assert_eq!(state.prop_get(tasks[0], name_key).unwrap(), &TaskPropVariant::Boolean(true));
+        assert_eq!(
+            state.prop_get(tasks[0], name_key).unwrap(),
+            &TaskPropVariant::Boolean(true)
+        );
         assert!(state.prop_get(tasks[1], name_key).is_err());
         assert!(state.prop_get(tasks[0], invalid_name_key).is_err());
 
         // test prop_rm
         assert!(state.prop_rm(tasks[0], invalid_name_key).is_err());
         assert!(state.prop_rm(tasks[1], name_key).is_err());
-        assert_eq!(state.prop_rm(tasks[0], name_key).unwrap(), TaskPropVariant::Boolean(true));
+        assert_eq!(
+            state.prop_rm(tasks[0], name_key).unwrap(),
+            TaskPropVariant::Boolean(true)
+        );
         assert!(state.prop_rm(tasks[0], name_key).is_err());
 
         /// script testing
         let script_id = state.script_create();
-        state.script_mod(script_id, |s|s.content = "function do_lua()".to_owned());
-        assert_eq!(state.script_get(script_id).unwrap().content, "function do_lua()");
+        state.script_mod(script_id, |s| s.content = "function do_lua()".to_owned());
+        assert_eq!(
+            state.script_get(script_id).unwrap().content,
+            "function do_lua()"
+        );
         state.script_rm(script_id);
         assert!(state.script_get(script_id).is_none());
 
