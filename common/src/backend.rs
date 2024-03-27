@@ -44,8 +44,10 @@ pub struct ReadTaskShortResponse {
     /// last time this task was edited
     pub last_edited: chrono::NaiveDateTime,
 }
-type ReadTasksShortRequest = Vec<ReadTaskShortRequest>;
-type ReadTasksShortResponse = Vec<ReadTaskShortResponse>;
+/// request for reading multiple tasks
+pub type ReadTasksShortRequest = Vec<ReadTaskShortRequest>;
+/// response for reading multiple tasks
+pub type ReadTasksShortResponse = Vec<ReadTaskShortResponse>;
 
 /// reqwest::put("/task")
 struct UpdateTaskRequest {
