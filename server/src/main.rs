@@ -28,7 +28,7 @@ async fn main() -> std::io::Result<()> {
 mod tests {
     use super::*;
     use common::backend::{
-        CreateTaskRequest, CreateTaskResponse, ReadTaskShortRequest, ReadTaskShortResponse,
+        CreateTaskRequest, CreateTaskResponse, ReadTaskShortRequest, ReadTaskShortResponse, ReadTasksShortResponse,
     };
     use sea_orm::MockExecResult;
 
@@ -69,13 +69,41 @@ mod tests {
     #[actix_web::test]
     async fn task_requests() {
         use actix_web::test;
-        let app = test::init_service(App::new().service(get_tasks_request)).await;
+        use sea_orm::MockDatabase;
+
+        let db = MockDatabase::new(sea_orm::DatabaseBackend::Postgres);
+        let db_conn = db
+            .append_query_results([
+                vec![database::task::Model {
+                    id: 1,
+                    title: "test".to_string(),
+                    completed: false,
+                    last_edited: chrono::NaiveDateTime::default(),
+                }],
+                vec![database::task::Model {
+                    id: 2,
+                    title: "test2".to_string(),
+                    completed: false,
+                    last_edited: chrono::NaiveDateTime::default(),
+                }],
+                vec![],
+            ])
+            .into_connection();
+        let db_data: Data<DatabaseConnection> = Data::new(db_conn);
+        let app = test::init_service(App::new().app_data(db_data).service(get_tasks_request)).await;
         let req = test::TestRequest::default()
-            .set_json(vec![ReadTaskShortRequest { task_id: 1 }])
+            .set_json(vec![
+                ReadTaskShortRequest { task_id: 1 },
+                ReadTaskShortRequest { task_id: 2 },
+                ReadTaskShortRequest { task_id: 3 },
+            ])
             .uri("/tasks")
             .to_request();
-        let resp: Vec<ReadTaskShortResponse> = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp[0].task_id, 1);
+        let resp: ReadTasksShortResponse = test::call_and_read_body_json(&app, req).await;
+
+        assert!(resp[0].as_ref().is_ok_and(|a| a.task_id == 1));
+        assert!(resp[1].as_ref().is_ok_and(|a| a.task_id == 2));
+        assert!(resp[2].is_err());
     }
     #[actix_web::test]
     async fn insert_task_request() {

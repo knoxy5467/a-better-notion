@@ -9,7 +9,6 @@ async fn get_task_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<ReadTaskShortRequest>,
 ) -> Result<impl Responder> {
-    println!("requesting task id {}", req.task_id);
     let db = data;
     let task = task::Entity::find_by_id(req.task_id)
         .one(db.as_ref())
@@ -31,17 +30,32 @@ async fn get_task_request(
 
 /// get /tasks endpoint for retrieving some number of TaskShorts
 #[get("/tasks")]
-async fn get_tasks_request(req: web::Json<Vec<ReadTaskShortRequest>>) -> Result<impl Responder> {
-    // do diesel stuff here
-    Ok(web::Json(vec![ReadTaskShortResponse {
-        task_id: req[0].task_id,
-        name: "heyo".to_string(),
-        completed: false,
-        props: Vec::new(),
-        deps: Vec::new(),
-        scripts: Vec::new(),
-        last_edited: chrono::NaiveDateTime::default(),
-    }]))
+async fn get_tasks_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<ReadTasksShortRequest>,
+) -> Result<impl Responder> {
+    let mut res: ReadTasksShortResponse = Vec::new();
+
+    for taskreq in req.iter() {
+        let task = task::Entity::find_by_id(taskreq.task_id)
+            .one(data.as_ref())
+            .await
+            .map_err(|e| actix_web::error::ErrorInternalServerError(MyDbErr(e)))?;
+        match task {
+            Some(model) => res.push(Ok(ReadTaskShortResponse {
+                task_id: model.id,
+                name: model.title,
+                completed: model.completed,
+                props: Vec::new(),
+                deps: Vec::new(),
+                scripts: Vec::new(),
+                last_edited: model.last_edited,
+            })),
+            None => res.push(Err("task not found by ID".to_string())),
+        }
+    }
+
+    Ok(web::Json(res))
 }
 
 #[put("/task")]
