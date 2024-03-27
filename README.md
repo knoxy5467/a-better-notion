@@ -39,3 +39,11 @@ Please also format your rust code before submitting a PR:
 ```
 cargo fmt
 ```
+
+# database
+
+to create the database use ` docker-compose up` in the server/database directory
+
+this will create the server in a docker container. from there you can access it like a normal postgres database running on localhost:5432
+
+docker-compose should only be ran on the first instance to create the database, afterwards it should be started through docker normally.
