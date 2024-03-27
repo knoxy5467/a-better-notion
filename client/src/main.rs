@@ -190,7 +190,7 @@ mod tests {
 
     #[test]
     fn dummy_test_main() {
-        std::thread::spawn(|| main());
+        std::thread::spawn(main);
         std::thread::sleep(Duration::from_millis(250));
     }
 
@@ -262,15 +262,15 @@ mod tests {
 
         let mut app = App::default();
         app.handle_key_event(KeyCode::Char('q').into());
-        assert_eq!(app.exit, true);
+        assert!(app.exit);
 
         let mut app = App::default();
         app.handle_key_event(KeyCode::Char('.').into());
-        assert_eq!(app.exit, false);
+        assert!(!app.exit);
 
         let mut app = App::default();
-        app.handle_event(Event::FocusLost.into())?;
-        assert_eq!(app.exit, false);
+        app.handle_event(Event::FocusLost)?;
+        assert!(!app.exit);
 
         Ok(())
     }
