@@ -1,6 +1,6 @@
 use actix_web::{get, put, web, HttpResponse, Responder, ResponseError, Result};
 use common::backend::*;
-use sea_orm::{entity::prelude::*, ActiveValue::NotSet, DbErr, Set, Unset};
+use sea_orm::{entity::prelude::*, ActiveValue::NotSet, DbErr, Set};
 use std::fmt;
 
 use crate::database::task;
