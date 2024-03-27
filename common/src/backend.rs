@@ -11,8 +11,9 @@ use crate::*;
 pub struct CreateTaskRequest {
     /// name of task
     pub name: String,
-
+    /// completion status of task
     pub completed: bool,
+    /// list of properties to add to task
     pub properties: Vec<TaskProp>,
     /// [name, date, value]
     pub dependencies: Vec<TaskID>,
