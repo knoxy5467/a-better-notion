@@ -1,7 +1,4 @@
-use actix_web::{
-    get,
-    web, HttpResponse, Responder, ResponseError, Result,
-};
+use actix_web::{get, web, HttpResponse, Responder, ResponseError, Result};
 use common::backend::*;
 use sea_orm::{entity::prelude::*, DbErr};
 use std::fmt;
@@ -52,9 +49,7 @@ async fn get_task_request(
             scripts: Vec::new(), //TODO 26mar24 Mrknox: implement scripts
             last_edited: model.last_edited,
         })),
-        None => {
-            Err(actix_web::error::ErrorNotFound("task not found by ID"))
-        }
+        None => Err(actix_web::error::ErrorNotFound("task not found by ID")),
     }
 }
 
@@ -62,7 +57,6 @@ async fn get_task_request(
 #[get("/tasks")]
 async fn get_tasks_request(req: web::Json<Vec<ReadTaskShortRequest>>) -> Result<impl Responder> {
     // do diesel stuff here
-
     Ok(web::Json(vec![ReadTaskShortResponse {
         task_id: req[0].task_id,
         name: "heyo".to_string(),
@@ -70,5 +64,6 @@ async fn get_tasks_request(req: web::Json<Vec<ReadTaskShortRequest>>) -> Result<
         props: Vec::new(),
         deps: Vec::new(),
         scripts: Vec::new(),
+        last_edited: chrono::NaiveDateTime::default(),
     }]))
 }
