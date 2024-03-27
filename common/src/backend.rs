@@ -90,16 +90,13 @@ type PropertiesResponse = Vec<(String, Vec<TaskPropVariant>)>;
 /// # FILTER APIS
 
 /// reqwest::get("/filterid")
-struct FilterTaskIDsRequest {
-    filter: Filter,
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct FilterTaskIDsRequest {
+    /// Filter used for request
+    pub filter: Filter,
 }
-type FilterTaskIDsResponse = Vec<TaskID>;
-/// reqwest::get("/filter")
-struct FilterTaskRequest {
-    filter: Filter,
-    props: Vec<String>,
-}
-type FilterTaskRespone = Vec<TaskShort>;
+/// Response from FilterTaskIDsRequest
+pub type FilterTaskIDsResponse = Vec<TaskID>;
 
 #[cfg(test)]
 mod tests {

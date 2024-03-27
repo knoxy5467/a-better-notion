@@ -18,7 +18,8 @@ async fn main() -> std::io::Result<()> {
     let db_data: Data<DatabaseConnection> = Data::new(db);
     HttpServer::new(move || {
         let db_data = db_data.clone();
-        App::new().app_data(db_data)
+        App::new()
+            .app_data(db_data)
             .service(get_task_request)
             .service(get_tasks_request)
     })
@@ -30,17 +31,13 @@ async fn main() -> std::io::Result<()> {
 mod tests {
     use super::*;
     use common::backend::{ReadTaskShortRequest, ReadTaskShortResponse};
-    
 
     #[test]
     fn test_main() {
-        std::thread::spawn(||{std::thread::sleep(std::time::Duration::from_millis(500)); std::process::exit(0)});
-        main().unwrap();
-    }
-
-    #[test]
-    fn test_main() {
-        std::thread::spawn(||{std::thread::sleep(std::time::Duration::from_millis(500)); std::process::exit(0)});
+        std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            std::process::exit(0)
+        });
         main().unwrap();
     }
 
