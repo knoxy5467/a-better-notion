@@ -215,6 +215,7 @@ mod tests {
     fn dummy_test_main() {
         std::thread::spawn(main);
         std::thread::sleep(Duration::from_millis(250));
+        term::restore().unwrap();
     }
 
     #[test]
