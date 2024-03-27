@@ -57,7 +57,6 @@ async fn get_task_request(
 #[get("/tasks")]
 async fn get_tasks_request(req: web::Json<Vec<ReadTaskShortRequest>>) -> Result<impl Responder> {
     // do diesel stuff here
-
     Ok(web::Json(vec![ReadTaskShortResponse {
         task_id: req[0].task_id,
         name: "heyo".to_string(),
@@ -65,9 +64,6 @@ async fn get_tasks_request(req: web::Json<Vec<ReadTaskShortRequest>>) -> Result<
         props: Vec::new(),
         deps: Vec::new(),
         scripts: Vec::new(),
-        last_edited: chrono::NaiveDate::from_ymd_opt(2016, 7, 8)
-            .unwrap()
-            .and_hms_opt(9, 10, 11)
-            .unwrap(),
+        last_edited: chrono::NaiveDateTime::default(),
     }]))
 }
