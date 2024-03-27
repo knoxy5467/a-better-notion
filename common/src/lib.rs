@@ -23,12 +23,13 @@ pub type ViewID = u64;
 
 /// Identification of a property, from database
 pub type PropName = String;
-/// A view is list of filtered tasks
+/// Data stored in Database representing a view.
 #[derive(Debug, Default)]
-pub struct View {
-    filter: Filter,
-    props: Vec<String>,
-    tasks: Vec<TaskID>,
+pub struct ViewData {
+    /// Filter for view
+    pub filter: Filter,
+    /// Properties shown in view
+    pub props: Vec<String>,
 }
 
 /// Primary Task Data (doesn't include properties)
@@ -52,7 +53,8 @@ pub struct TaskShort {
 /// Scripts are used to modify tasks based on events.
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct Script {
-    content: String,
+    /// Content of a script
+    pub content: String,
 }
 
 /// Types of Comparators for filters
@@ -169,7 +171,7 @@ mod tests {
 
     #[test]
     fn test_view() {
-        dbg!(View::default());
+        dbg!(ViewData::default());
     }
 
     #[test]
