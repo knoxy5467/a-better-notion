@@ -3,7 +3,7 @@
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
-use std::io;
+use std::io::{self, Stdout};
 
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyEventKind};
 use futures::StreamExt;
@@ -24,7 +24,7 @@ const COMPLETED_TEXT_COLOR: Color = Color::Green;
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
-    let mut term = term::init()?;
+    let mut term = term::init(std::io::stdout())?;
     let res = App::default().run(&mut term).await;
     term::restore()?;
     res
@@ -116,7 +116,7 @@ impl TaskList {
 
 impl App {
     /// runs the application's main loop until the user quits
-    pub async fn run(&mut self, term: &mut term::Tui) -> io::Result<()> {
+    pub async fn run(&mut self, term: &mut term::Tui<Stdout>) -> io::Result<()> {
         let mut events = EventStream::new();
 
         // initialize state for testing
