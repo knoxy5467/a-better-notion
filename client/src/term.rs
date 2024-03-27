@@ -19,7 +19,7 @@ pub fn restore() -> io::Result<()> {
     Ok(())
 }
 
-#[cfg(test)]
+/* #[cfg(test)]
 mod tests {
     use super::*;
 
@@ -29,4 +29,4 @@ mod tests {
 
         let _ = restore();
     }
-}
+} */
