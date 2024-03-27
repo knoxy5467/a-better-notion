@@ -5,7 +5,7 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 use std::io;
 
-use crossterm::event::{self, Event, EventStream, KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyEventKind};
 use futures::StreamExt;
 use mid::*;
 use num_modular::ModularCoreOps;
@@ -16,7 +16,6 @@ use ratatui::{
 };
 mod mid;
 mod term;
-mod event_handler;
 
 const BACKGROUND: Color = Color::Reset;
 const TEXT_COLOR: Color = Color::White;
@@ -118,7 +117,7 @@ impl TaskList {
 impl App {
     /// runs the application's main loop until the user quits
     pub async fn run(&mut self, term: &mut term::Tui) -> io::Result<()> {
-        let mut events = crossterm::event::EventStream::new();
+        let mut events = EventStream::new();
 
         // initialize state for testing
         let state = init_example();
@@ -132,8 +131,9 @@ impl App {
 
             let mut do_render = false;
             while !do_render {
-                let Some(event) = events.next().await
-                else {continue};
+                let Some(event) = events.next().await else {
+                    continue;
+                };
                 do_render = self.handle_event(event?)?
             }
         }
@@ -145,7 +145,10 @@ impl App {
         match event {
             // it's important to check that the event is a key press event as
             // crossterm also emits key release and repeat events on Windows.
-            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => Ok(self.handle_key_event(key_event)),
+            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
+                Ok(self.handle_key_event(key_event))
+            }
+            Event::Resize(_, _) => Ok(true),
             _ => Ok(false),
         }
     }
@@ -165,7 +168,7 @@ impl App {
             }
             _ => return false,
         }
-        return true; // assume if didn't explicitly return false, that we should re-render
+        true // assume if didn't explicitly return false, that we should re-render
     }
 }
 
@@ -190,7 +193,11 @@ impl Widget for &mut App {
                     .alignment(Alignment::Center)
                     .position(Position::Bottom),
             )
-            .title(update_counter.alignment(Alignment::Right).position(Position::Bottom))
+            .title(
+                update_counter
+                    .alignment(Alignment::Right)
+                    .position(Position::Bottom),
+            )
             .borders(Borders::ALL)
             .border_set(border::ROUNDED);
 
