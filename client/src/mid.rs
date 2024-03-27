@@ -324,7 +324,7 @@ impl State {
 /// Init middleware state
 /// This function is called by UI to create the Middleware state and establish a connection to the Database.
 pub async fn init(url: &str) -> Result<(State, ViewKey), reqwest::Error> {
-    let state = State {
+    let mut state = State {
         url: url.to_owned(),
         ..Default::default()
     };
@@ -340,7 +340,7 @@ pub async fn init(url: &str) -> Result<(State, ViewKey), reqwest::Error> {
         .await?
         .json::<FilterTaskIDsResponse>()
         .await?;
-    let tasks_req: ReadTasksShortRequest = vec![];
+    let mut tasks_req: ReadTasksShortRequest = vec![];
     for id in res.into_iter() {
         let read_task_req = ReadTaskShortRequest{
             task_id: id,
