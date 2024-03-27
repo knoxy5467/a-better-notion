@@ -39,3 +39,14 @@ Please also format your rust code before submitting a PR:
 ```
 cargo fmt
 ```
+
+# Bug Tracking Instructions
+Bugs and issues are tracked with github issues. To view the list current bugs & issues, navigate to the github issues tab above. Issue show status, assignees, and open/closed. Github issues do not support adding priority and timeline to issues, but the issue tracker has a dropdown menu which allows issues to be sorted by number of comments and date created.
+
+To submit a new issue, do the following:
+
+- Navigate to the issues tab and click "New Issue"
+- For the title, summarize the issue in brief
+- For the description, give a detailed explanation of the issue and link relevant code
+- Set the status of the issue using the labels menu on the right. Optionally, assign the issue to a developer
+- Submit the issue.
