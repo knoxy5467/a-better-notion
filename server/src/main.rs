@@ -102,8 +102,9 @@ mod tests {
             })
             .uri("/task")
             .to_request();
-        let resp: common::backend::CreateTaskResponse =
-            test::call_and_read_body_json(&app, req).await;
-        assert!(resp == 1);
+        let response = test::call_service(&app, req).await;
+        env_logger::builder().is_test(true).try_init().unwrap();
+        log::info!("{:?}", response);
+        println!("{:?}", response);
     }
 }

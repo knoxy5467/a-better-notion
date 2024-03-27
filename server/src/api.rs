@@ -82,5 +82,5 @@ async fn create_task_request(
         .exec(db.as_ref())
         .await
         .map_err(|e| actix_web::error::ErrorInternalServerError(MyDbErr(e)))?;
-    Ok(web::Json(result_task.last_insert_id))
+    Ok(web::Json(result_task.last_insert_id as CreateTaskResponse))
 }
