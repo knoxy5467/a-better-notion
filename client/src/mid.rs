@@ -1,12 +1,13 @@
 //! Middleware Logic
 #![allow(unused)]
 
-use common::*;
-
+use common::{backend::{FilterTaskIDsRequest, FilterTaskIDsResponse, ReadTaskShortRequest, ReadTaskShortResponse, ReadTasksShortRequest, ReadTasksShortResponse}, *};
+use reqwest::{Request, Response};
 use serde::{Deserialize, Serialize};
 use slotmap::{new_key_type, SlotMap};
 use std::collections::HashMap;
 use thiserror::Error;
+// use api::get_task_request;
 
 new_key_type! { pub struct PropKey; }
 new_key_type! { pub struct TaskKey; }
@@ -321,16 +322,49 @@ impl State {
 
 /// Init middleware state
 /// This function is called by UI to create the Middleware state and establish a connection to the Database.
-pub async fn init(url: &str) -> Result<State, reqwest::Error> {
-    let state = State {
+pub async fn init(url: &str) -> Result<(State, ViewKey), reqwest::Error> {
+    let mut state = State {
         url: url.to_owned(),
         ..Default::default()
     };
 
     let client = reqwest::Client::new();
     client.execute(client.post(&state.url).build()?).await?;
+    let request = FilterTaskIDsRequest{
+        filter: Filter::None,
+    };
+    let res = client.get("http://localhost:8888")
+        .json(&request)
+        .send()
+        .await?
+        .json::<FilterTaskIDsResponse>()
+        .await?;
+    let tasks_req = res.into_iter().map(|task_id| ReadTaskShortRequest{task_id}).collect::<ReadTasksShortRequest>();
+    let tasks_res = client.get("http://localhost:8888")
+        .json(&tasks_req)
+        .send()
+        .await?
+        .json::<ReadTasksShortResponse>()
+        .await?;
 
-    Ok(state)
+    let task_keys = tasks_res.into_iter().map(|res|
+        (res.task_id, state.tasks.insert(Task {
+            name: res.name,
+            dependencies: res.deps,
+            completed: res.completed,
+            scripts: res.scripts,
+            db_id: Some(res.task_id),
+        }))
+    );
+    state.task_map.extend(task_keys);
+
+    let view_key = state.view_def(View {
+        name: "Main View".to_string(),
+        ..View::default()
+    });
+    let view_tasks = state.tasks.keys().collect::<Vec<TaskKey>>();
+    state.view_mod(view_key, |v| v.tasks = Some(view_tasks));
+    Ok((state, view_key))
 }
 
 pub fn init_example() -> (State, ViewKey) {
