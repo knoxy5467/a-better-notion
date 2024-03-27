@@ -9,16 +9,18 @@ use crate::*;
 /// reqwest::post("/task").body(CreateTaskRequest {})
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct CreateTaskRequest {
+    /// name of task
     pub name: String,
+
     pub completed: bool,
     pub properties: Vec<TaskProp>,
     /// [name, date, value]
     pub dependencies: Vec<TaskID>,
 }
-type CreateTaskResponse = TaskID;
+pub type CreateTaskResponse = TaskID;
 /// reqwest::post("/tasks").body(CreateTaskRequest {})
-type CreateTasksRequest = Vec<CreateTaskRequest>;
-type CreateTasksResponse = Vec<TaskID>;
+pub type CreateTasksRequest = Vec<CreateTaskRequest>;
+pub type CreateTasksResponse = Vec<TaskID>;
 
 /// reawest::get("/task")
 #[derive(Serialize, Deserialize)]

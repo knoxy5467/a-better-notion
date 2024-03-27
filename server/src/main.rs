@@ -27,12 +27,15 @@ async fn main() -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use common::backend::{ReadTaskShortRequest, ReadTaskShortResponse};
-    
+    use common::backend::{CreateTaskRequest, ReadTaskShortRequest, ReadTaskShortResponse};
+    use sea_orm::MockExecResult;
 
     #[test]
     fn test_main() {
-        std::thread::spawn(||{std::thread::sleep(std::time::Duration::from_millis(500)); std::process::exit(0)});
+        std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            std::process::exit(0)
+        });
         main().unwrap();
     }
 
@@ -53,6 +56,7 @@ mod tests {
         let db_data: Data<DatabaseConnection> = Data::new(db_conn);
         let app = test::init_service(App::new().app_data(db_data).service(get_task_request)).await;
         let req = test::TestRequest::default()
+            .method(actix_web::http::Method::GET)
             .set_json(ReadTaskShortRequest { task_id: 1 })
             .uri("/task")
             .to_request();
@@ -71,5 +75,36 @@ mod tests {
         let resp: Vec<ReadTaskShortResponse> = test::call_and_read_body_json(&app, req).await;
 
         assert_eq!(resp[0].task_id, 1);
+    }
+    #[actix_web::test]
+    async fn insert_task_request() {
+        use actix_web::test;
+        use sea_orm::MockDatabase;
+        let db = MockDatabase::new(sea_orm::DatabaseBackend::Postgres);
+        let db_conn = db
+            .append_exec_results([MockExecResult {
+                last_insert_id: 1,
+                rows_affected: 1,
+            }])
+            .into_connection();
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::new(db_conn))
+                .service(create_task_request),
+        )
+        .await;
+        let req = test::TestRequest::default()
+            .method(actix_web::http::Method::PUT)
+            .set_json(CreateTaskRequest {
+                name: "test".to_string(),
+                completed: false,
+                properties: vec![],
+                dependencies: vec![],
+            })
+            .uri("/task")
+            .to_request();
+        let resp CreateTaskResponse= test::call_and_read_body_json(&app, req).await;
+        assert!(resp.status().is_success());
+        assert!(resp.response().)
     }
 }
