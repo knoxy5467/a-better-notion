@@ -33,19 +33,14 @@ impl ResponseError for MyDbErr {
 
 // get /task endpoint for retrieving a single TaskShort
 #[get("/task")]
-async fn get_task_request(req: web::Json<ReadTaskShortRequest>) -> Result<impl Responder> {
+async fn get_task_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<ReadTaskShortRequest>,
+) -> Result<impl Responder> {
     println!("requesting task id {}", req.task_id);
-    let db: DatabaseConnection =
-        Database::connect("postgres://abn:abn@localhost:5432/abn?currentSchema=task")
-            .await
-            .map_err(|_| {
-                actix_web::error::ErrorInternalServerError(
-                    "failed to connect to the database inside server",
-                )
-            })?; //TODO 26mar24 Mrknox: this is a hardcoded connection string, we should probably move this to a config file or something
-
+    let db = data;
     let task = task::Entity::find_by_id(req.task_id)
-        .one(&db)
+        .one(db.as_ref())
         .await
         .map_err(|e| actix_web::error::ErrorInternalServerError(MyDbErr(e)))?;
     match task {
