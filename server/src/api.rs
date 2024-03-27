@@ -12,13 +12,11 @@ impl fmt::Debug for MyDbErr {
         fmt::Debug::fmt(&self.0, f)
     }
 }
-
 impl fmt::Display for MyDbErr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.0, f)
     }
 }
-
 // Implement ResponseError for the new type
 impl ResponseError for MyDbErr {
     fn error_response(&self) -> HttpResponse {
