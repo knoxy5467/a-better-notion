@@ -1,6 +1,6 @@
 use actix_web::{get, web, HttpResponse, Responder, ResponseError, Result};
 use common::backend::*;
-use sea_orm::{entity::prelude::*, DbErr};
+use sea_orm::entity::prelude::*;
 use std::fmt;
 
 use crate::database::task;
