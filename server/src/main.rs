@@ -1,5 +1,4 @@
 //! Server-Side API crate
-
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
@@ -103,8 +102,8 @@ mod tests {
             })
             .uri("/task")
             .to_request();
-        let resp CreateTaskResponse= test::call_and_read_body_json(&app, req).await;
-        assert!(resp.status().is_success());
-        assert!(resp.response().)
+        let resp: common::backend::CreateTaskResponse =
+            test::call_and_read_body_json(&app, req).await;
+        assert!(resp == 1);
     }
 }
