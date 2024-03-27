@@ -4,7 +4,7 @@ use sea_orm::entity::prelude::*;
 use std::fmt;
 
 use crate::database::task;
-// Define a new type that wraps DbErr
+/* // Define a new type that wraps DbErr
 pub struct MyDbErr(DbErr);
 
 impl fmt::Debug for MyDbErr {
@@ -17,7 +17,7 @@ impl fmt::Display for MyDbErr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.0, f)
     }
-}
+} */
 
 // Implement ResponseError for the new type
 impl ResponseError for MyDbErr {
@@ -38,7 +38,7 @@ async fn get_task_request(
     let task = task::Entity::find_by_id(req.task_id)
         .one(db.as_ref())
         .await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(MyDbErr(e)))?;
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
     match task {
         Some(model) => Ok(web::Json(ReadTaskShortResponse {
             task_id: model.id,
