@@ -27,7 +27,7 @@ async fn main() -> std::io::Result<()> {
 mod tests {
     use super::*;
     use common::backend::{ReadTaskShortRequest, ReadTaskShortResponse};
-    use sea_orm::MockDatabaseTrait;
+    
 
     #[actix_web::test]
     async fn task_request() {

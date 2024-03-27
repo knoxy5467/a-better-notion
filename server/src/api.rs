@@ -1,10 +1,9 @@
 use actix_web::{
     get,
-    http::{Error, StatusCode},
     web, HttpResponse, Responder, ResponseError, Result,
 };
 use common::backend::*;
-use sea_orm::{entity::prelude::*, Database, DbErr};
+use sea_orm::{entity::prelude::*, DbErr};
 use std::fmt;
 
 use crate::database::task;
@@ -54,7 +53,7 @@ async fn get_task_request(
             last_edited: model.last_edited,
         })),
         None => {
-            return Err(actix_web::error::ErrorNotFound("task not found by ID"));
+            Err(actix_web::error::ErrorNotFound("task not found by ID"))
         }
     }
 }
