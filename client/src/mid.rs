@@ -343,63 +343,42 @@ pub async fn init(url: &str) -> color_eyre::Result<State> {
         ..Default::default()
     };
 
-    let client = ClientBuilder::new(reqwest::Client::new())
-        .with(TracingMiddleware::<SpanBackendWithUrl>::new())
-        .build();
-    // let request = FilterRequest {
-    //     filter: Filter::None,
-    // };
-    // let res: Response = client
-    //     .get(format!("{url}/filter"))
-    //     .json(&request)
-    //     .send()
-    //     .await
-    //     .with_context(|| "sending /filter request")?;
-    let request = ReadTaskShortRequest {
-        task_id: 1,
+    let client = reqwest::Client::new();
+    client.execute(client.post(&state.url).build()?).await?;
+    let request = FilterTaskIDsRequest{
+        filter: Filter::None,
     };
-    let res = client
-        .get(format!("{url}/task"))
+    let res = client.get("http://localhost:8888")
         .json(&request)
         .send()
+        .await?
+        .json::<FilterTaskIDsResponse>()
         .await?;
-    
-    let string = String::from_utf8(res.bytes().await?.to_vec())?;
-    let res: ReadTaskShortResponse = serde_json::from_str(&string).with_context(|| {
-        format!(
-            "received FilterResponse, attempting to deserialize the following as json: \"{}\"",
-            string.clone()
-        )
-    })?;
-
-    let tasks_req = [res.task_id]
-        .into_iter()
-        .map(|task_id| ReadTaskShortRequest { task_id })
-        .collect::<ReadTasksShortRequest>();
-    let res = client
-        .get(format!("{url}/task"))
-        .json(&request)
+    let tasks_req = res.into_iter().map(|task_id| ReadTaskShortRequest{task_id}).collect::<ReadTasksShortRequest>();
+    let tasks_res = client.get("http://localhost:8888")
+        .json(&tasks_req)
         .send()
+        .await?
+        .json::<ReadTasksShortResponse>()
         .await?;
-    println!("{:?}",res);
 
-    /*
-    let task_key = Task {
-        name: res.name,
-        dependencies: res.deps,
-        completed: res.completed,
-        scripts: res.scripts,
-        db_id: Some(res.task_id),
-    };
-     
-    state.tasks.insert(task_key);
+    let task_keys = tasks_res.into_iter().map(|res|
+        (res.task_id, state.tasks.insert(Task {
+            name: res.name,
+            dependencies: res.deps,
+            completed: res.completed,
+            scripts: res.scripts,
+            db_id: Some(res.task_id),
+        }))
+    );
+    state.task_map.extend(task_keys);
 
     let view_key = state.view_def(View {
         name: "Main View".to_string(),
-        tasks: Some(state.tasks.keys().collect::<Vec<TaskKey>>()),
         ..View::default()
     });
-     */
+    let view_tasks = state.tasks.keys().collect::<Vec<TaskKey>>();
+    state.view_mod(view_key, |v| v.tasks = Some(view_tasks));
     Ok(state)
 }
 
