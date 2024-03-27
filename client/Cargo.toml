@@ -22,5 +22,6 @@ crossterm = "0.27.0"
 ratatui = { version = "0.26.1", features = ["crossterm"] }
 color-eyre = "0.6.3"
 thiserror = "1.0.58"
+num-modular = "0.6.1"
 
 

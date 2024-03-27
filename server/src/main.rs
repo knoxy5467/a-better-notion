@@ -11,6 +11,7 @@ use sea_orm::{Database, DatabaseConnection};
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     println!("Starting server");
+
     let db = Database::connect("postgres://abn:abn@localhost:5432/abn?currentSchema=task")
         .await
         .unwrap();
@@ -28,6 +29,12 @@ mod tests {
     use super::*;
     use common::backend::{ReadTaskShortRequest, ReadTaskShortResponse};
     
+
+    #[test]
+    fn test_main() {
+        std::thread::spawn(||{std::thread::sleep(std::time::Duration::from_millis(500)); std::process::exit(0)});
+        main().unwrap();
+    }
 
     #[actix_web::test]
     async fn task_request() {
@@ -51,5 +58,18 @@ mod tests {
             .to_request();
         let resp: ReadTaskShortResponse = test::call_and_read_body_json(&app, req).await;
         assert_eq!(resp.task_id, 1);
+    }
+
+    #[actix_web::test]
+    async fn task_requests() {
+        use actix_web::test;
+        let app = test::init_service(App::new().service(get_tasks_request)).await;
+        let req = test::TestRequest::default()
+            .set_json(vec![ReadTaskShortRequest { task_id: 1 }])
+            .uri("/tasks")
+            .to_request();
+        let resp: Vec<ReadTaskShortResponse> = test::call_and_read_body_json(&app, req).await;
+
+        assert_eq!(resp[0].task_id, 1);
     }
 }
