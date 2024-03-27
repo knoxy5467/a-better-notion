@@ -1,6 +1,6 @@
-use actix_web::{get, web, HttpResponse, Responder, ResponseError, Result};
+use actix_web::{get, put, web, HttpResponse, Responder, ResponseError, Result};
 use common::backend::*;
-use sea_orm::{entity::prelude::*, DbErr};
+use sea_orm::{entity::prelude::*, ActiveValue::NotSet, DbErr, Set, Unset};
 use std::fmt;
 
 use crate::database::task;
@@ -66,4 +66,23 @@ async fn get_tasks_request(req: web::Json<Vec<ReadTaskShortRequest>>) -> Result<
         scripts: Vec::new(),
         last_edited: chrono::NaiveDateTime::default(),
     }]))
+}
+
+#[put("/task")]
+async fn create_task_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<CreateTaskRequest>,
+) -> Result<impl Responder> {
+    let db = data;
+    let task_model = task::ActiveModel {
+        id: NotSet,
+        title: Set(req.name.clone()),
+        completed: Set(req.completed),
+        last_edited: Set(chrono::Local::now().naive_local()),
+    };
+    let result_task = task::Entity::insert(task_model)
+        .exec(db.as_ref())
+        .await
+        .map_err(|e| actix_web::error::ErrorInternalServerError(MyDbErr(e)))?;
+    Ok(web::Json(result_task.last_insert_id))
 }

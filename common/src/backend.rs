@@ -8,12 +8,12 @@ use crate::*;
 
 /// reqwest::post("/task").body(CreateTaskRequest {})
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-struct CreateTaskRequest {
-    name: String,
-    completed: bool,
-    properties: Vec<TaskProp>,
+pub struct CreateTaskRequest {
+    pub name: String,
+    pub completed: bool,
+    pub properties: Vec<TaskProp>,
     /// [name, date, value]
-    dependencies: Vec<TaskID>,
+    pub dependencies: Vec<TaskID>,
 }
 type CreateTaskResponse = TaskID;
 /// reqwest::post("/tasks").body(CreateTaskRequest {})
