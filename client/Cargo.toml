@@ -12,7 +12,7 @@ serde = { version = "1.0.197", features = ["derive"]}
 serde_json = "1.0.114"
 # Middleware Async
 tokio = { version = "1.36.0", features = ["full"] }
-reqwest = "0.11.25"
+reqwest = { version = "0.12", features = ["json"] }
 
 # Local
 common = {path = "../common"}

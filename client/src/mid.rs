@@ -1,7 +1,7 @@
 //! Middleware Logic
 #![allow(unused)]
 
-use common::*;
+use common::{backend::{FilterTaskIDsRequest, FilterTaskIDsResponse}, *};
 
 use serde::{Deserialize, Serialize};
 use slotmap::{new_key_type, SlotMap};
@@ -329,6 +329,10 @@ pub async fn init(url: &str) -> Result<State, reqwest::Error> {
 
     let client = reqwest::Client::new();
     client.execute(client.post(&state.url).build()?).await?;
+
+    let resp: FilterTaskIDsResponse = client.execute(client.get(format!("{url}/filterids")).json(&FilterTaskIDsRequest { filter: Filter::None }).build()?).await?.json::<_>().await?;
+    
+    let resp: FilterTaskIDsResponse = client.execute(client.get(format!("{url}/filterids")).json(&FilterTaskIDsRequest { filter: Filter::None }).build()?).await?.json::<_>().await?;
 
     Ok(state)
 }
