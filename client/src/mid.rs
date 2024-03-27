@@ -339,13 +339,7 @@ pub async fn init(url: &str) -> Result<(State, ViewKey), reqwest::Error> {
         .await?
         .json::<FilterTaskIDsResponse>()
         .await?;
-    let mut tasks_req: ReadTasksShortRequest = vec![];
-    for id in res.into_iter() {
-        let read_task_req = ReadTaskShortRequest{
-            task_id: id,
-        };
-        tasks_req.push(read_task_req);
-    }
+    let tasks_req = res.into_iter().map(|task_id| ReadTaskShortRequest{task_id}).collect::<ReadTasksShortRequest>();
     let tasks_res = client.get("http://localhost:8888")
         .json(&tasks_req)
         .send()
@@ -353,23 +347,23 @@ pub async fn init(url: &str) -> Result<(State, ViewKey), reqwest::Error> {
         .json::<ReadTasksShortResponse>()
         .await?;
 
-    let mut task_keys = vec![];
-    for res in tasks_res.into_iter() {
-        let task_obj = Task {
+    let task_keys = tasks_res.into_iter().map(|res|
+        (res.task_id, state.tasks.insert(Task {
             name: res.name,
             dependencies: res.deps,
             completed: res.completed,
             scripts: res.scripts,
             db_id: Some(res.task_id),
-        };
-        let task_obj_key = state.task_def(task_obj);
-        task_keys.push(task_obj_key);
-    };
+        }))
+    );
+    state.task_map.extend(task_keys);
+
     let view_key = state.view_def(View {
         name: "Main View".to_string(),
         ..View::default()
     });
-    state.view_mod(view_key, |v| v.tasks = Some(task_keys));
+    let view_tasks = state.tasks.keys().collect::<Vec<TaskKey>>();
+    state.view_mod(view_key, |v| v.tasks = Some(view_tasks));
     Ok((state, view_key))
 }
 
