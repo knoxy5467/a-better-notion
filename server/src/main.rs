@@ -22,7 +22,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_task_request)
             .service(get_tasks_request)
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind(("127.0.0.1", 8888))?
     .run()
     .await
 }
@@ -31,6 +31,12 @@ mod tests {
     use super::*;
     use common::backend::{ReadTaskShortRequest, ReadTaskShortResponse};
     
+
+    #[test]
+    fn test_main() {
+        std::thread::spawn(||{std::thread::sleep(std::time::Duration::from_millis(500)); std::process::exit(0)});
+        main().unwrap();
+    }
 
     #[test]
     fn test_main() {
