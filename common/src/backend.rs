@@ -6,7 +6,7 @@ use crate::*;
 
 /// # TASK API
 
-/// reqwest::post("/task").body(CreateTaskRequest {})    
+/// reqwest::post("/task").body(CreateTaskRequest {})
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 struct CreateTaskRequest {
     name: String,
@@ -41,6 +41,8 @@ pub struct ReadTaskShortResponse {
     pub deps: Vec<TaskID>,
     /// list of script ids that apply to this task
     pub scripts: Vec<ScriptID>,
+    /// last time this task was edited
+    pub last_edited: chrono::NaiveDateTime,
 }
 type ReadTasksShortRequest = Vec<ReadTaskShortRequest>;
 type ReadTasksShortResponse = Vec<ReadTaskShortResponse>;
