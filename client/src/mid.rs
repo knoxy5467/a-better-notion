@@ -1,12 +1,13 @@
 //! Middleware Logic
 #![allow(unused)]
 
-use common::{backend::{FilterTaskIDsRequest, FilterTaskIDsResponse}, *};
-
+use common::{backend::{FilterTaskIDsRequest, FilterTaskIDsResponse, ReadTaskShortRequest, ReadTaskShortResponse}, *};
+use reqwest::{Request, Response};
 use serde::{Deserialize, Serialize};
 use slotmap::{new_key_type, SlotMap};
 use std::collections::HashMap;
 use thiserror::Error;
+// use api::get_task_request;
 
 new_key_type! { pub struct PropKey; }
 new_key_type! { pub struct TaskKey; }
@@ -321,7 +322,7 @@ impl State {
 
 /// Init middleware state
 /// This function is called by UI to create the Middleware state and establish a connection to the Database.
-pub async fn init(url: &str) -> Result<State, reqwest::Error> {
+pub async fn init(url: &str) -> Result<(Result<State, reqwest::Error>, ViewKey), reqwest::Error> {
     let state = State {
         url: url.to_owned(),
         ..Default::default()
@@ -329,12 +330,34 @@ pub async fn init(url: &str) -> Result<State, reqwest::Error> {
 
     let client = reqwest::Client::new();
     client.execute(client.post(&state.url).build()?).await?;
-
-    let resp: FilterTaskIDsResponse = client.execute(client.get(format!("{url}/filterids")).json(&FilterTaskIDsRequest { filter: Filter::None }).build()?).await?.json::<_>().await?;
-    
-    let resp: FilterTaskIDsResponse = client.execute(client.get(format!("{url}/filterids")).json(&FilterTaskIDsRequest { filter: Filter::None }).build()?).await?.json::<_>().await?;
-
-    Ok(state)
+    let request = FilterTaskIDsRequest{
+        filter: Filter::None,
+    };
+    let res = client.get("http://localhost:8888")
+        .json(&request)
+        .send()
+        .await?
+        .json::<FilterTaskIDsResponse>()
+        .await?;
+    let tasks_req: Vec<ReadTaskShortRequest> = vec![];
+    for id in res.into_iter() {
+        let read_task_req = ReadTaskShortRequest{
+            task_id: id,
+        };
+        tasks_req.push(read_task_req);
+    }
+    let tasks_res = client.get("http://localhost:8888")
+        .json(&tasks_req)
+        .send()
+        .await?
+        .json::<ReadTaskShortResponse>()
+        .await?;
+    let view_key = state.view_def(View {
+        name: "Main View".to_string(),
+        ..View::default()
+    });
+    state.view_mod(view_key, |v| v.tasks = tasks_res);
+    Ok((Ok(state), view_key))
 }
 
 pub fn init_example() -> (State, ViewKey) {
