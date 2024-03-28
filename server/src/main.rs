@@ -2,6 +2,7 @@
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 mod api;
 mod database;
 use actix_web::{web::Data, App, HttpServer};
@@ -78,6 +79,7 @@ mod tests {
         assert_eq!(resp[0].task_id, 1);
     }
     #[actix_web::test]
+    #[coverage(off)]
     async fn insert_task_request() {
         use actix_web::test;
         use sea_orm::MockDatabase;
