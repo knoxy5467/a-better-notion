@@ -62,3 +62,19 @@ For the title, summarize the issue in brief
 For the description, give a detailed explanation of the issue and link relevant code
 Set the status of the issue using the labels menu on the right. Optionally, assign the issue to a developer
 Submit the issue.
+
+# Querying Database
+Once you have the database running in either Docker or on your local intallation you can interact with it in 1 of 2 ways.
+
+## psql (the standard postgres interface)
+In order to run normal Postgresql queries you will need to install postgres on your computer.
+
+when postgres is installed on your computer you can connect to the database with `psql "postgres://abn:abn@localhost:5432/abn?options=-c%20search_path%3Dtask"`
+
+an example query to create a task would be 
+`INSERT INTO task (completed, title)
+VALUES (false, "my task title");`
+
+and to retrieve value from this table you would use `SELECT * FROM task;`
+
+
