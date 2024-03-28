@@ -346,74 +346,60 @@ pub async fn init(url: &str) -> color_eyre::Result<State> {
     let client = ClientBuilder::new(reqwest::Client::new())
         .with(TracingMiddleware::<SpanBackendWithUrl>::new())
         .build();
-    // let request = FilterRequest {
-    //     filter: Filter::None,
-    // };
-    // let res: Response = client
-    //     .get(format!("{url}/filter"))
-    //     .json(&request)
-    //     .send()
-    //     .await
-    //     .with_context(|| "sending /filter request")?;
-    let request = ReadTaskShortRequest {
-        task_id: 1,
+    let request = FilterRequest {
+        filter: Filter::None,
     };
-    let res = client
-        .get(format!("{url}/task"))
+    let res: Response = client
+        .get(format!("{url}/filter"))
         .json(&request)
         .send()
-        .await?;
-    
+        .await
+        .with_context(|| "sending /filter request")?;
     let string = String::from_utf8(res.bytes().await?.to_vec())?;
-    let res: ReadTaskShortResponse = serde_json::from_str(&string).with_context(|| {
+    let res: FilterResponse = serde_json::from_str(&string).with_context(|| {
         format!(
             "received FilterResponse, attempting to deserialize the following as json: \"{}\"",
             string.clone()
         )
     })?;
 
-    let task_key = Task {
-        name: res.name,
-        dependencies: res.deps,
-        completed: res.completed,
-        scripts: res.scripts,
-        db_id: Some(res.task_id),
-    };
-     
-    state.tasks.insert(task_key);
-
-    let request = ReadTaskShortRequest {
-        task_id: 2,
-    };
+    let tasks_req = res
+        .into_iter()
+        .map(|task_id| ReadTaskShortRequest { task_id })
+        .collect::<ReadTasksShortRequest>();
     let res = client
-        .get(format!("{url}/task"))
-        .json(&request)
+        .get(format!("{url}/tasks"))
+        .json(&tasks_req)
         .send()
         .await?;
-    
     let string = String::from_utf8(res.bytes().await?.to_vec())?;
-    let res: ReadTaskShortResponse = serde_json::from_str(&string).with_context(|| {
-        format!(
-            "received FilterResponse, attempting to deserialize the following as json: \"{}\"",
-            string.clone()
-        )
-    })?;
+    let tasks_res: ReadTasksShortResponse = serde_json::from_str(&string).with_context(||
+        format!("received ReadTasksShortResponse, attempting to deserialize the following as json: \"{}\"", string.clone())
+    )?;
 
-    let task_key = Task {
-        name: res.name,
-        dependencies: res.deps,
-        completed: res.completed,
-        scripts: res.scripts,
-        db_id: Some(res.task_id),
-    };
-     
-    state.tasks.insert(task_key);
+    let task_keys = tasks_res.into_iter().flat_map(|res| {
+        res.ok().map(|res| {
+            (
+                res.task_id,
+                state.tasks.insert(Task {
+                    name: res.name,
+                    dependencies: res.deps,
+                    completed: res.completed,
+                    scripts: res.scripts,
+                    db_id: Some(res.task_id),
+                }),
+            )
+        })
+    });
+    state.task_map.extend(task_keys);
 
     let view_key = state.view_def(View {
         name: "Main View".to_string(),
         tasks: Some(state.tasks.keys().collect::<Vec<TaskKey>>()),
         ..View::default()
     });
+    let view_tasks = state.tasks.keys().collect::<Vec<TaskKey>>();
+    state.view_mod(view_key, |v| v.tasks = Some(view_tasks));
     Ok(state)
 }
 
