@@ -41,7 +41,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn task_request() {
+    async fn task_request_succeeds_with_good_request() {
         use actix_web::test;
         use sea_orm::MockDatabase;
 

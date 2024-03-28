@@ -1,9 +1,8 @@
+use crate::database::task;
 #[allow(unused)]
 use actix_web::{get, put, web, Responder, Result};
 use common::backend::*;
 use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Set};
-
-use crate::database::task;
 
 /// get /task endpoint for retrieving a single TaskShort
 #[get("/task")]
@@ -16,7 +15,7 @@ async fn get_task_request(
     let task = task::Entity::find_by_id(req.task_id)
         .one(db.as_ref())
         .await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("SQL error: {}", e)))?;
+        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("SQL error: {}", e)))?; // TODO handle this error better, if it does not exist then it should be a http 204 error
     match task {
         Some(model) => Ok(web::Json(ReadTaskShortResponse {
             task_id: model.id,
@@ -63,6 +62,45 @@ async fn create_task_request(
         .await
         .map_err(|e| {
             actix_web::error::ErrorInternalServerError(format!("task not inserted {}", e))
-        })?;
+        })?; //TODO handle this error better, for example for unique constraint violation
     Ok(web::Json(result_task.last_insert_id as CreateTaskResponse))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::vec;
+
+    use actix_web::{
+        dev::{Service, ServiceResponse},
+        http::StatusCode,
+    };
+
+    use super::*;
+
+    #[actix_web::test]
+    async fn get_task_fails_with_bad_request() {
+        use actix_web::test;
+        use sea_orm::MockDatabase;
+
+        let db = MockDatabase::new(sea_orm::DatabaseBackend::Postgres);
+        let db_conn = db
+            .append_query_errors([sea_orm::error::DbErr::Query(
+                sea_orm::error::RuntimeErr::Internal("test".to_string()),
+            )])
+            .into_connection();
+        let db_data: web::Data<DatabaseConnection> = web::Data::new(db_conn);
+        let app = test::init_service(
+            actix_web::App::new()
+                .app_data(db_data)
+                .service(get_task_request),
+        )
+        .await;
+        let req = test::TestRequest::default()
+            .method(actix_web::http::Method::GET)
+            .set_json(ReadTaskShortRequest { task_id: 2 })
+            .uri("/task")
+            .to_request();
+        let resp: ServiceResponse = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
 }
