@@ -32,7 +32,7 @@ mod tests {
     };
     use sea_orm::MockExecResult;
 
-    #[cfg_attr(coverage, coverage(off))]
+    #[cfg_attr(coverage_nightly, coverage(off))]
     #[test]
     fn test_main() {
         std::thread::spawn(|| {
