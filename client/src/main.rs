@@ -38,7 +38,7 @@ async fn main() -> color_eyre::Result<()> {
     res
 }
 async fn run<W: io::Write>(mut term: term::Tui<W>) -> color_eyre::Result<()> {
-    let state = mid::init("http://localhost:8888").await?;
+    let state = mid::init("http://localhost:8080").await?;
     let events = EventStream::new();
     App::new(state).run(&mut term, events).await
 }
