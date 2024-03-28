@@ -32,6 +32,7 @@ mod tests {
     };
     use sea_orm::MockExecResult;
 
+    #[cfg_attr(coverage, coverage(off))]
     #[test]
     fn test_main() {
         std::thread::spawn(|| {
@@ -79,7 +80,6 @@ mod tests {
         assert_eq!(resp[0].task_id, 1);
     }
     #[actix_web::test]
-    #[coverage(off)]
     async fn insert_task_request() {
         use actix_web::test;
         use sea_orm::MockDatabase;
