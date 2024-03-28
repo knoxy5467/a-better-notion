@@ -26,7 +26,9 @@ async fn main() -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use common::backend::{CreateTaskRequest, ReadTaskShortRequest, ReadTaskShortResponse};
+    use common::backend::{
+        CreateTaskRequest, CreateTaskResponse, ReadTaskShortRequest, ReadTaskShortResponse,
+    };
     use sea_orm::MockExecResult;
 
     #[test]
@@ -85,6 +87,12 @@ mod tests {
                 last_insert_id: 1,
                 rows_affected: 1,
             }])
+            .append_query_results([vec![database::task::Model {
+                id: 1,
+                title: "test".to_string(),
+                completed: false,
+                last_edited: chrono::NaiveDateTime::default(),
+            }]])
             .into_connection();
         let app = test::init_service(
             App::new()
@@ -102,9 +110,8 @@ mod tests {
             })
             .uri("/task")
             .to_request();
-        let response = test::call_service(&app, req).await;
+        let response: CreateTaskResponse = test::call_and_read_body_json(&app, req).await;
         env_logger::builder().is_test(true).try_init().unwrap();
-        log::info!("{:?}", response);
-        println!("{:?}", response);
+        assert_eq!(response, 1);
     }
 }

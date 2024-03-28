@@ -81,6 +81,11 @@ async fn create_task_request(
     let result_task = task::Entity::insert(task_model)
         .exec(db.as_ref())
         .await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(MyDbErr(e)))?;
+        .map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!(
+                "task not inserted {}",
+                e.to_string()
+            ))
+        })?;
     Ok(web::Json(result_task.last_insert_id as CreateTaskResponse))
 }
