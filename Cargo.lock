@@ -706,6 +706,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06ea2b9bc92be3c2baa9334a323ebca2d6f074ff852cd1d7b11064035cd3868f"
 
 [[package]]
+name = "coverage-helper"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3036399e8abfc9d696c1ee94f7677f9704e903d96299b0026e339eed6055dcaf"
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2393,6 +2399,7 @@ dependencies = [
  "actix-web",
  "chrono",
  "common",
+ "coverage-helper",
  "dotenvy",
  "env_logger",
  "log",
