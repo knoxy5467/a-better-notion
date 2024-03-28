@@ -1,3 +1,10 @@
 [toolchain]
 channel = "stable" # or whatever channel you are using
-components = [ "rust-src", "rust-analyzer", "clippy", "rustfmt", "llvm-tools-preview"]
+components = [
+    "rust-src",
+    "rust-analyzer",
+    "clippy",
+    "rustfmt",
+    "llvm-tools-preview",
+    "cargo-llvm-cov",
+]

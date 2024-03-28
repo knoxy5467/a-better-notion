@@ -1,5 +1,4 @@
 //! Server-Side API crate
-
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
@@ -27,17 +26,22 @@ async fn main() -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use common::backend::{ReadTaskShortRequest, ReadTaskShortResponse};
-    
+    use common::backend::{
+        CreateTaskRequest, CreateTaskResponse, ReadTaskShortRequest, ReadTaskShortResponse,
+    };
+    use sea_orm::MockExecResult;
 
     #[test]
     fn test_main() {
-        std::thread::spawn(||{std::thread::sleep(std::time::Duration::from_millis(500)); std::process::exit(0)});
+        std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            std::process::exit(0)
+        });
         main().unwrap();
     }
 
     #[actix_web::test]
-    async fn task_request() {
+    async fn task_request_succeeds_with_good_request() {
         use actix_web::test;
         use sea_orm::MockDatabase;
 
@@ -53,6 +57,7 @@ mod tests {
         let db_data: Data<DatabaseConnection> = Data::new(db_conn);
         let app = test::init_service(App::new().app_data(db_data).service(get_task_request)).await;
         let req = test::TestRequest::default()
+            .method(actix_web::http::Method::GET)
             .set_json(ReadTaskShortRequest { task_id: 1 })
             .uri("/task")
             .to_request();
@@ -69,7 +74,43 @@ mod tests {
             .uri("/tasks")
             .to_request();
         let resp: Vec<ReadTaskShortResponse> = test::call_and_read_body_json(&app, req).await;
-
         assert_eq!(resp[0].task_id, 1);
+    }
+    #[actix_web::test]
+    async fn insert_task_request() {
+        use actix_web::test;
+        use sea_orm::MockDatabase;
+        let db = MockDatabase::new(sea_orm::DatabaseBackend::Postgres);
+        let db_conn = db
+            .append_exec_results([MockExecResult {
+                last_insert_id: 1,
+                rows_affected: 1,
+            }])
+            .append_query_results([vec![database::task::Model {
+                id: 1,
+                title: "test".to_string(),
+                completed: false,
+                last_edited: chrono::NaiveDateTime::default(),
+            }]])
+            .into_connection();
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::new(db_conn))
+                .service(create_task_request),
+        )
+        .await;
+        let req = test::TestRequest::default()
+            .method(actix_web::http::Method::PUT)
+            .set_json(CreateTaskRequest {
+                name: "test".to_string(),
+                completed: false,
+                properties: vec![],
+                dependencies: vec![],
+            })
+            .uri("/task")
+            .to_request();
+        let response: CreateTaskResponse = test::call_and_read_body_json(&app, req).await;
+        env_logger::builder().is_test(true).try_init().unwrap();
+        assert_eq!(response, 1);
     }
 }
