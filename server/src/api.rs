@@ -58,6 +58,25 @@ async fn get_tasks_request(
     Ok(web::Json(res))
 }
 
+/// get /filter endpoint for retrieving some number of TaskShorts
+#[allow(unused_variables)]
+#[get("/filter")]
+async fn get_filter_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<FilterRequest>,
+) -> Result<impl Responder> {
+    //TODO: construct filter
+
+    let tasks: Vec<task::Model> = task::Entity::find()
+        .all(data.as_ref())
+        .await
+        .map_err(|e| actix_web::error::ErrorInternalServerError(MyDbErr(e)))?;
+
+    Ok(web::Json(
+        tasks.iter().map(|a| a.id).collect::<FilterResponse>(),
+    ))
+}
+
 #[put("/task")]
 async fn create_task_request(
     data: web::Data<DatabaseConnection>,
