@@ -372,33 +372,18 @@ pub async fn init(url: &str) -> color_eyre::Result<State> {
         )
     })?;
 
-    let task_key = Task {
-        name: res.name,
-        dependencies: res.deps,
-        completed: res.completed,
-        scripts: res.scripts,
-        db_id: Some(res.task_id),
-    };
-     
-    state.tasks.insert(task_key);
-
-    let request = ReadTaskShortRequest {
-        task_id: 2,
-    };
+    let tasks_req = [res.task_id]
+        .into_iter()
+        .map(|task_id| ReadTaskShortRequest { task_id })
+        .collect::<ReadTasksShortRequest>();
     let res = client
         .get(format!("{url}/task"))
         .json(&request)
         .send()
         .await?;
-    
-    let string = String::from_utf8(res.bytes().await?.to_vec())?;
-    let res: ReadTaskShortResponse = serde_json::from_str(&string).with_context(|| {
-        format!(
-            "received FilterResponse, attempting to deserialize the following as json: \"{}\"",
-            string.clone()
-        )
-    })?;
+    println!("{:?}",res);
 
+    /*
     let task_key = Task {
         name: res.name,
         dependencies: res.deps,
@@ -414,6 +399,7 @@ pub async fn init(url: &str) -> color_eyre::Result<State> {
         tasks: Some(state.tasks.keys().collect::<Vec<TaskKey>>()),
         ..View::default()
     });
+     */
     Ok(state)
 }
 
