@@ -11,15 +11,15 @@ use serde::{Deserialize, Serialize};
 
 /// Database Primary key for tasks
 /// Note: Database should ensure IDs are never re-used.
-pub type TaskID = u64;
+pub type TaskID = i32;
 
 /// Database Primary key for scripts
 /// Note: Database should ensure IDs are never re-used.
-pub type ScriptID = u64;
+pub type ScriptID = i32;
 
 /// Database Primary key for views
 /// Note: Database should ensure IDs are never re-used.
-pub type ViewID = u64;
+pub type ViewID = i32;
 
 /// Identification of a property, from database
 pub type PropName = String;

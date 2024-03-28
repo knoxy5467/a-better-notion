@@ -11,9 +11,10 @@ use sea_orm::{Database, DatabaseConnection};
 async fn main() -> std::io::Result<()> {
     println!("Starting server");
 
-    let db = Database::connect("postgres://abn:abn@localhost:5432/abn?currentSchema=task")
-        .await
-        .unwrap();
+    let db =
+        Database::connect("postgres://abn:abn@localhost:5432/abn?options=-c%20search_path%3Dtask")
+            .await
+            .unwrap();
     let db_data: Data<DatabaseConnection> = Data::new(db);
     HttpServer::new(move || {
         let db_data = db_data.clone();

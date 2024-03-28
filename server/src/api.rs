@@ -3,7 +3,6 @@ use crate::database::task;
 use actix_web::{get, put, web, Responder, Result};
 use common::backend::*;
 use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Set};
-
 /// get /task endpoint for retrieving a single TaskShort
 #[get("/task")]
 async fn get_task_request(
