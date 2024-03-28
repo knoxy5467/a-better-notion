@@ -27,6 +27,7 @@ async fn main() -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use actix_web::dev::Service;
     use common::backend::{
         CreateTaskRequest, CreateTaskResponse, ReadTaskShortRequest, ReadTaskShortResponse,
     };
