@@ -332,7 +332,7 @@ impl State {
 /// Init middleware state
 /// This function is called by UI to create the Middleware state and establish a connection to the Database.
 /// Important: Make sure `url` does not contain a trailing `/`
-pub async fn init(url: &str) -> Result<State, reqwest::Error> {
+pub async fn init(url: &str) -> color_eyre::Result<State> {
     let mut state = State {
         url: url.to_owned(),
         ..Default::default()

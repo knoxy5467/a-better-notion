@@ -3,8 +3,9 @@
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
-use std::io::{self, Write};
+use std::{io::{self, Write}, panic};
 
+use color_eyre::eyre;
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyEventKind};
 use futures::{Stream, StreamExt};
 use mid::*;
@@ -23,13 +24,41 @@ const SELECTED_STYLE_FG: Color = Color::LightYellow;
 const COMPLETED_TEXT_COLOR: Color = Color::Green;
 
 #[tokio::main]
-async fn main() -> io::Result<()> {
-    let mut term = term::init(std::io::stdout())?;
-    let state = mid::init("http://localhost:8888").await.unwrap();
-    let events = EventStream::new();
-    let res = App::new(state).run(&mut term, events).await;
+async fn main() -> color_eyre::Result<()> {
+    install_hooks()?;
+    let term = term::init(std::io::stdout())?;
+    let res = run(term).await;
     term::restore()?;
-    res
+    Ok(res?)
+}
+async fn run<W: io::Write>(mut term: term::Tui<W>) -> color_eyre::Result<()> {
+    let state = mid::init("http://localhost:8888").await?;
+    let events = EventStream::new();
+    App::new(state).run(&mut term, events).await
+}
+
+/// This replaces the standard color_eyre panic and error hooks with hooks that
+/// restore the terminal before printing the panic or error.
+pub fn install_hooks() -> color_eyre::Result<()> {
+    // add any extra configuration you need to the hook builder
+    let hook_builder = color_eyre::config::HookBuilder::default();
+    let (panic_hook, eyre_hook) = hook_builder.into_hooks();
+
+    // convert from a color_eyre PanicHook to a standard panic hook
+    let panic_hook = panic_hook.into_panic_hook();
+    panic::set_hook(Box::new(move |panic_info| {
+        term::restore().unwrap();
+        panic_hook(panic_info);
+    }));
+
+    // convert from a color_eyre EyreHook to a eyre ErrorHook
+    let eyre_hook = eyre_hook.into_eyre_hook();
+    eyre::set_hook(Box::new(move |error| {
+        term::restore().unwrap();
+        eyre_hook(error)
+    }))?;
+
+    Ok(())
 }
 
 /// UI App State
@@ -134,7 +163,7 @@ impl App {
         &mut self,
         term: &mut term::Tui<W>,
         mut events: impl Stream<Item = io::Result<Event>> + Unpin,
-    ) -> io::Result<()> {
+    ) -> color_eyre::Result<()> {
         self.task_list.current_view = self.state.view_get_default();
         // while not exist
         while !self.should_exit {
@@ -154,7 +183,7 @@ impl App {
     }
 
     /// updates the application's state based on user input
-    fn handle_event(&mut self, event: Event) -> io::Result<bool> {
+    fn handle_event(&mut self, event: Event) -> color_eyre::Result<bool> {
         match event {
             // it's important to check that the event is a key press event as
             // crossterm also emits key release and repeat events on Windows.
@@ -294,7 +323,7 @@ mod tests {
     }
 
     #[test]
-    fn handle_key_event() -> io::Result<()> {
+    fn handle_key_event() -> color_eyre::Result<()> {
         let mut app = App::new(State::default());
         // test up and down in example mid state
         let state = init_test_state();
