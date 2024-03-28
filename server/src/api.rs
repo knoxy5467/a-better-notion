@@ -1,3 +1,4 @@
+#[allow(unused)]
 use actix_web::{get, put, web, Responder, Result};
 use common::backend::*;
 use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Set};
