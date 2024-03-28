@@ -23,3 +23,5 @@ coverage-helper = "0.2"
 
 [build]
 rustflags = ["-C instrument-coverage"]
+
+[env]
