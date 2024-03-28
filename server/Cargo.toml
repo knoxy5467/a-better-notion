@@ -22,4 +22,4 @@ llvm-tools = "0.1.1"
 coverage-helper = "0.2"
 
 [build]
-rustflags = []
+rustflags = ["-C instrument-coverage"]
