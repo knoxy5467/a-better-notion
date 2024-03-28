@@ -40,7 +40,9 @@ async fn get_tasks_request(
         let task = task::Entity::find_by_id(taskreq.task_id)
             .one(data.as_ref())
             .await
-            .map_err(|e| actix_web::error::ErrorInternalServerError(MyDbErr(e)))?;
+            .map_err(|e| {
+                actix_web::error::ErrorInternalServerError(format!("couldn't fetch tasks: {}", e))
+            })?;
         match task {
             Some(model) => res.push(Ok(ReadTaskShortResponse {
                 task_id: model.id,
@@ -70,7 +72,9 @@ async fn get_filter_request(
     let tasks: Vec<task::Model> = task::Entity::find()
         .all(data.as_ref())
         .await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(MyDbErr(e)))?;
+        .map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!("couldn't filter tasks: {}", e))
+        })?;
 
     Ok(web::Json(
         tasks.iter().map(|a| a.id).collect::<FilterResponse>(),
