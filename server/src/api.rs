@@ -70,10 +70,7 @@ async fn create_task_request(
 mod tests {
     use std::vec;
 
-    use actix_web::{
-        dev::{Service, ServiceResponse},
-        http::StatusCode,
-    };
+    use actix_web::{dev::ServiceResponse, http::StatusCode};
 
     use super::*;
 
@@ -98,6 +95,38 @@ mod tests {
         let req = test::TestRequest::default()
             .method(actix_web::http::Method::GET)
             .set_json(ReadTaskShortRequest { task_id: 2 })
+            .uri("/task")
+            .to_request();
+        let resp: ServiceResponse = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+    #[actix_web::test]
+    async fn put_task_fails_with_bad_request() {
+        use actix_web::test;
+        use sea_orm::MockDatabase;
+        let db = MockDatabase::new(sea_orm::DatabaseBackend::Postgres);
+        let db_conn = db
+            .append_exec_errors([sea_orm::error::DbErr::Query(
+                sea_orm::error::RuntimeErr::Internal("test".to_string()),
+            )])
+            .append_query_errors([sea_orm::error::DbErr::Query(
+                sea_orm::error::RuntimeErr::Internal("test".to_string()),
+            )])
+            .into_connection();
+        let app = test::init_service(
+            actix_web::App::new()
+                .app_data(web::Data::new(db_conn))
+                .service(create_task_request),
+        )
+        .await;
+        let req = test::TestRequest::default()
+            .method(actix_web::http::Method::PUT)
+            .set_json(CreateTaskRequest {
+                name: "test".to_string(),
+                completed: false,
+                properties: vec![],
+                dependencies: vec![],
+            })
             .uri("/task")
             .to_request();
         let resp: ServiceResponse = test::call_service(&app, req).await;
