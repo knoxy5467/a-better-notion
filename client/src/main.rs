@@ -15,6 +15,8 @@ use ratatui::{
     symbols::border,
     widgets::{block::*, *},
 };
+use tracing_error::ErrorLayer;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 mod mid;
 mod term;
 
@@ -25,6 +27,7 @@ const COMPLETED_TEXT_COLOR: Color = Color::Green;
 
 #[tokio::main]
 async fn main() -> color_eyre::Result<()> {
+    initialize_logging()?;
     install_hooks()?;
     let term = term::init(std::io::stdout())?;
     let res = run(term).await;
@@ -36,6 +39,18 @@ async fn run<W: io::Write>(mut term: term::Tui<W>) -> color_eyre::Result<()> {
     let events = EventStream::new();
     App::new(state).run(&mut term, events).await
 }
+
+fn initialize_logging() -> color_eyre::Result<()> {
+    let file_subscriber = tracing_subscriber::fmt::layer()
+      .with_file(true)
+      .with_line_number(true)
+      .with_writer(io::stdout)
+      .with_target(false)
+      .with_ansi(false)
+      .with_filter(tracing_subscriber::filter::EnvFilter::from_default_env());
+    tracing_subscriber::registry().with(file_subscriber).with(ErrorLayer::default()).init();
+    Ok(())
+  }
 
 /// This replaces the standard color_eyre panic and error hooks with hooks that
 /// restore the terminal before printing the panic or error.

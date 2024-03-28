@@ -1,14 +1,16 @@
 //! Middleware Logic
 #![allow(unused)]
 
+use color_eyre::{eyre::Context, Section};
 use common::{
     backend::{
-        FilterTaskIDsRequest, FilterTaskIDsResponse, ReadTaskShortRequest, ReadTaskShortResponse,
-        ReadTasksShortRequest, ReadTasksShortResponse,
+        FilterRequest, FilterResponse, ReadTaskShortRequest, ReadTaskShortResponse, ReadTasksShortRequest, ReadTasksShortResponse
     },
     *,
 };
 use reqwest::{Request, Response};
+use reqwest_middleware::ClientBuilder;
+use reqwest_tracing::{SpanBackendWithUrl, TracingMiddleware};
 use serde::{Deserialize, Serialize};
 use slotmap::{new_key_type, SlotMap};
 use std::collections::HashMap;
@@ -332,36 +334,44 @@ impl State {
 /// Init middleware state
 /// This function is called by UI to create the Middleware state and establish a connection to the Database.
 /// Important: Make sure `url` does not contain a trailing `/`
+#[tracing::instrument]
 pub async fn init(url: &str) -> color_eyre::Result<State> {
     let mut state = State {
         url: url.to_owned(),
         ..Default::default()
     };
 
-    let client = reqwest::Client::new();
-    let request = FilterTaskIDsRequest {
+    let client = ClientBuilder::new(reqwest::Client::new())
+        .with(TracingMiddleware::<SpanBackendWithUrl>::new())
+        .build();
+    let request = FilterRequest {
         filter: Filter::None,
     };
-    let res = client
+    let res: Response = client
         .get(format!("{url}/filter"))
         .json(&request)
         .send()
-        .await?
-        .json::<FilterTaskIDsResponse>()
-        .await?;
+        .await.with_context(||"sending /filter request")?;
+    let string = String::from_utf8(res.bytes().await?.to_vec())?;
+    let res: FilterResponse = serde_json::from_str(&string).with_context(||
+        format!("received FilterResponse, attempting to deserialize the following as json: \"{}\"", string.clone())
+    )?;
+
     let tasks_req = res
         .into_iter()
         .map(|task_id| ReadTaskShortRequest { task_id })
         .collect::<ReadTasksShortRequest>();
-    let tasks_res = client
+    let res = client
         .get(format!("{url}/tasks"))
         .json(&tasks_req)
         .send()
-        .await?
-        .json::<ReadTasksShortResponse>()
         .await?;
+    let string = String::from_utf8(res.bytes().await?.to_vec())?;
+    let tasks_res: ReadTasksShortResponse = serde_json::from_str(&string).with_context(||
+        format!("received ReadTasksShortResponse, attempting to deserialize the following as json: \"{}\"", string.clone())
+    )?;
 
-    let task_keys = tasks_res.into_iter().map(|res| {
+    let task_keys = tasks_res.into_iter().flat_map(|res| res.ok().map(|res| {
         (
             res.task_id,
             state.tasks.insert(Task {
@@ -372,7 +382,7 @@ pub async fn init(url: &str) -> color_eyre::Result<State> {
                 db_id: Some(res.task_id),
             }),
         )
-    });
+    }));
     state.task_map.extend(task_keys);
 
     let view_key = state.view_def(View {
