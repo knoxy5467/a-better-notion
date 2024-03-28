@@ -37,6 +37,7 @@ async fn main() -> color_eyre::Result<()> {
     term::restore()?;
     res
 }
+
 async fn run<W: io::Write>(mut term: term::Tui<W>) -> color_eyre::Result<()> {
     let state = mid::init("http://localhost:8080").await?;
     let events = EventStream::new();
@@ -170,7 +171,7 @@ impl TaskList {
 }
 
 impl App {
-    /// runs the application's main loop until the user quits
+    /// create new app given middleware state
     pub fn new(state: State) -> Self {
         Self {
             should_exit: false,

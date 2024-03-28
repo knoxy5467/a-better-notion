@@ -28,6 +28,6 @@ mod tests {
         let mut out = Vec::<u8>::new();
         let _ = init::<&mut Vec<u8>>(&mut out);
 
-        let _ = restore();
+        let _ = restore().unwrap();
     }
 }
