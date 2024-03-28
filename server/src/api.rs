@@ -4,26 +4,6 @@ use sea_orm::{entity::prelude::*, ActiveValue::NotSet, DbErr, Set};
 use std::fmt;
 
 use crate::database::task;
-// Define a new type that wraps DbErr
-pub struct MyDbErr(DbErr);
-
-impl fmt::Debug for MyDbErr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&self.0, f)
-    }
-}
-impl fmt::Display for MyDbErr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&self.0, f)
-    }
-}
-// Implement ResponseError for the new type
-impl ResponseError for MyDbErr {
-    fn error_response(&self) -> HttpResponse {
-        // Customize the HTTP response based on the error
-        HttpResponse::InternalServerError().json("Internal server error")
-    }
-}
 
 /// get /task endpoint for retrieving a single TaskShort
 #[get("/task")]
@@ -36,7 +16,7 @@ async fn get_task_request(
     let task = task::Entity::find_by_id(req.task_id)
         .one(db.as_ref())
         .await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(MyDbErr(e)))?;
+        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("SQL error: {}", e)))?;
     match task {
         Some(model) => Ok(web::Json(ReadTaskShortResponse {
             task_id: model.id,
@@ -82,10 +62,7 @@ async fn create_task_request(
         .exec(db.as_ref())
         .await
         .map_err(|e| {
-            actix_web::error::ErrorInternalServerError(format!(
-                "task not inserted {}",
-                e.to_string()
-            ))
+            actix_web::error::ErrorInternalServerError(format!("task not inserted {}", e))
         })?;
     Ok(web::Json(result_task.last_insert_id as CreateTaskResponse))
 }
