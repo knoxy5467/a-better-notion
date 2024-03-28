@@ -2,7 +2,6 @@
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 mod api;
 mod database;
 use actix_web::{web::Data, App, HttpServer};
@@ -33,7 +32,6 @@ mod tests {
     };
     use sea_orm::MockExecResult;
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     #[test]
     fn test_main() {
         std::thread::spawn(|| {
@@ -77,7 +75,6 @@ mod tests {
             .uri("/tasks")
             .to_request();
         let resp: Vec<ReadTaskShortResponse> = test::call_and_read_body_json(&app, req).await;
-
         assert_eq!(resp[0].task_id, 1);
     }
     #[actix_web::test]
