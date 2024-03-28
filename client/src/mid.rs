@@ -4,7 +4,8 @@
 use color_eyre::{eyre::Context, Section};
 use common::{
     backend::{
-        FilterRequest, FilterResponse, ReadTaskShortRequest, ReadTaskShortResponse, ReadTasksShortRequest, ReadTasksShortResponse
+        FilterRequest, FilterResponse, ReadTaskShortRequest, ReadTaskShortResponse,
+        ReadTasksShortRequest, ReadTasksShortResponse,
     },
     *,
 };
@@ -351,11 +352,15 @@ pub async fn init(url: &str) -> color_eyre::Result<State> {
         .get(format!("{url}/filter"))
         .json(&request)
         .send()
-        .await.with_context(||"sending /filter request")?;
+        .await
+        .with_context(|| "sending /filter request")?;
     let string = String::from_utf8(res.bytes().await?.to_vec())?;
-    let res: FilterResponse = serde_json::from_str(&string).with_context(||
-        format!("received FilterResponse, attempting to deserialize the following as json: \"{}\"", string.clone())
-    )?;
+    let res: FilterResponse = serde_json::from_str(&string).with_context(|| {
+        format!(
+            "received FilterResponse, attempting to deserialize the following as json: \"{}\"",
+            string.clone()
+        )
+    })?;
 
     let tasks_req = res
         .into_iter()
@@ -371,18 +376,20 @@ pub async fn init(url: &str) -> color_eyre::Result<State> {
         format!("received ReadTasksShortResponse, attempting to deserialize the following as json: \"{}\"", string.clone())
     )?;
 
-    let task_keys = tasks_res.into_iter().flat_map(|res| res.ok().map(|res| {
-        (
-            res.task_id,
-            state.tasks.insert(Task {
-                name: res.name,
-                dependencies: res.deps,
-                completed: res.completed,
-                scripts: res.scripts,
-                db_id: Some(res.task_id),
-            }),
-        )
-    }));
+    let task_keys = tasks_res.into_iter().flat_map(|res| {
+        res.ok().map(|res| {
+            (
+                res.task_id,
+                state.tasks.insert(Task {
+                    name: res.name,
+                    dependencies: res.deps,
+                    completed: res.completed,
+                    scripts: res.scripts,
+                    db_id: Some(res.task_id),
+                }),
+            )
+        })
+    });
     state.task_map.extend(task_keys);
 
     let view_key = state.view_def(View {

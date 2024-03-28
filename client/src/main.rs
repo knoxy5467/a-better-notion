@@ -3,7 +3,10 @@
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
-use std::{io::{self, Write}, panic};
+use std::{
+    io::{self, Write},
+    panic,
+};
 
 use color_eyre::eyre;
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyEventKind};
@@ -32,7 +35,7 @@ async fn main() -> color_eyre::Result<()> {
     let term = term::init(std::io::stdout())?;
     let res = run(term).await;
     term::restore()?;
-    Ok(res?)
+    res
 }
 async fn run<W: io::Write>(mut term: term::Tui<W>) -> color_eyre::Result<()> {
     let state = mid::init("http://localhost:8888").await?;
@@ -42,15 +45,18 @@ async fn run<W: io::Write>(mut term: term::Tui<W>) -> color_eyre::Result<()> {
 
 fn initialize_logging() -> color_eyre::Result<()> {
     let file_subscriber = tracing_subscriber::fmt::layer()
-      .with_file(true)
-      .with_line_number(true)
-      .with_writer(io::stdout)
-      .with_target(false)
-      .with_ansi(false)
-      .with_filter(tracing_subscriber::filter::EnvFilter::from_default_env());
-    tracing_subscriber::registry().with(file_subscriber).with(ErrorLayer::default()).init();
+        .with_file(true)
+        .with_line_number(true)
+        .with_writer(io::stdout)
+        .with_target(false)
+        .with_ansi(false)
+        .with_filter(tracing_subscriber::filter::EnvFilter::from_default_env());
+    tracing_subscriber::registry()
+        .with(file_subscriber)
+        .with(ErrorLayer::default())
+        .init();
     Ok(())
-  }
+}
 
 /// This replaces the standard color_eyre panic and error hooks with hooks that
 /// restore the terminal before printing the panic or error.
