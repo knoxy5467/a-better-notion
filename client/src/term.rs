@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn terminal_wrap() {
         let mut out = Vec::<u8>::new();
-        let _ = init::<&mut Vec<u8>>(&mut out).unwrap();
+        let _ = init::<&mut Vec<u8>>(&mut out);
 
         let _ = restore();
     }

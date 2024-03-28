@@ -3,10 +3,10 @@
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
-use std::io::{self, Stdout};
+use std::io::{self, Write};
 
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyEventKind};
-use futures::StreamExt;
+use futures::{Stream, StreamExt};
 use mid::*;
 use num_modular::ModularCoreOps;
 use ratatui::{
@@ -25,13 +25,14 @@ const COMPLETED_TEXT_COLOR: Color = Color::Green;
 #[tokio::main]
 async fn main() -> io::Result<()> {
     let mut term = term::init(std::io::stdout())?;
-    let res = App::default().run(&mut term).await;
+    let state = mid::init("http://localhost:8888").await.unwrap();
+    let events = EventStream::new();
+    let res = App::new(state).run(&mut term, events).await;
     term::restore()?;
     res
 }
 
 /// UI App State
-#[derive(Default)]
 pub struct App {
     /// should exit
     should_exit: bool,
@@ -45,12 +46,12 @@ pub struct App {
 #[derive(Default)]
 /// Task list widget
 pub struct TaskList {
-    current_view: ViewKey,
+    current_view: Option<ViewKey>,
     list_state: ListState,
 }
 impl TaskList {
     fn up(&mut self, state: &State) {
-        let Some(tasks) = state.view_tasks(self.current_view) else {
+        let Some(tasks) = self.current_view.and_then(|vk| state.view_tasks(vk)) else {
             self.list_state.select(None);
             return;
         };
@@ -63,7 +64,7 @@ impl TaskList {
         ));
     }
     fn down(&mut self, state: &State) {
-        let Some(tasks) = state.view_tasks(self.current_view) else {
+        let Some(tasks) = self.current_view.and_then(|vk| state.view_tasks(vk)) else {
             self.list_state.select(None);
             return;
         };
@@ -75,18 +76,22 @@ impl TaskList {
     }
     fn render(&mut self, state: &State, block: Block<'_>, area: Rect, buf: &mut Buffer) {
         // take items from the current view and render them into a list
-        if let Some(items) = state.view_tasks(self.current_view).map(|tasks| {
-            tasks
-                .iter()
-                .flat_map(|key| {
-                    let task = state.task_get(*key)?;
-                    Some(match task.completed {
-                        false => Line::styled(format!(" ☐ {}", task.name), TEXT_COLOR),
-                        true => Line::styled(format!(" ✓ {}", task.name), COMPLETED_TEXT_COLOR),
+        if let Some(items) = self
+            .current_view
+            .and_then(|vk| state.view_tasks(vk))
+            .map(|tasks| {
+                tasks
+                    .iter()
+                    .flat_map(|key| {
+                        let task = state.task_get(*key)?;
+                        Some(match task.completed {
+                            false => Line::styled(format!(" ☐ {}", task.name), TEXT_COLOR),
+                            true => Line::styled(format!(" ✓ {}", task.name), COMPLETED_TEXT_COLOR),
+                        })
                     })
-                })
-                .collect::<Vec<Line>>()
-        }) {
+                    .collect::<Vec<Line>>()
+            })
+        {
             // create the list from the list items and customize it
             let list = List::new(items)
                 .block(block)
@@ -116,19 +121,27 @@ impl TaskList {
 
 impl App {
     /// runs the application's main loop until the user quits
-    pub async fn run(&mut self, term: &mut term::Tui<Stdout>) -> io::Result<()> {
-        let mut events = EventStream::new();
-
-        // initialize state for testing
-        let state = init_example();
-        self.state = state.0;
-        self.task_list.current_view = state.1;
-
-        // main loop
+    pub fn new(state: State) -> Self {
+        Self {
+            should_exit: false,
+            state,
+            task_list: TaskList::default(),
+            updates: 0,
+        }
+    }
+    /// run app with some terminal output and event stream input
+    pub async fn run<W: Write>(
+        &mut self,
+        term: &mut term::Tui<W>,
+        mut events: impl Stream<Item = io::Result<Event>> + Unpin,
+    ) -> io::Result<()> {
+        self.task_list.current_view = self.state.view_get_default();
+        // while not exist
         while !self.should_exit {
-            self.updates += 1;
+            self.updates += 1; // keep track of update & render
             term.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
 
+            // listen for evens and only re-render if we receive one that would imply we need to re-render
             let mut do_render = false;
             while !do_render {
                 let Some(event) = events.next().await else {
@@ -160,7 +173,11 @@ impl App {
             Down => self.task_list.down(&self.state),
             Enter => {
                 if let Some(selection) = self.task_list.list_state.selected() {
-                    if let Some(tasks) = self.state.view_tasks(self.task_list.current_view) {
+                    if let Some(tasks) = self
+                        .task_list
+                        .current_view
+                        .and_then(|vk| self.state.view_tasks(vk))
+                    {
                         self.state
                             .task_mod(tasks[selection], |t| t.completed = !t.completed);
                     }
@@ -209,6 +226,8 @@ impl Widget for &mut App {
 mod tests {
     use std::time::Duration;
 
+    use futures::SinkExt;
+
     use super::*;
 
     #[test]
@@ -218,9 +237,33 @@ mod tests {
         term::restore().unwrap();
     }
 
+    #[tokio::test]
+    async fn mock_app() {
+        let out = Box::leak(Box::new(Vec::new()));
+        let (mut sender, events) = futures::channel::mpsc::channel(10);
+        let join = tokio::spawn(async move {
+            let mut term = term::init(out).unwrap();
+            let mut app = App::new(init_test_state().0);
+            let res = app.run(&mut term, events).await;
+            term::restore().unwrap();
+            res
+        });
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        sender
+            .send(Ok(Event::Key(KeyCode::Up.into())))
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        sender
+            .send(Err(io::Error::other::<String>("error".into())))
+            .await
+            .unwrap();
+        assert!(join.await.unwrap().is_err());
+    }
+
     #[test]
-    fn render() {
-        let mut app = App::default();
+    fn render_test() {
+        let mut app = App::new(State::default());
         let mut buf = Buffer::empty(Rect::new(0, 0, 55, 5));
 
         app.render(buf.area, &mut buf);
@@ -252,11 +295,11 @@ mod tests {
 
     #[test]
     fn handle_key_event() -> io::Result<()> {
-        let mut app = App::default();
+        let mut app = App::new(State::default());
         // test up and down in example mid state
-        let state = init_example();
+        let state = init_test_state();
         app.state = state.0;
-        app.task_list.current_view = state.1;
+        app.task_list.current_view = Some(state.1);
         app.handle_event(Event::Key(KeyCode::Up.into()))?;
 
         assert_eq!(app.task_list.list_state.selected(), Some(0));
@@ -275,22 +318,22 @@ mod tests {
         ); // second task in example view is marked as completed, so the Enter key should uncomplete it
 
         // test up and down in regular state
-        let mut app = App::default();
+        let mut app = App::new(State::default());
         app.handle_event(Event::Key(KeyCode::Up.into()))?;
         assert_eq!(app.task_list.list_state.selected(), None);
         app.handle_event(Event::Key(KeyCode::Down.into()))?;
         assert_eq!(app.task_list.list_state.selected(), None);
         app.handle_key_event(KeyCode::Enter.into());
 
-        let mut app = App::default();
+        let mut app = App::new(State::default());
         app.handle_key_event(KeyCode::Char('q').into());
         assert_eq!(app.should_exit, true);
 
-        let mut app = App::default();
+        let mut app = App::new(State::default());
         app.handle_key_event(KeyCode::Char('.').into());
         assert_eq!(app.should_exit, false);
 
-        let mut app = App::default();
+        let mut app = App::new(State::default());
         app.handle_event(Event::FocusLost.into())?;
         assert_eq!(app.should_exit, false);
 
