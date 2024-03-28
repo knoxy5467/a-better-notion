@@ -18,3 +18,4 @@ log = "0.4.21"
 common = {path = "../common"}
 [dev-dependencies]
 coverage-helper = "0.2"
+llvm-tools-preview = "1"
