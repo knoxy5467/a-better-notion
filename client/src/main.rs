@@ -215,23 +215,22 @@ mod tests {
     fn dummy_test_main() {
         std::thread::spawn(main);
         std::thread::sleep(Duration::from_millis(250));
+        term::restore().unwrap();
     }
 
     #[test]
     fn render() {
         let mut app = App::default();
-        let mut buf = Buffer::empty(Rect::new(0, 0, 50, 7));
+        let mut buf = Buffer::empty(Rect::new(0, 0, 55, 5));
 
         app.render(buf.area, &mut buf);
 
         let expected = Buffer::with_lines(vec![
-            "╭─────────────── Task Management ────────────────╮",
-            "│            No Task Views to Display            │",
-            "│                                                │",
-            "│                                                │",
-            "│                                                │",
-            "│                                                │",
-            "╰──────── Select: <Up>/<Down>, Quit: <Q> ────────╯",
+            "╭────────────────── Task Management ──────────────────╮",
+            "│              No Task Views to Display               │",
+            "│                                                     │",
+            "│                                                     │",
+            "╰────────── Select: <Up>/<Down>, Quit: <Q> ─Updates: 0╯",
         ]);
         buf.set_style(Rect::new(0, 0, 50, 7), Style::reset());
 
