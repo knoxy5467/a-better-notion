@@ -372,18 +372,6 @@ pub async fn init(url: &str) -> color_eyre::Result<State> {
         )
     })?;
 
-    let tasks_req = [res.task_id]
-        .into_iter()
-        .map(|task_id| ReadTaskShortRequest { task_id })
-        .collect::<ReadTasksShortRequest>();
-    let res = client
-        .get(format!("{url}/tasks"))
-        .json(&tasks_req)
-        .send()
-        .await?;
-    println!("{:?}",res);
-
-    /*
     let task_key = Task {
         name: res.name,
         dependencies: res.deps,
@@ -399,7 +387,6 @@ pub async fn init(url: &str) -> color_eyre::Result<State> {
         tasks: Some(state.tasks.keys().collect::<Vec<TaskKey>>()),
         ..View::default()
     });
-     */
     Ok(state)
 }
 
