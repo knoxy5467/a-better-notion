@@ -382,6 +382,33 @@ pub async fn init(url: &str) -> color_eyre::Result<State> {
      
     state.tasks.insert(task_key);
 
+    let request = ReadTaskShortRequest {
+        task_id: 2,
+    };
+    let res = client
+        .get(format!("{url}/task"))
+        .json(&request)
+        .send()
+        .await?;
+    
+    let string = String::from_utf8(res.bytes().await?.to_vec())?;
+    let res: ReadTaskShortResponse = serde_json::from_str(&string).with_context(|| {
+        format!(
+            "received FilterResponse, attempting to deserialize the following as json: \"{}\"",
+            string.clone()
+        )
+    })?;
+
+    let task_key = Task {
+        name: res.name,
+        dependencies: res.deps,
+        completed: res.completed,
+        scripts: res.scripts,
+        db_id: Some(res.task_id),
+    };
+     
+    state.tasks.insert(task_key);
+
     let view_key = state.view_def(View {
         name: "Main View".to_string(),
         tasks: Some(state.tasks.keys().collect::<Vec<TaskKey>>()),
