@@ -25,14 +25,6 @@ Run client:
 cargo run -p client
 ```
 
-### For testing the alpha release:
-
-```
-sh demo_client.sh
-```
-
-which manually adds two tasks to the database, and runs the client.
-
 ### Docs
 
 to read the documentation of a crate, run:
