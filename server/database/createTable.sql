@@ -207,3 +207,10 @@ WHERE column_name = 'task_id' LOOP EXECUTE format(
 END LOOP;
 END $$ LANGUAGE plpgsql;
 SELECT task_id_tables();
+
+INSERT INTO task (id, completed, title)
+VALUES (1, true, 'Eat Lunch');
+INSERT INTO task (id, completed, title)
+VALUES (2, true, 'Finish ABN Alpha');
+INSERT INTO task (id, completed, title)
+VALUES (3, false, 'ABN Beta Week 1...');
