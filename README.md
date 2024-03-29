@@ -28,7 +28,7 @@ cargo run -p client
 ### For testing the alpha release:
 
 ```
-cargo run -p demo_client
+sh demo_client.sh
 ```
 
 which makes manually adds two tasks to the database, and runs the client.
