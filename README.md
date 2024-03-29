@@ -31,7 +31,7 @@ cargo run -p client
 sh demo_client.sh
 ```
 
-which makes manually adds two tasks to the database, and runs the client.
+which manually adds two tasks to the database, and runs the client.
 
 ### Docs
 
@@ -61,7 +61,7 @@ cargo fmt
 
 # Bug Tracking Instructions
 
-Bugs and issues are tracked with github issues. To view the list current bugs & issues, navigate to the github issues tab above. Issue show status, assignees, and open/closed. Github issues do not support adding priority and timeline to issues, but the issue tracker has a dropdown menu which allows issues to be sorted by number of comments and date created.
+Bugs and issues are tracked with github issues. To view the list of current bugs & issues, navigate to the github issues tab above. Issue show status, assignees, and open/closed. Github issues do not support adding priority and timeline to issues, but the issue tracker has a dropdown menu which allows issues to be sorted by number of comments and date created.
 
 To submit a new issue, do the following:
 
