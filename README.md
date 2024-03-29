@@ -9,7 +9,7 @@ Run database:
 cd server/database
 docker-compose up
 ```
-This requires `docker`/`podman` and `docker-compose`/`podman-compose`. It will initialize a postgres database running on `localhost:5432`. (make sure to run in a dedicated terminal!)
+This requires `docker`/`podman` and `docker-compose`/`podman-compose`. It will initialize a postgres database running on `localhost:5432`. (make sure to run in a dedicated terminal!) Install docker [here](https://www.docker.com/products/docker-desktop/)
 
 `docker-compose` should only be run on the first instance to create the database, afterwards it should be started through docker normally.
 
