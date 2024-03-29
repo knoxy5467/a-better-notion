@@ -1,12 +1,23 @@
 //! Middleware Logic
 #![allow(unused)]
 
-use common::*;
 
+use color_eyre::{eyre::Context, Section};
+use common::{
+    backend::{
+        FilterRequest, FilterResponse, ReadTaskShortRequest, ReadTaskShortResponse,
+        ReadTasksShortRequest, ReadTasksShortResponse,
+    },
+    *,
+};
+use reqwest::{Request, Response};
+use reqwest_middleware::ClientBuilder;
+use reqwest_tracing::{SpanBackendWithUrl, TracingMiddleware};
 use serde::{Deserialize, Serialize};
 use slotmap::{new_key_type, SlotMap};
 use std::collections::HashMap;
 use thiserror::Error;
+// use api::get_task_request;
 
 new_key_type! { pub struct PropKey; }
 new_key_type! { pub struct TaskKey; }
@@ -45,7 +56,7 @@ new_key_type! { pub struct PropNameKey; }
 new_key_type! { pub struct ViewKey; }
 
 /// Middleware State structure.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct State {
     /// maps between database ID and middleware ID for task
     task_map: HashMap<TaskID, TaskKey>,
@@ -276,6 +287,9 @@ impl State {
     pub fn view_get(&self, view_key: ViewKey) -> Option<&View> {
         self.views.get(view_key)
     }
+    pub fn view_get_default(&self) -> Option<ViewKey> {
+        self.views.keys().next()
+    }
 
     pub fn view_tasks(&self, view_key: ViewKey) -> Option<&[TaskKey]> {
         self.views
@@ -321,19 +335,89 @@ impl State {
 
 /// Init middleware state
 /// This function is called by UI to create the Middleware state and establish a connection to the Database.
-pub async fn init(url: &str) -> Result<State, reqwest::Error> {
-    let state = State {
+/// Important: Make sure `url` does not contain a trailing `/`
+#[tracing::instrument]
+pub async fn init(url: &str) -> color_eyre::Result<State> {
+    let mut state = State {
         url: url.to_owned(),
         ..Default::default()
     };
 
-    let client = reqwest::Client::new();
-    client.execute(client.post(&state.url).build()?).await?;
+    let client = ClientBuilder::new(reqwest::Client::new())
+        .with(TracingMiddleware::<SpanBackendWithUrl>::new())
+        .build();
+    // let request = FilterRequest {
+    //     filter: Filter::None,
+    // };
+    // let res: Response = client
+    //     .get(format!("{url}/filter"))
+    //     .json(&request)
+    //     .send()
+    //     .await
+    //     .with_context(|| "sending /filter request")?;
+    let request = ReadTaskShortRequest {
+        task_id: 1,
+    };
+    let res = client
+        .get(format!("{url}/task"))
+        .json(&request)
+        .send()
+        .await?;
+    
+    let string = String::from_utf8(res.bytes().await?.to_vec())?;
+    let res: ReadTaskShortResponse = serde_json::from_str(&string).with_context(|| {
+        format!(
+            "received FilterResponse, attempting to deserialize the following as json: \"{}\"",
+            string.clone()
+        )
+    })?;
 
+    let task_key = Task {
+        name: res.name,
+        dependencies: res.deps,
+        completed: res.completed,
+        scripts: res.scripts,
+        db_id: Some(res.task_id),
+    };
+     
+    state.tasks.insert(task_key);
+
+    let request = ReadTaskShortRequest {
+        task_id: 2,
+    };
+    let res = client
+        .get(format!("{url}/task"))
+        .json(&request)
+        .send()
+        .await?;
+    
+    let string = String::from_utf8(res.bytes().await?.to_vec())?;
+    let res: ReadTaskShortResponse = serde_json::from_str(&string).with_context(|| {
+        format!(
+            "received FilterResponse, attempting to deserialize the following as json: \"{}\"",
+            string.clone()
+        )
+    })?;
+
+    let task_key = Task {
+        name: res.name,
+        dependencies: res.deps,
+        completed: res.completed,
+        scripts: res.scripts,
+        db_id: Some(res.task_id),
+    };
+     
+    state.tasks.insert(task_key);
+
+    let view_key = state.view_def(View {
+        name: "Main View".to_string(),
+        tasks: Some(state.tasks.keys().collect::<Vec<TaskKey>>()),
+        ..View::default()
+    });
     Ok(state)
 }
 
-pub fn init_example() -> (State, ViewKey) {
+pub fn init_test_state() -> (State, ViewKey) {
     let mut state = State::default();
     let task1 = state.task_def(Task {
         name: "Eat Lunch".to_owned(),
@@ -364,10 +448,12 @@ mod tests {
     #[test]
     fn test_frontend_api() {
         // test view_def, view_mod & task_def
-        let (mut state, view_key) = init_example();
+        let (mut state, view_key) = init_test_state();
+        dbg!(&state);
         // test view_get
         let view = state.view_get(view_key).unwrap();
         assert_eq!(view.name, "Main View");
+        assert_eq!(view_key, state.view_get_default().unwrap());
 
         let tasks = view.tasks.as_ref().unwrap().clone();
         // test task_mod

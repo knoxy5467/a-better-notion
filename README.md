@@ -9,7 +9,7 @@ Run database:
 cd server/database
 docker-compose up
 ```
-This requires `docker`/`podman` and `docker-compose`/`podman-compose`. It will initialize a postgres database running on `localhost:5432`. (make sure to run in a dedicated terminal!)
+This requires `docker`/`podman` and `docker-compose`/`podman-compose`. It will initialize a postgres database running on `localhost:5432`. (make sure to run in a dedicated terminal!) Install docker [here](https://www.docker.com/products/docker-desktop/)
 
 `docker-compose` should only be run on the first instance to create the database, afterwards it should be started through docker normally.
 
@@ -24,6 +24,14 @@ Run client:
 ```
 cargo run -p client
 ```
+
+### For testing the alpha release:
+
+```
+sh demo_client.sh
+```
+
+which manually adds two tasks to the database, and runs the client.
 
 ### Docs
 
@@ -53,7 +61,7 @@ cargo fmt
 
 # Bug Tracking Instructions
 
-Bugs and issues are tracked with github issues. To view the list current bugs & issues, navigate to the github issues tab above. Issue show status, assignees, and open/closed. Github issues do not support adding priority and timeline to issues, but the issue tracker has a dropdown menu which allows issues to be sorted by number of comments and date created.
+Bugs and issues are tracked with github issues. To view the list of current bugs & issues, navigate to the github issues tab above. Issue show status, assignees, and open/closed. Github issues do not support adding priority and timeline to issues, but the issue tracker has a dropdown menu which allows issues to be sorted by number of comments and date created.
 
 To submit a new issue, do the following:
 
