@@ -17,6 +17,8 @@ pub enum Relation {
         to = "super::task::Column::Id"
     )]
     Task,
+    #[sea_orm(has_one = "super::task_bool_property::Entity")]
+    TaskBoolProperty,
 }
 impl Related<super::task::Entity> for Entity {
     fn to() -> RelationDef {
