@@ -1,5 +1,4 @@
 use sea_orm::entity::prelude::*;
-
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "task")]
 pub struct Model {
@@ -10,5 +9,13 @@ pub struct Model {
     pub last_edited: chrono::NaiveDateTime,
 }
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
+pub enum Relation {
+    #[sea_orm(has_many = "super::task_property::Entity")]
+    TaskProperty,
+}
+impl Related<super::task_property::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TaskProperty.def()
+    }
+}
 impl ActiveModelBehavior for ActiveModel {}
