@@ -25,4 +25,9 @@ impl Related<super::task::Entity> for Entity {
         Relation::Task.def()
     }
 }
+impl Related<super::task_bool_property::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TaskBoolProperty.def()
+    }
+}
 impl ActiveModelBehavior for ActiveModel {}

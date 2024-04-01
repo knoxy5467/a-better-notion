@@ -24,4 +24,9 @@ pub enum Relation {
     )]
     Name,
 }
+impl Related<super::task_property::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Task.def()
+    }
+}
 impl ActiveModelBehavior for ActiveModel {}
