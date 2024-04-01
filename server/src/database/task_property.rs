@@ -19,6 +19,8 @@ pub enum Relation {
     Task,
     #[sea_orm(has_one = "super::task_bool_property::Entity")]
     TaskBoolProperty,
+    #[sea_orm(has_one = "super::task_string_property::Entity")]
+    TaskStringProperty,
 }
 impl Related<super::task::Entity> for Entity {
     fn to() -> RelationDef {
@@ -28,6 +30,11 @@ impl Related<super::task::Entity> for Entity {
 impl Related<super::task_bool_property::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::TaskBoolProperty.def()
+    }
+}
+impl Related<super::task_string_property::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TaskStringProperty.def()
     }
 }
 impl ActiveModelBehavior for ActiveModel {}
