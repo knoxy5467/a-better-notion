@@ -85,12 +85,13 @@ pub fn install_hooks() -> color_eyre::Result<()> {
 
 /// UI App State
 pub struct App {
-    /// should exit
+    /// flag to be set to exit the event loop
     should_exit: bool,
     /// middleware state
     state: State,
     /// task list widget
     task_list: TaskList,
+    /// number of frame updates (used for debug purposes)
     updates: usize,
 }
 
@@ -101,6 +102,7 @@ pub struct TaskList {
     list_state: ListState,
 }
 impl TaskList {
+    // move current selection of task up 1 item.
     fn up(&mut self, state: &State) {
         let Some(tasks) = self.current_view.and_then(|vk| state.view_tasks(vk)) else {
             self.list_state.select(None);
@@ -114,6 +116,7 @@ impl TaskList {
                 .map_or(0, |v| v.subm(1, &tasks.len())),
         ));
     }
+    // move current selection of task down 1 item
     fn down(&mut self, state: &State) {
         let Some(tasks) = self.current_view.and_then(|vk| state.view_tasks(vk)) else {
             self.list_state.select(None);
@@ -125,6 +128,7 @@ impl TaskList {
                 .map_or(1, |v| v.addm(1, &tasks.len())),
         ));
     }
+    // render task list to buffer
     fn render(&mut self, state: &State, block: Block<'_>, area: Rect, buf: &mut Buffer) {
         // take items from the current view and render them into a list
         if let Some(items) = self
@@ -135,6 +139,7 @@ impl TaskList {
                     .iter()
                     .flat_map(|key| {
                         let task = state.task_get(*key)?;
+                        // render task line
                         Some(match task.completed {
                             false => Line::styled(format!(" ☐ {}", task.name), TEXT_COLOR),
                             true => Line::styled(format!(" ✓ {}", task.name), COMPLETED_TEXT_COLOR),
@@ -187,7 +192,7 @@ impl App {
         mut events: impl Stream<Item = io::Result<Event>> + Unpin,
     ) -> color_eyre::Result<()> {
         self.task_list.current_view = self.state.view_get_default();
-        // while not exist
+        // while shouldn't yet exist
         while !self.should_exit {
             self.updates += 1; // keep track of update & render
             term.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
@@ -252,6 +257,7 @@ impl Widget for &mut App {
             ", Quit: ".into(),
             "<Q> ".blue().bold(),
         ]));
+        // bottom right render update count
         let update_counter = Title::from(format!("Updates: {}", self.updates));
         let block = Block::default()
             .bg(BACKGROUND)
