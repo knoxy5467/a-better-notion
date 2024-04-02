@@ -182,12 +182,12 @@ mod tests {
         assert_eq!(resp[0], 1);
         assert_eq!(resp[1], 2);
     }
-    use testcontainers::{clients, core::WaitFor, Docker};
+    use testcontainers::clients;
     use testcontainers_modules::{postgres::Postgres, testcontainers::RunnableImage};
     #[actix_web::test]
     async fn test_database_connection() {
         let docker = clients::Cli::default();
-        let postgresImage = RunnableImage::from(Postgres::default())
+        let postgres_image = RunnableImage::from(Postgres::default())
             .with_mapped_port((5432, 5432))
             .with_env_var(("POSTGRES_USER", "abn"))
             .with_env_var(("POSTGRES_PASSWORD", "abn"))
@@ -196,8 +196,10 @@ mod tests {
                 "../database/createTable.sql",
                 "/docker-entrypoint-initdb.d/createTable.sql",
             ));
-        let readyConditions = postgresImage.ready_conditions();
-        let node = docker.run(postgresImage);
-        readyConditions[0].wait_for(&node);
+        let node = docker.run(postgres_image);
+
+        let db = Database::connect("postgres://abn:abn@localhost:5432/abn")
+            .await
+            .unwrap();
     }
 }
