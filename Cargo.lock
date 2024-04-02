@@ -2718,6 +2718,7 @@ dependencies = [
  "env_logger",
  "llvm-tools",
  "log",
+ "rust_decimal",
  "sea-orm",
  "serde",
  "serde_json",
