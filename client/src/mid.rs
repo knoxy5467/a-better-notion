@@ -1,7 +1,6 @@
 //! Middleware Logic
 #![allow(unused)]
 
-
 use color_eyre::{eyre::Context, Section};
 use common::{
     backend::{
@@ -118,47 +117,6 @@ enum StateEvent {
     /// The connection has either connected or disconnected.
     ServerStatus(bool),
 }
-
-/* /// Frontend API Trait
-pub trait FrontendAPI {
-
-    /// create/view/modify tasks
-    fn task_def(&mut self, task: Task) -> TaskKey;
-    fn task_get(&self, key: TaskKey) -> Option<&Task>;
-    fn task_mod(&mut self, key: TaskKey, edit_fn: impl FnOnce(&mut Task));
-    fn task_rm(&mut self, key: TaskKey);
-
-    /// create/view/modify task properties
-    fn prop_def(&mut self, task_key: TaskKey, name_key: PropNameKey, prop: TaskPropVariant) -> Result<PropKey, PropDataError>;
-    fn prop_def_name(&mut self, name: impl Into<String>) -> PropNameKey;
-    fn prop_rm_name(&mut self, key: PropNameKey);
-    fn prop_get(&self, task_key: TaskKey, name: PropNameKey) -> Result<&TaskPropVariant, PropDataError>;
-    fn prop_mod(
-        &mut self,
-        task_key: TaskKey,
-        name: PropNameKey,
-        edit_fn: impl FnOnce(&mut TaskPropVariant),
-    ) -> Result<(), PropDataError>;
-    fn prop_rm(&mut self, task_key: TaskKey, name: PropNameKey) -> Result<TaskPropVariant, PropDataError>;
-
-    /// create/get/modify views
-    fn view_def(&mut self, view: View) -> ViewKey;
-    fn view_get(&self, view_key: ViewKey) -> Option<&View>;
-    fn view_tasks(&self, view_key: ViewKey) -> Option<&[TaskKey]>;
-    fn view_mod(&mut self, view_key: ViewKey, edit_fn: impl FnOnce(&mut View)) -> Option<()>;
-    fn view_rm(&mut self, view_key: ViewKey);
-
-    /// create/get/modify script data.
-    fn script_create(&mut self) -> ScriptID;
-    fn script_get(&self, script_id: ScriptID) -> Option<&Script>;
-    fn script_mod(&mut self, script_id: ScriptID, edit_fn: impl FnOnce(&mut Script));
-    fn script_rm(&mut self, script_id: ScriptID);
-
-    /// register ui events with middleware, (i.e. so scripts can run when they are triggered)
-    fn register_event(&mut self, name: &str);
-    /// notify middleware of registered event
-    fn event_notify(&mut self, name: &str) -> bool;
-} */
 
 impl State {
     pub fn task_def(&mut self, task: Task) -> TaskKey {
