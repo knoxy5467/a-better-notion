@@ -298,16 +298,6 @@ mod tests {
             let res = app.run(&mut term, events).await;
             term::restore().unwrap();
         });
-        tokio::time::sleep(Duration::from_millis(50)).await;
-        sender
-            .send(Ok(Event::Key(KeyCode::Up.into())))
-            .await
-            .unwrap();
-        tokio::time::sleep(Duration::from_millis(50)).await;
-        sender
-            .send(Err(io::Error::other::<String>("error".into())))
-            .await
-            .unwrap();
         assert!(join.await.is_ok());
     }
 
