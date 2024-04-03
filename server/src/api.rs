@@ -77,7 +77,6 @@ async fn get_filter_request(
         tasks.iter().map(|a| a.id).collect::<FilterResponse>(),
     ))
 }
-
 #[put("/task")]
 async fn create_task_request(
     data: web::Data<DatabaseConnection>,
