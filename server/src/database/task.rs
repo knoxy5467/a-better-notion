@@ -45,7 +45,6 @@ impl ActiveModelBehavior for ActiveModel {}
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use sea_orm::{DatabaseBackend, Iterable, MockDatabase};
     #[test]
@@ -61,6 +60,10 @@ mod tests {
     fn test_enum_iter() {
         let mut iter = Relation::iter();
         assert_eq!(iter.next(), Some(Relation::TaskProperty));
+        assert_eq!(iter.next(), Some(Relation::TaskStringProperty));
+        assert_eq!(iter.next(), Some(Relation::TaskBoolProperty));
+        assert_eq!(iter.next(), Some(Relation::TaskNumProperty));
+        assert_eq!(iter.next(), Some(Relation::TaskDateProperty));
         assert_eq!(iter.next(), None);
     }
 
@@ -183,6 +186,47 @@ mod tests {
                     task_id: 1,
                     name: "gas".to_owned(),
                     value: true,
+                })
+            )]
+        )
+    }
+    #[tokio::test]
+    async fn test_task_num_property_related() {
+        let db = MockDatabase::new(DatabaseBackend::Postgres);
+        let created_time = chrono::offset::Utc::now().naive_utc();
+        let db_connection = db
+            .append_query_results([[(
+                crate::database::task::Model {
+                    id: 1,
+                    title: "Task 1".to_owned(),
+                    completed: false,
+                    last_edited: created_time,
+                },
+                crate::database::task_num_property::Model {
+                    task_id: 1,
+                    name: "gas".to_owned(),
+                    value: rust_decimal::Decimal::from_str_exact("100.001").unwrap(),
+                },
+            )]])
+            .into_connection();
+
+        assert_eq!(
+            crate::database::task::Entity::find()
+                .find_also_related(crate::database::task_num_property::Entity)
+                .all(&db_connection)
+                .await
+                .unwrap(),
+            [(
+                crate::database::task::Model {
+                    id: 1,
+                    title: "Task 1".to_owned(),
+                    completed: false,
+                    last_edited: created_time,
+                },
+                Some(crate::database::task_num_property::Model {
+                    task_id: 1,
+                    name: "gas".to_owned(),
+                    value: rust_decimal::Decimal::from_str_exact("100.001").unwrap(),
                 })
             )]
         )

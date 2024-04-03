@@ -29,8 +29,9 @@ impl ActiveModelBehavior for ActiveModel {}
 #[cfg(test)]
 mod tests {
 
+    use sea_orm::Iterable;
+
     use super::*;
-    use sea_orm::{entity::*, DatabaseBackend, MockDatabase, Transaction};
 
     #[test]
     fn test_copy_clone_debug() {
