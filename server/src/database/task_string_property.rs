@@ -9,24 +9,33 @@ pub struct Model {
     pub value: String,
 }
 
-#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+#[derive(Copy, Clone, Debug, EnumIter, PartialEq, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::task_property::Entity",
+        belongs_to = "super::task::Entity",
         from = "Column::TaskId",
-        to = "super::task_property::Column::TaskId"
+        to = "super::task::Column::Id"
     )]
-    Task,
-    #[sea_orm(
-        belongs_to = "super::task_property::Entity",
-        from = "Column::Name",
-        to = "super::task_property::Column::Name"
-    )]
-    Name,
+    Task
 }
-impl Related<super::task_property::Entity> for Entity {
+impl Related<super::task::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Task.def()
     }
 }
 impl ActiveModelBehavior for ActiveModel {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_copy_clone_debug() {
+        let original = Relation::Task;
+        let copy = original;
+        assert_eq!(original, copy);
+        let clone = original.clone();
+        assert_eq!(original, clone);
+        format!("{:?}", original);
+    }
+}
