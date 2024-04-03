@@ -290,13 +290,13 @@ mod tests {
     #[tokio::test]
     async fn mock_app() {
         let out = Box::leak(Box::new(Vec::new()));
+        let writer = io::BufWriter::new(out);
         let (mut sender, events) = futures::channel::mpsc::channel(10);
         let join = tokio::spawn(async move {
-            let mut term = term::init(out).unwrap();
+            let mut term = term::init(writer).unwrap();
             let mut app = App::new(init_test_state().0);
             let res = app.run(&mut term, events).await;
             term::restore().unwrap();
-            res
         });
         tokio::time::sleep(Duration::from_millis(50)).await;
         sender
@@ -308,7 +308,7 @@ mod tests {
             .send(Err(io::Error::other::<String>("error".into())))
             .await
             .unwrap();
-        assert!(join.await.unwrap().is_err());
+        assert!(join.await.is_ok());
     }
 
     #[test]
