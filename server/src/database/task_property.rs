@@ -24,12 +24,14 @@ pub enum Relation {
 }
 impl Related<super::task::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Task.def()
+        let relation = Relation::Task.def();
+        return relation;
     }
 }
 impl Related<super::task_bool_property::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::TaskBoolProperty.def()
+        let relation = Relation::TaskBoolProperty.def();
+        return relation;
     }
 }
 impl Related<super::task_string_property::Entity> for Entity {
