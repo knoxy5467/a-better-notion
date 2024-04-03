@@ -69,12 +69,9 @@ async fn get_filter_request(
 ) -> Result<impl Responder> {
     //TODO: construct filter
 
-    let tasks: Vec<task::Model> = task::Entity::find()
-        .all(data.as_ref())
-        .await
-        .map_err(|e| {
-            actix_web::error::ErrorInternalServerError(format!("couldn't filter tasks: {}", e))
-        })?;
+    let tasks: Vec<task::Model> = task::Entity::find().all(data.as_ref()).await.map_err(|e| {
+        actix_web::error::ErrorInternalServerError(format!("couldn't filter tasks: {}", e))
+    })?;
 
     Ok(web::Json(
         tasks.iter().map(|a| a.id).collect::<FilterResponse>(),
