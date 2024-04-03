@@ -41,6 +41,11 @@ impl Related<super::task_num_property::Entity> for Entity {
         Relation::TaskNumProperty.def()
     }
 }
+impl Related<super::task_date_property::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TaskDateProperty.def()
+    }
+}
 impl ActiveModelBehavior for ActiveModel {}
 
 #[cfg(test)]
@@ -227,6 +232,47 @@ mod tests {
                     task_id: 1,
                     name: "gas".to_owned(),
                     value: rust_decimal::Decimal::from_str_exact("100.001").unwrap(),
+                })
+            )]
+        )
+    }
+    #[tokio::test]
+    async fn test_task_date_property_related() {
+        let db = MockDatabase::new(DatabaseBackend::Postgres);
+        let created_time = chrono::offset::Utc::now().naive_utc();
+        let db_connection = db
+            .append_query_results([[(
+                crate::database::task::Model {
+                    id: 1,
+                    title: "Task 1".to_owned(),
+                    completed: false,
+                    last_edited: created_time,
+                },
+                crate::database::task_date_property::Model {
+                    task_id: 1,
+                    name: "gas".to_owned(),
+                    value: created_time,
+                },
+            )]])
+            .into_connection();
+
+        assert_eq!(
+            crate::database::task::Entity::find()
+                .find_also_related(crate::database::task_date_property::Entity)
+                .all(&db_connection)
+                .await
+                .unwrap(),
+            [(
+                crate::database::task::Model {
+                    id: 1,
+                    title: "Task 1".to_owned(),
+                    completed: false,
+                    last_edited: created_time,
+                },
+                Some(crate::database::task_date_property::Model {
+                    task_id: 1,
+                    name: "gas".to_owned(),
+                    value: created_time,
                 })
             )]
         )
