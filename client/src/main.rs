@@ -292,12 +292,14 @@ mod tests {
         let out = Box::leak(Box::new(Vec::new()));
         let writer = io::BufWriter::new(out);
         let (mut sender, events) = futures::channel::mpsc::channel(10);
+        let good_event = sender.send(Ok(Event::Key(KeyCode::Up.into())));
         let join = tokio::spawn(async move {
             let mut term = term::init(writer).unwrap();
             let mut app = App::new(init_test_state().0);
             let res = app.run(&mut term, events).await;
             term::restore().unwrap();
         });
+        assert!(good_event.await.is_ok());
     }
 
     #[test]
