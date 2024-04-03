@@ -6,8 +6,8 @@ use ratatui::prelude::*;
 /// A type alias for the terminal type used in this application
 pub type Tui<W> = Terminal<CrosstermBackend<W>>;
 
-pub fn init<W: Write>(writer: W) -> io::Result<Tui<W>> {
-    execute!(stdout(), EnterAlternateScreen)?;
+pub fn init<W: Write>(mut writer: W) -> io::Result<Tui<W>> {
+    execute!(writer, EnterAlternateScreen)?;
     enable_raw_mode()?;
     Terminal::new(CrosstermBackend::new(writer))
 }
