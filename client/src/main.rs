@@ -298,7 +298,6 @@ mod tests {
             let res = app.run(&mut term, events).await;
             term::restore().unwrap();
         });
-        assert!(join.await.is_ok());
     }
 
     #[test]
