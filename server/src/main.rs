@@ -4,19 +4,42 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 mod api;
 mod database;
-use actix_web::{web::Data, App, HttpServer};
+use actix_web::{
+    dev::{Server, ServerHandle},
+    web::Data,
+    App, HttpServer,
+};
 use api::*;
+use log::{info, warn};
+static INIT: std::sync::Once = std::sync::Once::new();
+fn initialize_logger() {
+    INIT.call_once(|| {
+        env_logger::init();
+    });
+}
 use sea_orm::{Database, DatabaseConnection};
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    println!("Starting server");
 
+#[actix_web::main]
+async fn main() -> () {
+    initialize_logger();
+    info!("Starting server");
+    info!("Connecting to database");
+    let (server_handle, server) = start_server().await;
+    loop {
+        tokio::signal::ctrl_c().await.unwrap();
+        warn!("Shutting down server");
+        server_handle.stop(true).await;
+        break;
+    }
+}
+async fn start_server() -> (ServerHandle, Server) {
+    initialize_logger();
     let db =
         Database::connect("postgres://abn:abn@localhost:5432/abn?options=-c%20search_path%3Dtask")
             .await
             .unwrap();
     let db_data: Data<DatabaseConnection> = Data::new(db);
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         let db_data = db_data.clone();
         App::new()
             .app_data(db_data)
@@ -24,14 +47,18 @@ async fn main() -> std::io::Result<()> {
             .service(get_tasks_request)
             .service(get_filter_request)
     })
-    .bind(("127.0.0.1", 8080))?
-    .run()
-    .await
+    .bind(("127.0.0.1", 8080))
+    .unwrap();
+    info!("server starting");
+    let server_obj = server.run();
+    info!("server started, creating handle");
+    let server_handle = server_obj.handle();
+    info!("server handle created returning");
+    return (server_handle, server_obj);
 }
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::web::post;
     use common::{backend::*, Filter};
     use sea_orm::MockExecResult;
 
@@ -41,7 +68,7 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(500));
             std::process::exit(0)
         });
-        main().unwrap();
+        main();
     }
 
     #[actix_web::test]
@@ -182,24 +209,52 @@ mod tests {
         assert_eq!(resp[0], 1);
         assert_eq!(resp[1], 2);
     }
+}
+#[cfg(test)]
+mod integration_tests {
+    use std::{env, net::TcpStream, time::Duration};
+
+    use log::info;
     use testcontainers::clients;
     use testcontainers_modules::{postgres::Postgres, testcontainers::RunnableImage};
+    use tokio::time;
+
+    use crate::start_server;
     #[actix_web::test]
     async fn test_database_connection() {
+        env::set_var("RUST_LOG", "info");
+        crate::initialize_logger();
+        info!("Starting test");
         let docker = clients::Cli::default();
+        info!("creating docker image for database");
         let postgres_image = RunnableImage::from(Postgres::default())
+            .with_tag("latest")
             .with_mapped_port((5432, 5432))
             .with_env_var(("POSTGRES_USER", "abn"))
             .with_env_var(("POSTGRES_PASSWORD", "abn"))
-            .with_env_var(("POSTGRES_DB", "abn"))
-            .with_volume((
-                "../database/createTable.sql",
-                "/docker-entrypoint-initdb.d/createTable.sql",
-            ));
-        let node = docker.run(postgres_image);
+            .with_env_var(("POSTGRES_DB", "abn"));
+        info!("running docker image");
+        let _node = docker.run(postgres_image);
+        info!("running main");
+        info!("current system {:?}", actix_web::rt::System::current());
+        let (server_handle, server_obj) = start_server().await;
 
-        let db = Database::connect("postgres://abn:abn@localhost:5432/abn")
-            .await
-            .unwrap();
+        time::sleep(Duration::from_secs(5)).await;
+        match TcpStream::connect("127.0.0.1:8080") {
+            Ok(_) => {
+                info!("connection success");
+                assert!(true)
+            }
+            Err(e) => {
+                log::warn!("connection fail");
+                assert!(false, "error connecting to server: {}", e)
+            }
+        }
+        info!("stopping docker");
+        _node.stop();
+        info!("stopping server");
+        server_obj.handle().stop(false);
+        info!("stopping server");
+        server_handle.stop(false);
     }
 }
