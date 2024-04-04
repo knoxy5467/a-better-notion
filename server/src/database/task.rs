@@ -20,6 +20,8 @@ pub enum Relation {
     TaskNumProperty,
     #[sea_orm(has_many = "super::task_date_property::Entity")]
     TaskDateProperty,
+    #[sea_orm(has_many = "super::dependency::Entity")]
+    Dependency,
 }
 impl Related<super::task_property::Entity> for Entity {
     fn to() -> RelationDef {
@@ -46,6 +48,11 @@ impl Related<super::task_date_property::Entity> for Entity {
         Relation::TaskDateProperty.def()
     }
 }
+impl Related<super::dependency::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Dependency.def()
+    }
+}
 impl ActiveModelBehavior for ActiveModel {}
 
 #[cfg(test)]
@@ -69,6 +76,7 @@ mod tests {
         assert_eq!(iter.next(), Some(Relation::TaskBoolProperty));
         assert_eq!(iter.next(), Some(Relation::TaskNumProperty));
         assert_eq!(iter.next(), Some(Relation::TaskDateProperty));
+        assert_eq!(iter.next(), Some(Relation::Dependency));
         assert_eq!(iter.next(), None);
     }
 
@@ -273,6 +281,45 @@ mod tests {
                     task_id: 1,
                     name: "gas".to_owned(),
                     value: created_time,
+                })
+            )]
+        )
+    }
+    #[tokio::test]
+    async fn test_task_dependency_related() {
+        let db = MockDatabase::new(DatabaseBackend::Postgres);
+        let created_time = chrono::offset::Utc::now().naive_utc();
+        let db_connection = db
+            .append_query_results([[(
+                crate::database::task::Model {
+                    id: 1,
+                    title: "Task 1".to_owned(),
+                    completed: false,
+                    last_edited: created_time,
+                },
+                crate::database::dependency::Model {
+                    task_id: 1,
+                    depends_on_id: 2,
+                },
+            )]])
+            .into_connection();
+
+        assert_eq!(
+            crate::database::task::Entity::find()
+                .find_also_related(crate::database::dependency::Entity)
+                .all(&db_connection)
+                .await
+                .unwrap(),
+            [(
+                crate::database::task::Model {
+                    id: 1,
+                    title: "Task 1".to_owned(),
+                    completed: false,
+                    last_edited: created_time,
+                },
+                Some(crate::database::dependency::Model {
+                    task_id: 1,
+                    depends_on_id: 2,
                 })
             )]
         )
