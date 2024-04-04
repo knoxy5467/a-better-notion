@@ -1,10 +1,9 @@
 [toolchain]
-channel = "stable" # or whatever channel you are using
+channel = "nightly-2024-03-20" # or whatever channel you are using
 components = [
     "rust-src",
     "rust-analyzer",
     "clippy",
     "rustfmt",
     "llvm-tools-preview",
-    "cargo-llvm-cov",
 ]
