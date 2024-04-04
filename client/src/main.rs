@@ -103,6 +103,56 @@ pub struct App {
     task_list: TaskList,
     /// number of frame updates (used for debug purposes)
     updates: usize,
+    task_create_popup: Option<TaskCreatePopup>,
+}
+
+pub struct TaskCreatePopup {
+    name: String,
+    should_close: bool,
+}
+
+/// helper function to create a centered rect using up certain percentage of the available rect `r`
+fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::vertical([
+        Constraint::Percentage((100 - percent_y) / 2),
+        Constraint::Percentage(percent_y),
+        Constraint::Percentage((100 - percent_y) / 2),
+    ])
+    .split(r);
+
+    Layout::horizontal([
+        Constraint::Percentage((100 - percent_x) / 2),
+        Constraint::Percentage(percent_x),
+        Constraint::Percentage((100 - percent_x) / 2),
+    ])
+    .split(popup_layout[1])[1]
+}
+impl TaskCreatePopup {
+    fn new() -> TaskCreatePopup {
+        Self {
+            name: Default::default(),
+            should_close: false,
+        }
+    }
+    fn render(&mut self, state: &State, area: Rect, buf: &mut Buffer) {
+        let block = Block::default().title("Create Task").borders(Borders::ALL);
+        let area = centered_rect(60, 20, area);
+        block.render(area, buf);
+    }
+    fn handle_key_event(&mut self, state: &mut State, key_code: KeyCode) -> bool {
+        match key_code {
+            KeyCode::Esc => self.should_close = true,
+            KeyCode::Char(c) => {
+                self.name.push(c);
+                
+            }
+            KeyCode::Enter => {
+                // 
+            }
+            _ => return false,
+        }
+        true
+    }
 }
 
 #[derive(Default)]
@@ -193,6 +243,7 @@ impl App {
             state,
             task_list: TaskList::default(),
             updates: 0,
+            task_create_popup: None,
         }
     }
     /// run app with some terminal output and event stream input
@@ -207,7 +258,7 @@ impl App {
         // wait for events
         while let Some(event) = events.next().await {
             // if we determined that event should trigger redraw:
-            if self.handle_event(event?)? {
+            if self.handle_event(event?) {
                 // draw frame
                 term.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
             }
@@ -218,21 +269,27 @@ impl App {
     }
 
     /// updates the application's state based on user input
-    fn handle_event(&mut self, event: Event) -> color_eyre::Result<bool> {
+    fn handle_event(&mut self, event: Event) -> bool {
         match event {
             // it's important to check that the event is a key press event as
             // crossterm also emits key release and repeat events on Windows.
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                Ok(self.handle_key_event(key_event))
+                self.handle_key_event(key_event)
             }
-            Event::Resize(_, _) => Ok(true),
-            _ => Ok(false),
+            Event::Resize(_, _) => true,
+            _ => false,
         }
     }
     fn handle_key_event(&mut self, key_event: KeyEvent) -> bool {
         use KeyCode::*;
+        // handle if in popup state
+        if let Some(task_create_popup) = &mut self.task_create_popup {
+            return task_create_popup.handle_key_event(&mut self.state, key_event.code);
+        }
+
         match key_event.code {
             Char('q') => self.should_exit = true,
+            Char('e') => self.task_create_popup = Some(TaskCreatePopup::new()),
             Up => self.task_list.up(&self.state),
             Down => self.task_list.down(&self.state),
             Enter => {
@@ -286,6 +343,13 @@ impl Widget for &mut App {
             .border_set(border::ROUNDED);
 
         self.task_list.render(&self.state, block, area, buf);
+
+        if let Some(popup) = &mut self.task_create_popup {
+            if popup.should_close { self.task_create_popup = None; }
+            else {
+                popup.render(&self.state, area, buf);
+            }
+        }
     }
 }
 
@@ -388,11 +452,11 @@ mod tests {
         let state = init_test_state();
         app.state = state.0;
         app.task_list.current_view = Some(state.1);
-        app.handle_event(Event::Key(KeyCode::Up.into()))?;
+        app.handle_event(Event::Key(KeyCode::Up.into()));
 
         assert_eq!(app.task_list.list_state.selected(), Some(0));
 
-        app.handle_event(Event::Key(KeyCode::Down.into()))?;
+        app.handle_event(Event::Key(KeyCode::Down.into()));
         assert_eq!(app.task_list.list_state.selected(), Some(1));
 
         // test enter key
@@ -407,9 +471,9 @@ mod tests {
 
         // test up and down in regular state
         let mut app = App::new(State::default());
-        app.handle_event(Event::Key(KeyCode::Up.into()))?;
+        app.handle_event(Event::Key(KeyCode::Up.into()));
         assert_eq!(app.task_list.list_state.selected(), None);
-        app.handle_event(Event::Key(KeyCode::Down.into()))?;
+        app.handle_event(Event::Key(KeyCode::Down.into()));
         assert_eq!(app.task_list.list_state.selected(), None);
         app.handle_key_event(KeyCode::Enter.into());
 
@@ -422,7 +486,7 @@ mod tests {
         assert_eq!(app.should_exit, false);
 
         let mut app = App::new(State::default());
-        app.handle_event(Event::FocusLost.into())?;
+        app.handle_event(Event::FocusLost.into());
         assert_eq!(app.should_exit, false);
 
         Ok(())
