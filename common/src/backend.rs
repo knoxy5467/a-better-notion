@@ -26,13 +26,13 @@ pub type CreateTasksRequest = Vec<CreateTaskRequest>;
 pub type CreateTasksResponse = Vec<TaskID>;
 
 /// reawest::get("/task")
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ReadTaskShortRequest {
     /// task id to request
     pub task_id: TaskID,
 }
 /// response to GET /task
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct ReadTaskShortResponse {
     /// task id of response, should be the same as request
     pub task_id: TaskID,
@@ -97,7 +97,7 @@ type PropertiesResponse = Vec<(String, Vec<TaskPropVariant>)>;
 /// # FILTER APIS
 
 /// reqwest::get("/filter")
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct FilterRequest {
     /// filter to apply
     pub filter: Filter,
