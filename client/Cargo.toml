@@ -33,4 +33,8 @@ reqwest-middleware = "0.2.5"
 [profile.dev.package.backtrace]
 opt-level = 3
 
+[dev-dependencies]
+iobuffer = "0.2.0"
+mockito = "1.4.0"
+
 
