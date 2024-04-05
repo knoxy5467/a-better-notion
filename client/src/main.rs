@@ -135,9 +135,13 @@ impl TaskCreatePopup {
         }
     }
     fn render(&mut self, state: &State, area: Rect, buf: &mut Buffer) {
-        let block = Block::default().title("Create Task").borders(Borders::ALL);
+        let block = Block::default().title("Create Task")
+            .borders(Borders::ALL)
+            .border_set(border::ROUNDED);
         let area = centered_rect(60, 20, area);
-        block.render(area, buf);
+        let input = Paragraph::new(self.name.as_str()).block(block);
+        Clear.render(area, buf);
+        input.render(area, buf);
     }
     fn handle_key_event(&mut self, state: &mut State, key_code: KeyCode) -> bool {
         match key_code {
@@ -146,8 +150,13 @@ impl TaskCreatePopup {
                 self.name.push(c);
                 
             }
+            KeyCode::Backspace => {
+                self.name.pop();
+            }
             KeyCode::Enter => {
-                // 
+                let task_key = state.task_def(Task { name: self.name.clone(), ..Default::default() });
+                state.view_mod(state.view_get_default().unwrap(), |v|v.tasks.as_mut().unwrap().push(task_key));
+                self.should_close = true;
             }
             _ => return false,
         }
