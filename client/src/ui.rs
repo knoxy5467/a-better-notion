@@ -21,7 +21,11 @@ const SELECTED_STYLE_FG: Color = Color::LightYellow;
 const COMPLETED_TEXT_COLOR: Color = Color::Green;
 
 /// Run the program using writer, state, and event stream. abstracts between tests & main
-pub async fn run<B: Backend>(backend: B, state: State, events: impl Stream<Item = io::Result<Event>> + Unpin) -> color_eyre::Result<App> {
+pub async fn run<B: Backend>(
+    backend: B,
+    state: State,
+    events: impl Stream<Item = io::Result<Event>> + Unpin,
+) -> color_eyre::Result<App> {
     let mut term = Terminal::new(backend)?;
     let mut app = App::new(state);
     app.run(&mut term, events).await?;
@@ -69,7 +73,9 @@ impl App {
                 term.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
             }
             // if we should exit, break loop
-            if self.should_exit { break }
+            if self.should_exit {
+                break;
+            }
         }
         Ok(())
     }
@@ -119,7 +125,7 @@ impl App {
 impl Widget for &mut App {
     fn render(self, area: Rect, buf: &mut Buffer) {
         self.updates += 1; // record render count
-        
+
         let title = Title::from(" Task Management ".bold());
         // bottom bar instructions
         let instructions = Title::from(Line::from(vec![
@@ -151,8 +157,9 @@ impl Widget for &mut App {
         self.task_list.render(&self.state, block, area, buf);
 
         if let Some(popup) = &mut self.task_create_popup {
-            if popup.should_close { self.task_create_popup = None; }
-            else {
+            if popup.should_close {
+                self.task_create_popup = None;
+            } else {
                 popup.render(area, buf);
             }
         }
@@ -200,10 +207,7 @@ mod tests {
         let (mut sender, events) = futures::channel::mpsc::channel(10);
         let join = tokio::spawn(run(backend, init_test_state().0, events));
         // test resize app
-        sender
-            .send(Ok(Event::Resize(0, 0)))
-            .await
-            .unwrap();
+        sender.send(Ok(Event::Resize(0, 0))).await.unwrap();
         tokio::time::sleep(Duration::from_millis(50)).await;
         // test quit app
         sender
@@ -212,7 +216,6 @@ mod tests {
             .unwrap();
         tokio::time::sleep(Duration::from_millis(50)).await;
         assert!(join.await.unwrap().is_ok());
-
     }
 
     #[test]

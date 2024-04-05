@@ -20,18 +20,21 @@ mod ui;
 
 #[coverage(off)]
 fn main() -> color_eyre::Result<()> {
-    // manually create tokio runtime 
+    // manually create tokio runtime
     let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(#[coverage(off)] async {
-        initialize_logging()?;
-        install_hooks()?;
-        term::enable()?;
-        let state = mid::init("http://localhost:8080").await?;
-        let res = ui::run(CrosstermBackend::new(stdout()), state, EventStream::new()).await;
-        term::restore()?;
-        res?;
-        Ok(())
-    })
+    rt.block_on(
+        #[coverage(off)]
+        async {
+            initialize_logging()?;
+            install_hooks()?;
+            term::enable()?;
+            let state = mid::init("http://localhost:8080").await?;
+            let res = ui::run(CrosstermBackend::new(stdout()), state, EventStream::new()).await;
+            term::restore()?;
+            res?;
+            Ok(())
+        },
+    )
 }
 
 #[coverage(off)]
@@ -60,17 +63,23 @@ pub fn install_hooks() -> color_eyre::Result<()> {
 
     // used color_eyre's PanicHook as the standard panic hook
     let panic_hook = panic_hook.into_panic_hook();
-    panic::set_hook(Box::new(#[coverage(off)] move |panic_info| {
-        term::restore().unwrap();
-        panic_hook(panic_info);
-    }));
+    panic::set_hook(Box::new(
+        #[coverage(off)]
+        move |panic_info| {
+            term::restore().unwrap();
+            panic_hook(panic_info);
+        },
+    ));
 
     // use color_eyre's EyreHook as eyre's ErrorHook
     let eyre_hook = eyre_hook.into_eyre_hook();
-    eyre::set_hook(Box::new(#[coverage(off)] move |error| {
-        term::restore().unwrap();
-        eyre_hook(error)
-    }))?;
+    eyre::set_hook(Box::new(
+        #[coverage(off)]
+        move |error| {
+            term::restore().unwrap();
+            eyre_hook(error)
+        },
+    ))?;
 
     Ok(())
 }

@@ -1,11 +1,15 @@
 use num_modular::ModularCoreOps;
-use ratatui::{buffer::Buffer, layout::Rect, style::{Modifier, Style}, text::{Line, Text}, widgets::{Block, HighlightSpacing, List, ListState, Paragraph, StatefulWidget, Widget}};
+use ratatui::{
+    buffer::Buffer,
+    layout::Rect,
+    style::{Modifier, Style},
+    text::{Line, Text},
+    widgets::{Block, HighlightSpacing, List, ListState, Paragraph, StatefulWidget, Widget},
+};
 
 use crate::mid::{State, ViewKey};
 
 use super::{COMPLETED_TEXT_COLOR, SELECTED_STYLE_FG, TEXT_COLOR};
-
-
 
 #[derive(Default)]
 /// Task list widget

@@ -2,10 +2,7 @@
 #![allow(unused)] // for my sanity developing (TODO: remove this later)
 use color_eyre::eyre::Context;
 use common::{
-    backend::{
-        FilterRequest, ReadTaskShortRequest,
-        ReadTasksShortRequest, ReadTasksShortResponse,
-    },
+    backend::{FilterRequest, ReadTaskShortRequest, ReadTasksShortRequest, ReadTasksShortResponse},
     *,
 };
 use reqwest::Response;
@@ -296,7 +293,9 @@ impl State {
 // request helper function
 #[tracing::instrument]
 async fn do_request<Req, Res>(req_builder: RequestBuilder, req: Req) -> color_eyre::Result<Res>
-    where Req: Serialize + std::fmt::Debug, Res: for<'d> Deserialize<'d> + std::fmt::Debug
+where
+    Req: Serialize + std::fmt::Debug,
+    Res: for<'d> Deserialize<'d> + std::fmt::Debug,
 {
     let res: Response = req_builder
         .json(&req)
@@ -307,7 +306,8 @@ async fn do_request<Req, Res>(req_builder: RequestBuilder, req: Req) -> color_ey
     let res: Res = serde_json::from_reader(&bytes[..]).with_context(|| {
         format!(
             "should have received type {}, as json, received: \"{}\"",
-            std::any::type_name::<Res>(), String::from_utf8_lossy(&bytes)
+            std::any::type_name::<Res>(),
+            String::from_utf8_lossy(&bytes)
         )
     })?;
     Ok(res)
@@ -328,15 +328,19 @@ pub async fn init(url: &str) -> color_eyre::Result<State> {
         .build();
 
     // request all tasks using a "None" filter
-    let filter_request = FilterRequest { filter: Filter::None };
-    let task_ids: Vec<TaskID> = do_request(client.get(format!("{url}/filter")), filter_request).await?;
+    let filter_request = FilterRequest {
+        filter: Filter::None,
+    };
+    let task_ids: Vec<TaskID> =
+        do_request(client.get(format!("{url}/filter")), filter_request).await?;
 
     // request task data for all filter data passed back
     let tasks_request = task_ids
         .into_iter()
         .map(|task_id| ReadTaskShortRequest { task_id })
         .collect::<ReadTasksShortRequest>();
-    let tasks_res: ReadTasksShortResponse = do_request(client.get(format!("{url}/tasks")), tasks_request).await?;
+    let tasks_res: ReadTasksShortResponse =
+        do_request(client.get(format!("{url}/tasks")), tasks_request).await?;
 
     // insert received tasks into middleware tasks list
     let task_keys = tasks_res.into_iter().flat_map(|res| {
@@ -395,26 +399,44 @@ mod tests {
 
     #[tokio::test]
     async fn test_do_request() {
-
         let mut server = Server::new_async().await;
-        server.mock("GET", mockito::Matcher::Any).with_body("TEST MAIN PATH")
+        server
+            .mock("GET", mockito::Matcher::Any)
+            .with_body("TEST MAIN PATH")
             .expect(0)
-            .create_async().await;
+            .create_async()
+            .await;
 
-        server.mock("GET", "/shouldincomplete")
+        server
+            .mock("GET", "/shouldincomplete")
             .with_body("invalid json")
             .expect(1)
-            .create_async().await;
+            .create_async()
+            .await;
 
         // create client
         let client = ClientBuilder::new(reqwest::Client::new())
-        .with(TracingMiddleware::<SpanBackendWithUrl>::new())
-        .build();
+            .with(TracingMiddleware::<SpanBackendWithUrl>::new())
+            .build();
 
         // test can't connect err
-        do_request::<_, FilterResponse>(client.get("localhost:1234/cantconnect"), FilterRequest{filter:Filter::None}).await.unwrap_err();
+        do_request::<_, FilterResponse>(
+            client.get("localhost:1234/cantconnect"),
+            FilterRequest {
+                filter: Filter::None,
+            },
+        )
+        .await
+        .unwrap_err();
         // test can't parse response err
-        do_request::<_, FilterResponse>(client.get(format!("{}/shouldincomplete", server.url())), FilterRequest{filter:Filter::None}).await.unwrap_err();
+        do_request::<_, FilterResponse>(
+            client.get(format!("{}/shouldincomplete", server.url())),
+            FilterRequest {
+                filter: Filter::None,
+            },
+        )
+        .await
+        .unwrap_err();
     }
 
     #[tokio::test]
@@ -422,39 +444,61 @@ mod tests {
     async fn test_init() {
         let mut server = Server::new_async().await;
 
-        server.mock("GET", "/filter")
+        server
+            .mock("GET", "/filter")
             //.match_body(Matcher::Json(to_value(FilterRequest { filter: Filter::None }).unwrap()))
             .with_body(to_vec(&vec![0, 1, 2]).unwrap())
             .expect(1)
-            .create_async().await;
+            .create_async()
+            .await;
 
-        server.mock("GET", "/tasks")
+        server
+            .mock("GET", "/tasks")
             //.match_body(Matcher::Json(to_value(&vec![0, 1, 2].into_iter().map(|task_id|ReadTaskShortRequest{task_id}).collect::<Vec<_>>()).unwrap()))
-            .with_body(&to_vec::<ReadTasksShortResponse>(&vec![
-                Ok(ReadTaskShortResponse { task_id: 0, name: "Test Task 1".into(), ..Default::default() }),
-                Ok(ReadTaskShortResponse { task_id: 1, name: "Test Task 2".into(), ..Default::default() }),
-                Err("random error message".into()),
-                Ok(ReadTaskShortResponse { task_id: 2, name: "Test Task 3".into(), ..Default::default() }),
-                ]).unwrap())
+            .with_body(
+                &to_vec::<ReadTasksShortResponse>(&vec![
+                    Ok(ReadTaskShortResponse {
+                        task_id: 0,
+                        name: "Test Task 1".into(),
+                        ..Default::default()
+                    }),
+                    Ok(ReadTaskShortResponse {
+                        task_id: 1,
+                        name: "Test Task 2".into(),
+                        ..Default::default()
+                    }),
+                    Err("random error message".into()),
+                    Ok(ReadTaskShortResponse {
+                        task_id: 2,
+                        name: "Test Task 3".into(),
+                        ..Default::default()
+                    }),
+                ])
+                .unwrap(),
+            )
             .expect(1)
-            .create_async().await;
+            .create_async()
+            .await;
 
-        server.mock("GET", mockito::Matcher::Any).with_body("TEST MAIN PATH")
+        server
+            .mock("GET", mockito::Matcher::Any)
+            .with_body("TEST MAIN PATH")
             .expect(0)
-            .create_async().await;
+            .create_async()
+            .await;
 
         let url = server.url();
         println!("url: {url}");
-        
+
         // init state
         let state = init(&url).await.unwrap();
 
         // make sure view was created with correct state
         let view = state.view_get(state.view_get_default().unwrap()).unwrap();
         let mut i = 0;
-        view.tasks.as_ref().unwrap().iter().for_each(|t|{
+        view.tasks.as_ref().unwrap().iter().for_each(|t| {
             assert_eq!(state.task_get(*t).unwrap().db_id.unwrap(), i);
-            i+=1;
+            i += 1;
         });
     }
 
@@ -481,7 +525,7 @@ mod tests {
         assert!(state.task_get(tasks[1]).is_none());
         // test mod function fail
         let mut test = 0;
-        state.task_mod(tasks[1], |_|test = 1);
+        state.task_mod(tasks[1], |_| test = 1);
         assert_eq!(test, 0);
         assert!(state.task_map.is_empty());
 
@@ -492,7 +536,9 @@ mod tests {
         assert!(state.prop_rm_name(invalid_name_key).is_err());
 
         // test prop_def
-        state.prop_def(tasks[0], name_key, TaskPropVariant::Boolean(false)).unwrap();
+        state
+            .prop_def(tasks[0], name_key, TaskPropVariant::Boolean(false))
+            .unwrap();
         assert!(state
             .prop_def(tasks[0], invalid_name_key, TaskPropVariant::Boolean(false))
             .is_err());

@@ -1,5 +1,10 @@
 use crossterm::event::KeyCode;
-use ratatui::{buffer::Buffer, layout::{Constraint, Layout, Rect}, symbols::border, widgets::{Block, Borders, Clear, Paragraph, Widget}};
+use ratatui::{
+    buffer::Buffer,
+    layout::{Constraint, Layout, Rect},
+    symbols::border,
+    widgets::{Block, Borders, Clear, Paragraph, Widget},
+};
 
 use crate::mid::{State, Task};
 
@@ -32,7 +37,8 @@ impl TaskCreatePopup {
         }
     }
     pub fn render(&mut self, area: Rect, buf: &mut Buffer) {
-        let block = Block::default().title("Create Task")
+        let block = Block::default()
+            .title("Create Task")
             .borders(Borders::ALL)
             .border_set(border::ROUNDED);
         let area = centered_rect(60, 20, area);
@@ -45,14 +51,18 @@ impl TaskCreatePopup {
             KeyCode::Esc => self.should_close = true,
             KeyCode::Char(c) => {
                 self.name.push(c);
-                
             }
             KeyCode::Backspace => {
                 self.name.pop();
             }
             KeyCode::Enter => {
-                let task_key = state.task_def(Task { name: self.name.clone(), ..Default::default() });
-                state.view_mod(state.view_get_default().unwrap(), |v|v.tasks.as_mut().unwrap().push(task_key));
+                let task_key = state.task_def(Task {
+                    name: self.name.clone(),
+                    ..Default::default()
+                });
+                state.view_mod(state.view_get_default().unwrap(), |v| {
+                    v.tasks.as_mut().unwrap().push(task_key)
+                });
                 self.should_close = true;
             }
             _ => return false,
