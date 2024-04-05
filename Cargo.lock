@@ -675,7 +675,6 @@ dependencies = [
  "common",
  "crossterm",
  "futures",
- "iobuffer",
  "mockito",
  "num-modular",
  "ratatui",
@@ -1508,12 +1507,6 @@ dependencies = [
  "quote",
  "syn 2.0.55",
 ]
-
-[[package]]
-name = "iobuffer"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19b2b69d767804b4df0810a059001309981588fbec64154f8ca032179b8a329c"
 
 [[package]]
 name = "ipnet"

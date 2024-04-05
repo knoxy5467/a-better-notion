@@ -4,7 +4,7 @@
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
 use std::{
-    io::{self, stdout, Write},
+    io::{self, stdout},
     panic,
 };
 
@@ -35,10 +35,10 @@ fn main() -> color_eyre::Result<()> {
     rt.block_on(#[coverage(off)] async {
         initialize_logging()?;
         install_hooks()?;
-        term::enable(stdout())?;
+        term::enable()?;
         let state = mid::init("http://localhost:8080").await?;
-        let res = run(stdout(), state, EventStream::new()).await;
-        term::restore(stdout())?;
+        let res = run(CrosstermBackend::new(stdout()), state, EventStream::new()).await;
+        term::restore()?;
         res?;
         Ok(())
     })
@@ -71,14 +71,14 @@ pub fn install_hooks() -> color_eyre::Result<()> {
     // used color_eyre's PanicHook as the standard panic hook
     let panic_hook = panic_hook.into_panic_hook();
     panic::set_hook(Box::new(#[coverage(off)] move |panic_info| {
-        term::restore(stdout()).unwrap();
+        term::restore().unwrap();
         panic_hook(panic_info);
     }));
 
     // use color_eyre's EyreHook as eyre's ErrorHook
     let eyre_hook = eyre_hook.into_eyre_hook();
     eyre::set_hook(Box::new(#[coverage(off)] move |error| {
-        term::restore(stdout()).unwrap();
+        term::restore().unwrap();
         eyre_hook(error)
     }))?;
 
@@ -86,8 +86,8 @@ pub fn install_hooks() -> color_eyre::Result<()> {
 }
 
 /// Run the program using writer, state, and event stream. abstracts between tests & main
-async fn run<W: io::Write>(writer: W, state: State, events: impl Stream<Item = io::Result<Event>> + Unpin) -> color_eyre::Result<App> {
-    let mut term = term::create(writer)?;
+async fn run<B: Backend>(backend: B, state: State, events: impl Stream<Item = io::Result<Event>> + Unpin) -> color_eyre::Result<App> {
+    let mut term = Terminal::new(backend)?;
     let mut app = App::new(state);
     app.run(&mut term, events).await?;
     Ok(app)
@@ -196,9 +196,9 @@ impl App {
         }
     }
     /// run app with some terminal output and event stream input
-    pub async fn run<W: Write>(
+    pub async fn run<B: Backend>(
         &mut self,
-        term: &mut term::Tui<W>,
+        term: &mut term::Tui<B>,
         mut events: impl Stream<Item = io::Result<Event>> + Unpin,
     ) -> color_eyre::Result<()> {
         self.task_list.current_view = self.state.view_get_default();
@@ -294,14 +294,16 @@ mod tests {
     use std::time::Duration;
 
     use futures::SinkExt;
+    use ratatui::backend::TestBackend;
 
     use super::*;
 
     #[tokio::test]
     async fn mock_app() {
+        let backend = TestBackend::new(55, 5);
         let (mut sender, events) = futures::channel::mpsc::channel(10);
 
-        let join = tokio::spawn(run(Vec::new(), init_test_state().0, events));
+        let join = tokio::spawn(run(backend, init_test_state().0, events));
 
         // test regular event
         sender
@@ -322,8 +324,9 @@ mod tests {
             .unwrap();
         assert!(join.await.unwrap().is_err());
 
+        let backend = TestBackend::new(55, 5);
         let (mut sender, events) = futures::channel::mpsc::channel(10);
-        let join = tokio::spawn(run(Vec::new(), init_test_state().0, events));
+        let join = tokio::spawn(run(backend, init_test_state().0, events));
         // test resize app
         sender
             .send(Ok(Event::Resize(0, 0)))
@@ -342,11 +345,12 @@ mod tests {
 
     #[test]
     fn render_test() {
+        // test default state
         let mut app = App::new(State::default());
         let mut buf = Buffer::empty(Rect::new(0, 0, 55, 5));
 
         app.render(buf.area, &mut buf);
-
+        buf.set_style(Rect::new(0, 0, 55, 5), Style::reset());
         let expected = Buffer::with_lines(vec![
             "╭────────────────── Task Management ──────────────────╮",
             "│              No Task Views to Display               │",
@@ -354,21 +358,26 @@ mod tests {
             "│                                                     │",
             "╰────────── Select: <Up>/<Down>, Quit: <Q> ─Updates: 1╯",
         ]);
-        buf.set_style(Rect::new(0, 0, 50, 7), Style::reset());
-
-        // don't bother checking styles, they change too frequently
-        /*
-        let title_style = Style::new().bold();
-        let counter_style = Style::new().yellow();
-        let key_style = Style::new().blue().bold();
-        expected.set_style(Rect::new(16, 0, 17, 1), title_style);
-        expected.set_style(Rect::new(28, 1, 1, 1), counter_style);
-        expected.set_style(Rect::new(13, 3, 6, 1), key_style);
-        expected.set_style(Rect::new(30, 3, 7, 1), key_style);
-        expected.set_style(Rect::new(43, 3, 4, 1), key_style); */
 
         // note ratatui also has an assert_buffer_eq! macro that can be used to
         // compare buffers and display the differences in a more readable way
+        assert_eq!(buf, expected);
+
+        // test task state
+        let (state, view_key) = init_test_state();
+        let mut app = App::new(state);
+        app.task_list.current_view = Some(view_key);
+        let mut buf = Buffer::empty(Rect::new(0, 0, 55, 5));
+
+        app.render(buf.area, &mut buf);
+        buf.set_style(Rect::new(0, 0, 55, 5), Style::reset());
+        let expected = Buffer::with_lines(vec![
+            "╭────────────────── Task Management ──────────────────╮",
+            "│  ✓ Eat Lunch                                        │",
+            "│  ☐ Finish ABN                                       │",
+            "│                                                     │",
+            "╰────────── Select: <Up>/<Down>, Quit: <Q> ─Updates: 1╯",
+        ]);
         assert_eq!(buf, expected);
     }
 
