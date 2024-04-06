@@ -8,6 +8,7 @@ use std::{
     panic,
 };
 
+use actix_settings::Settings;
 use color_eyre::eyre;
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyEventKind};
 use futures::{Stream, StreamExt};
@@ -38,7 +39,8 @@ async fn main() -> color_eyre::Result<()> {
     res
 }
 async fn run<W: io::Write>(mut term: term::Tui<W>) -> color_eyre::Result<()> {
-    let state = mid::init("http://localhost:8080").await?;
+    let mut settings = Settings::parse_toml("./server/Server.toml").unwrap();
+    let state = mid::init(&format!("http://{}:{}", settings.actix.hosts[0].host, settings.actix.hosts[0].port)).await?;
     let events = EventStream::new();
     App::new(state).run(&mut term, events).await
 }
