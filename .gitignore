@@ -15,3 +15,6 @@ design/render
 a-better-notion.code-workspace
 lcov.info
 *.profraw
+
+# mac garbo
+.DS_Store
