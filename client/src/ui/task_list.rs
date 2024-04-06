@@ -11,7 +11,7 @@ use crate::mid::{State, ViewKey};
 
 use super::{COMPLETED_TEXT_COLOR, SELECTED_STYLE_FG, TEXT_COLOR};
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 /// Task list widget
 pub struct TaskList {
     pub current_view: Option<ViewKey>,

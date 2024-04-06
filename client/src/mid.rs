@@ -297,11 +297,7 @@ where
     Req: Serialize + std::fmt::Debug,
     Res: for<'d> Deserialize<'d> + std::fmt::Debug,
 {
-    let res: Response = req_builder
-        .json(&req)
-        .send()
-        .await
-        .with_context(|| "failed to send request to {url}")?;
+    let res: Response = req_builder.json(&req).send().await?;
     let bytes = res.bytes().await?.to_vec();
     let res: Res = serde_json::from_reader(&bytes[..]).with_context(|| {
         format!(
@@ -370,7 +366,7 @@ pub async fn init(url: &str) -> color_eyre::Result<State> {
     Ok(state)
 }
 
-pub fn init_test_state() -> (State, ViewKey) {
+pub fn init_test() -> State {
     let mut state = State::default();
     let task1 = state.task_def(Task {
         name: "Eat Lunch".to_owned(),
@@ -386,7 +382,7 @@ pub fn init_test_state() -> (State, ViewKey) {
         ..View::default()
     });
     state.view_mod(view_key, |v| v.tasks = Some(vec![task1, task2]));
-    (state, view_key)
+    state
 }
 
 #[cfg(test)]
@@ -505,8 +501,9 @@ mod tests {
     #[test]
     fn test_frontend_api() {
         // test view_def, view_mod & task_def
-        let (mut state, view_key) = init_test_state();
+        let mut state = init_test();
         dbg!(&state);
+        let view_key = state.view_get_default().unwrap();
         // test view_get
         let view = state.view_get(view_key).unwrap();
         assert_eq!(view.name, "Main View");

@@ -1,33 +1,17 @@
 use crossterm::event::KeyCode;
 use ratatui::{
     buffer::Buffer,
-    layout::{Constraint, Layout, Rect},
+    layout::{Constraint, Flex, Layout, Rect},
     symbols::border,
     widgets::{Block, Borders, Clear, Paragraph, Widget},
 };
 
 use crate::mid::{State, Task};
 
+#[derive(Debug)]
 pub struct TaskCreatePopup {
     name: String,
     pub should_close: bool,
-}
-
-/// helper function to create a centered rect using up certain percentage of the available rect `r`
-fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
-    let popup_layout = Layout::vertical([
-        Constraint::Percentage((100 - percent_y) / 2),
-        Constraint::Percentage(percent_y),
-        Constraint::Percentage((100 - percent_y) / 2),
-    ])
-    .split(r);
-
-    Layout::horizontal([
-        Constraint::Percentage((100 - percent_x) / 2),
-        Constraint::Percentage(percent_x),
-        Constraint::Percentage((100 - percent_x) / 2),
-    ])
-    .split(popup_layout[1])[1]
 }
 impl TaskCreatePopup {
     pub fn new() -> TaskCreatePopup {
@@ -37,14 +21,27 @@ impl TaskCreatePopup {
         }
     }
     pub fn render(&mut self, area: Rect, buf: &mut Buffer) {
+        // create a centered rect of fixed vertical size that takes up 50% of the vertical area.
+        let vertical_center = Layout::vertical([Constraint::Length(3)])
+            .flex(Flex::Center)
+            .split(area);
+
+        let popup_area = Layout::horizontal([Constraint::Percentage(50)])
+            .flex(Flex::Center)
+            .split(vertical_center[0])[0];
+
+        Clear.render(popup_area, buf); // clear background of popup area
+
+        // create task popup block with rounded corners
         let block = Block::default()
             .title("Create Task")
             .borders(Borders::ALL)
             .border_set(border::ROUNDED);
-        let area = centered_rect(60, 20, area);
-        let input = Paragraph::new(self.name.as_str()).block(block);
-        Clear.render(area, buf);
-        input.render(area, buf);
+
+        // create paragraph containing current string state inside `block` & render
+        Paragraph::new(self.name.as_str())
+            .block(block)
+            .render(popup_area, buf);
     }
     pub fn handle_key_event(&mut self, state: &mut State, key_code: KeyCode) -> bool {
         match key_code {
@@ -70,3 +67,10 @@ impl TaskCreatePopup {
         true
     }
 }
+
+/* #[cfg(test)]
+mod tests {
+    async fn mock_popup() {
+
+    }
+} */
