@@ -4,6 +4,8 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 mod api;
 mod database;
+use std::env;
+
 use actix_settings::{ApplySettings, Settings};
 use actix_web::{web::Data, App, HttpServer};
 use api::*;
@@ -17,7 +19,7 @@ async fn main() -> std::io::Result<()> {
             .await
             .unwrap();
     let db_data: Data<DatabaseConnection> = Data::new(db);
-    let mut settings = Settings::parse_toml("./server/Server.toml")
+    let settings = Settings::parse_toml(format!("{}/server/Server.toml", project_root::get_project_root()?.as_os_str().to_str().unwrap()))
         .expect("Failed to parse `Settings` from Server.toml");
     HttpServer::new(move || {
         let db_data = db_data.clone();
@@ -43,6 +45,7 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(500));
             std::process::exit(0)
         });
+        env::set_var("CARGO_MANIFEST_DIR", format!("{:?}/..", env::var("CARGO_MANIFEST_DIR")));
         main().unwrap();
     }
 

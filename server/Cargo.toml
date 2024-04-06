@@ -20,6 +20,7 @@ common = {path = "../common"}
 llvm-tools = "0.1.1"
 actix-settings = "0.7.1"
 client = { version = "0.1.0", path = "../client" }
+project-root = "0.2.2"
 [dev-dependencies]
 coverage-helper = "0.2"
 
