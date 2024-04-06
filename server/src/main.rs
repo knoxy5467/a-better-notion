@@ -4,8 +4,6 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 mod api;
 mod database;
-use std::env;
-
 use actix_settings::{ApplySettings, Settings};
 use actix_web::{web::Data, App, HttpServer};
 use api::*;
@@ -45,7 +43,6 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(500));
             std::process::exit(0)
         });
-        env::set_var("CARGO_MANIFEST_DIR", format!("{:?}/..", env::var("CARGO_MANIFEST_DIR")));
         main().unwrap();
     }
 
