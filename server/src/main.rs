@@ -60,6 +60,11 @@ mod tests {
     use sea_orm::MockExecResult;
 
     #[test]
+    fn test_logger_no_panic() {
+        initialize_logger();
+        initialize_logger();
+    }
+    #[test]
     fn test_main() {
         std::thread::spawn(|| {
             std::thread::sleep(std::time::Duration::from_millis(500));
