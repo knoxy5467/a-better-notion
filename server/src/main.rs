@@ -1,4 +1,5 @@
 //! Server-Side API crate
+#![feature(coverage_attribute)]
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
@@ -19,6 +20,7 @@ fn initialize_logger() {
     });
 }
 
+#[coverage(off)]
 #[actix_web::main]
 async fn main() -> () {
     let (server_handle, _server) = start_server().await;
