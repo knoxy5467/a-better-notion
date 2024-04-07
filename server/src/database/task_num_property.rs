@@ -1,7 +1,7 @@
 use actix_web::rt::task;
 use sea_orm::{entity::prelude::*, RelationBuilder, RelationType};
 
-use crate::database::{task_bool_property, task_num_property, task_property};
+use crate::database::{task_num_property, task_property};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "task_num_property")]
@@ -87,6 +87,7 @@ mod tests {
     fn test_enum_iter() {
         let mut iter = Relation::iter();
         assert_eq!(iter.next(), Some(Relation::Task));
+        assert_eq!(iter.next(), Some(Relation::TaskProperty));
         assert_eq!(iter.next(), None);
     }
 }
