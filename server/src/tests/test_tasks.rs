@@ -160,6 +160,5 @@ async fn insert_task_succeeds_with_good_request() {
         .uri("/task")
         .to_request();
     let response: CreateTaskResponse = test::call_and_read_body_json(&app, req).await;
-    env_logger::builder().is_test(true).try_init().unwrap();
     assert_eq!(response, 1);
 }
