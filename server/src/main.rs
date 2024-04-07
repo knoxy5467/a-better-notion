@@ -11,23 +11,21 @@ use actix_web::{
 };
 use api::*;
 use log::{info, warn};
+use sea_orm::{Database, DatabaseConnection};
 static INIT: std::sync::Once = std::sync::Once::new();
 fn initialize_logger() {
     INIT.call_once(|| {
         env_logger::init();
     });
 }
-use sea_orm::{Database, DatabaseConnection};
 
 #[actix_web::main]
 async fn main() -> () {
     let (server_handle, _server) = start_server().await;
-    loop {
-        tokio::signal::ctrl_c().await.unwrap();
-        server_handle.stop(true).await;
-        break;
-    }
+    tokio::signal::ctrl_c().await.unwrap();
+    server_handle.stop(true).await;
 }
+#[allow(clippy::needless_return)]
 async fn start_server() -> (ServerHandle, Server) {
     initialize_logger();
     let db =
@@ -249,8 +247,8 @@ mod integration_tests {
         info!("stopping docker");
         _node.stop();
         info!("stopping server");
-        server_obj.handle().stop(false);
+        let _unused_future = server_obj.handle().stop(false);
         info!("stopping server");
-        let res = server_handle.stop(false);
+        let _res = server_handle.stop(false);
     }
 }
