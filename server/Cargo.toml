@@ -22,7 +22,8 @@ common = {path = "../common"}
 llvm-tools = "0.1.1"
 [dev-dependencies]
 coverage-helper = "0.2"
-
+testcontainers = "0.15"
+testcontainers-modules = {version = "0.3.6", features = ["postgres"]}
 [build]
 rustflags = ["-C instrument-coverage"]
 
