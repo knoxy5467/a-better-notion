@@ -1,10 +1,10 @@
 //! Client
-
+#![feature(coverage_attribute)]
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
 use std::{
-    io::{self, Write},
+    io::{self, stdout},
     panic,
 };
 
@@ -28,21 +28,23 @@ const TEXT_COLOR: Color = Color::White;
 const SELECTED_STYLE_FG: Color = Color::LightYellow;
 const COMPLETED_TEXT_COLOR: Color = Color::Green;
 
-#[tokio::main]
-async fn main() -> color_eyre::Result<()> {
-    initialize_logging()?;
-    install_hooks()?;
-    let term = term::init(std::io::stdout())?;
-    let res = run(term).await;
-    term::restore()?;
-    res
-}
-async fn run<W: io::Write>(mut term: term::Tui<W>) -> color_eyre::Result<()> {
-    let state = mid::init("http://localhost:8080").await?;
-    let events = EventStream::new();
-    App::new(state).run(&mut term, events).await
+#[coverage(off)]
+fn main() -> color_eyre::Result<()> {
+    // manually create tokio runtime 
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(#[coverage(off)] async {
+        initialize_logging()?;
+        install_hooks()?;
+        term::enable()?;
+        let state = mid::init("http://localhost:8080").await?;
+        let res = run(CrosstermBackend::new(stdout()), state, EventStream::new()).await;
+        term::restore()?;
+        res?;
+        Ok(())
+    })
 }
 
+#[coverage(off)]
 fn initialize_logging() -> color_eyre::Result<()> {
     let file_subscriber = tracing_subscriber::fmt::layer()
         .with_file(true)
@@ -60,21 +62,22 @@ fn initialize_logging() -> color_eyre::Result<()> {
 
 /// This replaces the standard color_eyre panic and error hooks with hooks that
 /// restore the terminal before printing the panic or error.
+#[coverage(off)]
 pub fn install_hooks() -> color_eyre::Result<()> {
     // add any extra configuration you need to the hook builder
     let hook_builder = color_eyre::config::HookBuilder::default();
     let (panic_hook, eyre_hook) = hook_builder.into_hooks();
 
-    // convert from a color_eyre PanicHook to a standard panic hook
+    // used color_eyre's PanicHook as the standard panic hook
     let panic_hook = panic_hook.into_panic_hook();
-    panic::set_hook(Box::new(move |panic_info| {
+    panic::set_hook(Box::new(#[coverage(off)] move |panic_info| {
         term::restore().unwrap();
         panic_hook(panic_info);
     }));
 
-    // convert from a color_eyre EyreHook to a eyre ErrorHook
+    // use color_eyre's EyreHook as eyre's ErrorHook
     let eyre_hook = eyre_hook.into_eyre_hook();
-    eyre::set_hook(Box::new(move |error| {
+    eyre::set_hook(Box::new(#[coverage(off)] move |error| {
         term::restore().unwrap();
         eyre_hook(error)
     }))?;
@@ -82,14 +85,23 @@ pub fn install_hooks() -> color_eyre::Result<()> {
     Ok(())
 }
 
+/// Run the program using writer, state, and event stream. abstracts between tests & main
+async fn run<B: Backend>(backend: B, state: State, events: impl Stream<Item = io::Result<Event>> + Unpin) -> color_eyre::Result<App> {
+    let mut term = Terminal::new(backend)?;
+    let mut app = App::new(state);
+    app.run(&mut term, events).await?;
+    Ok(app)
+}
+
 /// UI App State
 pub struct App {
-    /// should exit
+    /// flag to be set to exit the event loop
     should_exit: bool,
     /// middleware state
     state: State,
     /// task list widget
     task_list: TaskList,
+    /// number of frame updates (used for debug purposes)
     updates: usize,
 }
 
@@ -100,6 +112,7 @@ pub struct TaskList {
     list_state: ListState,
 }
 impl TaskList {
+    // move current selection of task up 1 item.
     fn up(&mut self, state: &State) {
         let Some(tasks) = self.current_view.and_then(|vk| state.view_tasks(vk)) else {
             self.list_state.select(None);
@@ -113,6 +126,7 @@ impl TaskList {
                 .map_or(0, |v| v.subm(1, &tasks.len())),
         ));
     }
+    // move current selection of task down 1 item
     fn down(&mut self, state: &State) {
         let Some(tasks) = self.current_view.and_then(|vk| state.view_tasks(vk)) else {
             self.list_state.select(None);
@@ -124,6 +138,7 @@ impl TaskList {
                 .map_or(1, |v| v.addm(1, &tasks.len())),
         ));
     }
+    // render task list to buffer
     fn render(&mut self, state: &State, block: Block<'_>, area: Rect, buf: &mut Buffer) {
         // take items from the current view and render them into a list
         if let Some(items) = self
@@ -134,6 +149,7 @@ impl TaskList {
                     .iter()
                     .flat_map(|key| {
                         let task = state.task_get(*key)?;
+                        // render task line
                         Some(match task.completed {
                             false => Line::styled(format!(" ☐ {}", task.name), TEXT_COLOR),
                             true => Line::styled(format!(" ✓ {}", task.name), COMPLETED_TEXT_COLOR),
@@ -170,7 +186,7 @@ impl TaskList {
 }
 
 impl App {
-    /// runs the application's main loop until the user quits
+    /// create new app given middleware state
     pub fn new(state: State) -> Self {
         Self {
             should_exit: false,
@@ -180,25 +196,23 @@ impl App {
         }
     }
     /// run app with some terminal output and event stream input
-    pub async fn run<W: Write>(
+    pub async fn run<B: Backend>(
         &mut self,
-        term: &mut term::Tui<W>,
+        term: &mut term::Tui<B>,
         mut events: impl Stream<Item = io::Result<Event>> + Unpin,
     ) -> color_eyre::Result<()> {
         self.task_list.current_view = self.state.view_get_default();
-        // while not exist
-        while !self.should_exit {
-            self.updates += 1; // keep track of update & render
-            term.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
-
-            // listen for evens and only re-render if we receive one that would imply we need to re-render
-            let mut do_render = false;
-            while !do_render {
-                let Some(event) = events.next().await else {
-                    continue;
-                };
-                do_render = self.handle_event(event?)?
+        // render initial frame
+        term.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
+        // wait for events
+        while let Some(event) = events.next().await {
+            // if we determined that event should trigger redraw:
+            if self.handle_event(event?)? {
+                // draw frame
+                term.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
             }
+            // if we should exit, break loop
+            if self.should_exit { break }
         }
         Ok(())
     }
@@ -241,6 +255,8 @@ impl App {
 
 impl Widget for &mut App {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        self.updates += 1; // record render count
+        
         let title = Title::from(" Task Management ".bold());
         // bottom bar instructions
         let instructions = Title::from(Line::from(vec![
@@ -251,6 +267,7 @@ impl Widget for &mut App {
             ", Quit: ".into(),
             "<Q> ".blue().bold(),
         ]));
+        // bottom right render update count
         let update_counter = Title::from(format!("Updates: {}", self.updates));
         let block = Block::default()
             .bg(BACKGROUND)
@@ -277,69 +294,90 @@ mod tests {
     use std::time::Duration;
 
     use futures::SinkExt;
+    use ratatui::backend::TestBackend;
 
     use super::*;
 
-    #[test]
-    fn dummy_test_main() {
-        std::thread::spawn(main);
-        std::thread::sleep(Duration::from_millis(250));
-        term::restore().unwrap();
-    }
-
     #[tokio::test]
     async fn mock_app() {
-        let out = Box::leak(Box::new(Vec::new()));
+        let backend = TestBackend::new(55, 5);
         let (mut sender, events) = futures::channel::mpsc::channel(10);
-        let join = tokio::spawn(async move {
-            let mut term = term::init(out).unwrap();
-            let mut app = App::new(init_test_state().0);
-            let res = app.run(&mut term, events).await;
-            term::restore().unwrap();
-            res
-        });
-        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        let join = tokio::spawn(run(backend, init_test_state().0, events));
+
+        // test regular event
         sender
             .send(Ok(Event::Key(KeyCode::Up.into())))
             .await
             .unwrap();
         tokio::time::sleep(Duration::from_millis(50)).await;
+        // test non-rendering event
+        sender
+            .send(Ok(Event::Key(KeyCode::Char('1').into())))
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        // test error event
         sender
             .send(Err(io::Error::other::<String>("error".into())))
             .await
             .unwrap();
         assert!(join.await.unwrap().is_err());
+
+        let backend = TestBackend::new(55, 5);
+        let (mut sender, events) = futures::channel::mpsc::channel(10);
+        let join = tokio::spawn(run(backend, init_test_state().0, events));
+        // test resize app
+        sender
+            .send(Ok(Event::Resize(0, 0)))
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        // test quit app
+        sender
+            .send(Ok(Event::Key(KeyCode::Char('q').into())))
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert!(join.await.unwrap().is_ok());
+
     }
 
     #[test]
     fn render_test() {
+        // test default state
         let mut app = App::new(State::default());
         let mut buf = Buffer::empty(Rect::new(0, 0, 55, 5));
 
         app.render(buf.area, &mut buf);
-
+        buf.set_style(Rect::new(0, 0, 55, 5), Style::reset());
         let expected = Buffer::with_lines(vec![
             "╭────────────────── Task Management ──────────────────╮",
             "│              No Task Views to Display               │",
             "│                                                     │",
             "│                                                     │",
-            "╰────────── Select: <Up>/<Down>, Quit: <Q> ─Updates: 0╯",
+            "╰────────── Select: <Up>/<Down>, Quit: <Q> ─Updates: 1╯",
         ]);
-        buf.set_style(Rect::new(0, 0, 50, 7), Style::reset());
-
-        // don't bother checking styles, they change too frequently
-        /*
-        let title_style = Style::new().bold();
-        let counter_style = Style::new().yellow();
-        let key_style = Style::new().blue().bold();
-        expected.set_style(Rect::new(16, 0, 17, 1), title_style);
-        expected.set_style(Rect::new(28, 1, 1, 1), counter_style);
-        expected.set_style(Rect::new(13, 3, 6, 1), key_style);
-        expected.set_style(Rect::new(30, 3, 7, 1), key_style);
-        expected.set_style(Rect::new(43, 3, 4, 1), key_style); */
 
         // note ratatui also has an assert_buffer_eq! macro that can be used to
         // compare buffers and display the differences in a more readable way
+        assert_eq!(buf, expected);
+
+        // test task state
+        let (state, view_key) = init_test_state();
+        let mut app = App::new(state);
+        app.task_list.current_view = Some(view_key);
+        let mut buf = Buffer::empty(Rect::new(0, 0, 55, 5));
+
+        app.render(buf.area, &mut buf);
+        buf.set_style(Rect::new(0, 0, 55, 5), Style::reset());
+        let expected = Buffer::with_lines(vec![
+            "╭────────────────── Task Management ──────────────────╮",
+            "│  ✓ Eat Lunch                                        │",
+            "│  ☐ Finish ABN                                       │",
+            "│                                                     │",
+            "╰────────── Select: <Up>/<Down>, Quit: <Q> ─Updates: 1╯",
+        ]);
         assert_eq!(buf, expected);
     }
 
