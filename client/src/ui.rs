@@ -7,12 +7,15 @@ use ratatui::{
     symbols::border,
     widgets::{block::*, *},
 };
+use tokio::runtime::Handle;
 
 use crate::{mid::State, term};
 
 use self::task_create_popup::TaskCreatePopup;
+use self::task_delete_popup::TaskDeletePopup;
 
 mod task_create_popup;
+mod task_delete_popup;
 mod task_list;
 
 const BACKGROUND: Color = Color::Reset;
@@ -44,6 +47,7 @@ pub struct App {
     /// number of frame updates (used for debug purposes)
     updates: usize,
     task_create_popup: Option<TaskCreatePopup>,
+    task_delete_popup: Option<TaskDeletePopup>
 }
 
 impl App {
@@ -55,6 +59,7 @@ impl App {
             task_list: task_list::TaskList::default(),
             updates: 0,
             task_create_popup: None,
+            task_delete_popup: None,
         }
     }
     /// run app with some terminal output and event stream input
@@ -107,12 +112,26 @@ impl App {
         if let Some(task_create_popup) = &mut self.task_create_popup {
             return task_create_popup.handle_key_event(&mut self.state, key_event.code);
         }
+        if let Some(task_delete_popup) = &mut self.task_delete_popup {
+            return task_delete_popup.handle_key_event(&mut self.state, key_event.code);
+        } 
 
         match key_event.code {
             Char('q') => self.should_exit = true,
             Char('e') => self.task_create_popup = Some(TaskCreatePopup::new()),
             Up => self.task_list.shift(&self.state, -1, false),
             Down => self.task_list.shift(&self.state, 1, false),
+            Char('d') => {
+                if let Some(selection) = self.task_list.list_state.selected() {
+                    if let Some(tasks) = self
+                        .task_list
+                        .current_view
+                        .and_then(|vk| self.state.view_tasks(vk))
+                        {
+                            self.task_delete_popup = Some(TaskDeletePopup::new(tasks[selection]))
+                        }
+                }
+            }
             Enter => {
                 if let Some(selection) = self.task_list.list_state.selected() {
                     if let Some(tasks) = self
@@ -165,11 +184,20 @@ impl Widget for &mut App {
 
         self.task_list.render(&self.state, block, area, buf);
 
-        if let Some(popup) = &mut self.task_create_popup {
-            if popup.should_close {
+        if let Some(task_create_popup) = &mut self.task_create_popup {
+            if task_create_popup.should_close {
                 self.task_create_popup = None;
             } else {
-                popup.render(area, buf);
+                task_create_popup.render(area, buf);
+            }
+        }
+
+        if let Some(task_delete_popup) = &mut self.task_delete_popup {
+            if task_delete_popup.should_close {
+                self.task_delete_popup = None;
+            }
+            else {
+                task_delete_popup.render(area, buf);
             }
         }
     }
