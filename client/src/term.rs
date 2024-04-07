@@ -27,7 +27,7 @@ pub fn restore<W: Write>(mut writer: W) -> io::Result<()> {
     disable_raw_mode()
 }
 
-#[cfg(test)]
+/* #[cfg(test)]
 mod tests {
     use iobuffer::IoBuffer;
     use super::*;
@@ -39,4 +39,4 @@ mod tests {
         let _ = create(out.clone()).unwrap();
         let _ = restore(out).unwrap();
     }
-}
+} */

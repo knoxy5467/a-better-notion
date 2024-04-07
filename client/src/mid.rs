@@ -1,6 +1,8 @@
 //! Middleware Logic
 #![allow(unused)] // for my sanity developing (TODO: remove this later)
 use color_eyre::eyre::Context;
+#![allow(unused)] // for my sanity developing (TODO: remove this later)
+use color_eyre::eyre::Context;
 use common::{
     backend::{
         FilterRequest, ReadTaskShortRequest,
@@ -8,6 +10,8 @@ use common::{
     },
     *,
 };
+use reqwest::Response;
+use reqwest_middleware::{ClientBuilder, RequestBuilder};
 use reqwest::Response;
 use reqwest_middleware::{ClientBuilder, RequestBuilder};
 use reqwest_tracing::{SpanBackendWithUrl, TracingMiddleware};
@@ -118,14 +122,17 @@ enum StateEvent {
 
 impl State {
     /// define a task, get a key that uniquely identifies it
+    /// define a task, get a key that uniquely identifies it
     pub fn task_def(&mut self, task: Task) -> TaskKey {
         // TODO: register definition to queue so that we can sync to server
         self.tasks.insert(task)
     }
     /// get task using a key, if it exists
+    /// get task using a key, if it exists
     pub fn task_get(&self, key: TaskKey) -> Option<&Task> {
         self.tasks.get(key)
     }
+    /// modify a task
     /// modify a task
     pub fn task_mod(&mut self, key: TaskKey, edit_fn: impl FnOnce(&mut Task)) {
         if let Some(task) = self.tasks.get_mut(key) {
@@ -133,11 +140,13 @@ impl State {
         }
     }
     /// delete a task
+    /// delete a task
     pub fn task_rm(&mut self, key: TaskKey) {
         if let Some(db_id) = self.tasks.remove(key).and_then(|t| t.db_id) {
             self.task_map.remove(&db_id);
         }
     }
+    /// define a property of a certain type on an associated task
     /// define a property of a certain type on an associated task
     pub fn prop_def(
         &mut self,
@@ -157,12 +166,14 @@ impl State {
         Ok(prop_key)
     }
     /// define a property name
+    /// define a property name
     pub fn prop_def_name(&mut self, name: impl Into<String>) -> PropNameKey {
         let name: String = name.into();
         let key = self.prop_names.insert(name.clone());
         self.prop_name_map.insert(name, key);
         key
     }
+    /// delete a property name
     /// delete a property name
     pub fn prop_rm_name(&mut self, name_key: PropNameKey) -> Result<String, PropDataError> {
         let name = self
@@ -172,6 +183,7 @@ impl State {
         self.prop_name_map.remove(&name);
         Ok(name)
     }
+    /// get a property
     /// get a property
     pub fn prop_get(
         &self,
@@ -191,6 +203,7 @@ impl State {
             .ok_or(PropDataError::Prop(task_key, name_key))?;
         Ok(&self.props[*key])
     }
+    /// modify a property
     /// modify a property
     pub fn prop_mod(
         &mut self,
@@ -217,6 +230,7 @@ impl State {
         Ok(())
     }
     /// delete a property
+    /// delete a property
     pub fn prop_rm(
         &mut self,
         task_key: TaskKey,
@@ -238,18 +252,22 @@ impl State {
             .ok_or(PropDataError::Prop(task_key, name_key))
     }
     /// define a view
+    /// define a view
     pub fn view_def(&mut self, view: View) -> ViewKey {
         // TODO: register to save updated view
         self.views.insert(view)
     }
     /// get a view
+    /// get a view
     pub fn view_get(&self, view_key: ViewKey) -> Option<&View> {
         self.views.get(view_key)
     }
     /// get the default view
+    /// get the default view
     pub fn view_get_default(&self) -> Option<ViewKey> {
         self.views.keys().next()
     }
+    /// shorthand function to get the list of tasks associated with a view
     /// shorthand function to get the list of tasks associated with a view
     pub fn view_tasks(&self, view_key: ViewKey) -> Option<&[TaskKey]> {
         self.views
@@ -258,27 +276,33 @@ impl State {
             .map(|v| v.as_slice())
     }
     /// modify a view
+    /// modify a view
     pub fn view_mod(&mut self, view_key: ViewKey, edit_fn: impl FnOnce(&mut View)) -> Option<()> {
         edit_fn(self.views.get_mut(view_key)?);
         None
     }
     /// delete a view
+    /// delete a view
     pub fn view_rm(&mut self, view_key: ViewKey) {
         self.views.remove(view_key);
     }
+    /// create a script
     /// create a script
     pub fn script_create(&mut self) -> ScriptID {
         self.scripts.insert(0, Script::default());
         0
     }
     /// get a script
+    /// get a script
     pub fn script_get(&self, script_id: ScriptID) -> Option<&Script> {
         self.scripts.get(&script_id)
     }
     /// modify a script
+    /// modify a script
     pub fn script_mod(&mut self, script_id: ScriptID, edit_fn: impl FnOnce(&mut Script)) {
         self.scripts.entry(script_id).and_modify(edit_fn);
     }
+    /// delete a script
     /// delete a script
     pub fn script_rm(&mut self, script_id: ScriptID) {
         self.scripts.remove(&script_id);
@@ -363,10 +387,12 @@ pub async fn init(url: &str) -> color_eyre::Result<State> {
     });
     let view_tasks = state.tasks.keys().collect::<Vec<TaskKey>>();
     state.view_mod(view_key, |v| v.tasks = Some(view_tasks));
+    let view_tasks = state.tasks.keys().collect::<Vec<TaskKey>>();
+    state.view_mod(view_key, |v| v.tasks = Some(view_tasks));
     Ok(state)
 }
 
-pub fn init_test_state() -> (State, ViewKey) {
+pub fn init_test() -> State {
     let mut state = State::default();
     let task1 = state.task_def(Task {
         name: "Eat Lunch".to_owned(),
@@ -382,7 +408,7 @@ pub fn init_test_state() -> (State, ViewKey) {
         ..View::default()
     });
     state.view_mod(view_key, |v| v.tasks = Some(vec![task1, task2]));
-    (state, view_key)
+    state
 }
 
 #[cfg(test)]
@@ -418,6 +444,7 @@ mod tests {
     }
 
     #[tokio::test]
+    // #[traced_test]
     // #[traced_test]
     async fn test_init() {
         let mut server = Server::new_async().await;
@@ -461,8 +488,9 @@ mod tests {
     #[test]
     fn test_frontend_api() {
         // test view_def, view_mod & task_def
-        let (mut state, view_key) = init_test_state();
+        let mut state = init_test();
         dbg!(&state);
+        let view_key = state.view_get_default().unwrap();
         // test view_get
         let view = state.view_get(view_key).unwrap();
         assert_eq!(view.name, "Main View");
@@ -477,6 +505,7 @@ mod tests {
         state.task_map.insert(0, tasks[1]);
         state.tasks[tasks[1]].db_id = Some(0);
         state.task_rm(tasks[1]);
+        // test get function fail
         // test get function fail
         assert!(state.task_get(tasks[1]).is_none());
         // test mod function fail
@@ -529,6 +558,7 @@ mod tests {
         assert!(state.prop_rm(tasks[0], name_key).is_err());
 
         // script testing
+        // script testing
         let script_id = state.script_create();
         state.script_mod(script_id, |s| s.content = "function do_lua()".to_owned());
         assert_eq!(
@@ -538,6 +568,7 @@ mod tests {
         state.script_rm(script_id);
         assert!(state.script_get(script_id).is_none());
 
+        // test remove view
         // test remove view
         state.view_rm(view_key);
         assert!(state.view_get(view_key).is_none());

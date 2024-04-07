@@ -1,5 +1,6 @@
 //! Client
 #![feature(coverage_attribute)]
+#![feature(coverage_attribute)]
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
@@ -9,24 +10,14 @@ use std::{
 };
 
 use color_eyre::eyre;
-use crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyEventKind};
-use futures::{Stream, StreamExt};
-use mid::*;
-use num_modular::ModularCoreOps;
-use ratatui::{
-    prelude::*,
-    symbols::border,
-    widgets::{block::*, *},
-};
+
+use crossterm::event::EventStream;
+use ratatui::backend::CrosstermBackend;
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 mod mid;
 mod term;
-
-const BACKGROUND: Color = Color::Reset;
-const TEXT_COLOR: Color = Color::White;
-const SELECTED_STYLE_FG: Color = Color::LightYellow;
-const COMPLETED_TEXT_COLOR: Color = Color::Green;
+mod ui;
 
 #[coverage(off)]
 fn main() -> color_eyre::Result<()> {
@@ -63,11 +54,13 @@ fn initialize_logging() -> color_eyre::Result<()> {
 /// This replaces the standard color_eyre panic and error hooks with hooks that
 /// restore the terminal before printing the panic or error.
 #[coverage(off)]
+#[coverage(off)]
 pub fn install_hooks() -> color_eyre::Result<()> {
     // add any extra configuration you need to the hook builder
     let hook_builder = color_eyre::config::HookBuilder::default();
     let (panic_hook, eyre_hook) = hook_builder.into_hooks();
 
+    // used color_eyre's PanicHook as the standard panic hook
     // used color_eyre's PanicHook as the standard panic hook
     let panic_hook = panic_hook.into_panic_hook();
     panic::set_hook(Box::new(#[coverage(off)] move |panic_info| {
@@ -75,6 +68,7 @@ pub fn install_hooks() -> color_eyre::Result<()> {
         panic_hook(panic_info);
     }));
 
+    // use color_eyre's EyreHook as eyre's ErrorHook
     // use color_eyre's EyreHook as eyre's ErrorHook
     let eyre_hook = eyre_hook.into_eyre_hook();
     eyre::set_hook(Box::new(#[coverage(off)] move |error| {
