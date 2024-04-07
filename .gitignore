@@ -15,4 +15,4 @@ design/render
 a-better-notion.code-workspace
 lcov.info
 *.profraw
-.vscode/settings.json
+.vscode/*

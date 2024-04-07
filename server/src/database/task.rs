@@ -55,6 +55,24 @@ impl Related<super::dependency::Entity> for Entity {
 }
 impl ActiveModelBehavior for ActiveModel {}
 
+pub struct TaskOwnedLink;
+
+impl Linked for TaskOwnedLink {
+    type FromEntity = super::task::Entity;
+
+    type ToEntity = super::dependency::Entity;
+
+    fn link(&self) -> Vec<RelationDef> {
+        vec![
+            super::dependency::Relation::Task.def().rev(),
+            super::dependency::Entity::has_one(super::task::Entity)
+                .from(super::dependency::Column::DependsOnId)
+                .to(super::task::Column::Id)
+                .into(),
+        ]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
