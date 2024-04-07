@@ -131,14 +131,14 @@ async fn update_task(
             TaskPropVariant::Number(_) => "number",
         };
 
-        let newprop = task_property::ActiveModel {
+        let _newprop = task_property::ActiveModel {
             task_id: Set(req.task_id),
             name: Set(prop.name.to_owned()),
             typ: Set(typ.to_owned()),
         };
         todo!("needs prop types");
     }
-    for prop in req.props_to_remove.iter() {
+    for _prop in req.props_to_remove.iter() {
         todo!("remove task_property and typed tasks");
     }
     for _dep in req.deps_to_add.iter() {
