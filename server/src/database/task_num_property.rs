@@ -1,5 +1,4 @@
-use actix_web::rt::task;
-use sea_orm::{entity::prelude::*, RelationBuilder, RelationType};
+use sea_orm::entity::prelude::*;
 
 use crate::database::{task_num_property, task_property};
 

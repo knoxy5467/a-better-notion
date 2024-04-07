@@ -20,8 +20,7 @@ pub enum Relation {
 }
 impl Related<super::task::Entity> for Entity {
     fn to() -> RelationDef {
-        let relation = Relation::Task.def();
-        return relation;
+        relation = Relation::Task.def();
     }
 }
 impl ActiveModelBehavior for ActiveModel {}
