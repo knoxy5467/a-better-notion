@@ -33,7 +33,7 @@ mod tests {
         if std::env::var("TERM").is_ok() { return; } // This test does not work on CI
         // disable if running on github actions
         if std::env::var("GITHUB_ACTIONS").is_ok() { return; }
-        
+
         let _ = enable().unwrap();
         let _ = restore().unwrap();
     }
