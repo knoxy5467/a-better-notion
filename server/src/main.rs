@@ -24,7 +24,7 @@ async fn main() -> () {
     initialize_logger();
     info!("Starting server");
     info!("Connecting to database");
-    let (server_handle, server) = start_server().await;
+    let (server_handle, _server) = start_server().await;
     loop {
         tokio::signal::ctrl_c().await.unwrap();
         warn!("Shutting down server");
@@ -46,6 +46,7 @@ async fn start_server() -> (ServerHandle, Server) {
             .service(get_task_request)
             .service(get_tasks_request)
             .service(get_filter_request)
+            .service(create_task_request)
     })
     .bind(("127.0.0.1", 8080))
     .unwrap();
