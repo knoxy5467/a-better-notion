@@ -21,13 +21,9 @@ use sea_orm::{Database, DatabaseConnection};
 
 #[actix_web::main]
 async fn main() -> () {
-    initialize_logger();
-    info!("Starting server");
-    info!("Connecting to database");
     let (server_handle, _server) = start_server().await;
     loop {
         tokio::signal::ctrl_c().await.unwrap();
-        warn!("Shutting down server");
         server_handle.stop(true).await;
         break;
     }
@@ -170,7 +166,6 @@ mod tests {
             .uri("/task")
             .to_request();
         let response: CreateTaskResponse = test::call_and_read_body_json(&app, req).await;
-        env_logger::builder().is_test(true).try_init().unwrap();
         assert_eq!(response, 1);
     }
 
@@ -256,6 +251,6 @@ mod integration_tests {
         info!("stopping server");
         server_obj.handle().stop(false);
         info!("stopping server");
-        server_handle.stop(false);
+        let res = server_handle.stop(false);
     }
 }
