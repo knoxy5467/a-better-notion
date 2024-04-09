@@ -26,7 +26,11 @@ impl TaskList {
             return;
         };
         // get current selected task (if any)
-        let Some(selected_task) = self.selected_task else {return;};
+        let Some(selected_task) = self.selected_task.or(match amt.cmp(&0) {
+            std::cmp::Ordering::Less => tasks.last().cloned(),
+            std::cmp::Ordering::Greater => tasks.first().cloned(),
+            _ => None,
+        }) else { return; };
         // get index in tasks list of selected_task
         let Some(cur_index) = tasks.iter().position(|key|*key == selected_task) else {return;};
         // add the index
@@ -34,7 +38,7 @@ impl TaskList {
         let new_index = if wrap {
             (tasks.len().saturating_add_signed(new_index)) % tasks.len()
         } else {
-            new_index.clamp(0, tasks.len() as isize) as usize
+            new_index.clamp(0, tasks.len().saturating_sub(1) as isize) as usize
         };
         self.list_state.select(Some(new_index));
         self.selected_task = Some(tasks[new_index]);
