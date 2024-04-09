@@ -111,8 +111,8 @@ impl App {
         match key_event.code {
             Char('q') => self.should_exit = true,
             Char('e') => self.task_create_popup = Some(TaskCreatePopup::new()),
-            Up => self.task_list.up(&self.state),
-            Down => self.task_list.down(&self.state),
+            Up => self.task_list.shift(&self.state, -1, false),
+            Down => self.task_list.shift(&self.state, 1, false),
             Enter => {
                 if let Some(selection) = self.task_list.list_state.selected() {
                     if let Some(tasks) = self

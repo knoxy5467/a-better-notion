@@ -1,4 +1,3 @@
-use num_modular::ModularCoreOps;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -7,7 +6,7 @@ use ratatui::{
     widgets::{Block, HighlightSpacing, List, ListState, Paragraph, StatefulWidget, Widget},
 };
 
-use crate::mid::{State, ViewKey};
+use crate::mid::{State, TaskKey, ViewKey};
 
 use super::{COMPLETED_TEXT_COLOR, SELECTED_STYLE_FG, TEXT_COLOR};
 
@@ -15,34 +14,27 @@ use super::{COMPLETED_TEXT_COLOR, SELECTED_STYLE_FG, TEXT_COLOR};
 /// Task list widget
 pub struct TaskList {
     pub current_view: Option<ViewKey>,
+    pub selected_task: Option<TaskKey>,
     pub list_state: ListState,
 }
 impl TaskList {
     // move current selection of task up 1 item.
-    pub fn up(&mut self, state: &State) {
+    pub fn shift(&mut self, state: &State, amt: isize, wrap: bool) {
         let Some(tasks) = self.current_view.and_then(|vk| state.view_tasks(vk)) else {
             self.list_state.select(None);
             return;
         };
 
         self.list_state.select(Some(
-            self.list_state
-                .selected()
-                .as_mut()
-                .map_or(0, |v| v.subm(1, &tasks.len())),
-        ));
-    }
-    // move current selection of task down 1 item
-    pub fn down(&mut self, state: &State) {
-        let Some(tasks) = self.current_view.and_then(|vk| state.view_tasks(vk)) else {
-            self.list_state.select(None);
-            return;
-        };
-        self.list_state.select(Some(
-            self.list_state
-                .selected()
-                .map_or(1, |v| v.addm(1, &tasks.len())),
-        ));
+            self.list_state.selected().as_mut().map_or(0, |v| {
+                let add = v.saturating_add_signed(amt);
+                if wrap {
+                    add % tasks.len()
+                } else {
+                    add.clamp(0, tasks.len())
+                }
+            })
+        ))
     }
     // render task list to buffer
     pub fn render(&mut self, state: &State, block: Block<'_>, area: Rect, buf: &mut Buffer) {
