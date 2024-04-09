@@ -20,21 +20,24 @@ pub struct TaskList {
 impl TaskList {
     // move current selection of task up 1 item.
     pub fn shift(&mut self, state: &State, amt: isize, wrap: bool) {
+        // get tasks list (if any)
         let Some(tasks) = self.current_view.and_then(|vk| state.view_tasks(vk)) else {
             self.list_state.select(None);
             return;
         };
-
-        self.list_state.select(Some(
-            self.list_state.selected().as_mut().map_or(0, |v| {
-                let add = v.saturating_add_signed(amt);
-                if wrap {
-                    add % tasks.len()
-                } else {
-                    add.clamp(0, tasks.len())
-                }
-            })
-        ))
+        // get current selected task (if any)
+        let Some(selected_task) = self.selected_task else {return;};
+        // get index in tasks list of selected_task
+        let Some(cur_index) = tasks.iter().position(|key|*key == selected_task) else {return;};
+        // add the index
+        let new_index = (cur_index as isize) + amt;
+        let new_index = if wrap {
+            (tasks.len().saturating_add_signed(new_index)) % tasks.len()
+        } else {
+            new_index.clamp(0, tasks.len() as isize) as usize
+        };
+        self.list_state.select(Some(new_index));
+        self.selected_task = Some(tasks[new_index]);
     }
     // render task list to buffer
     pub fn render(&mut self, state: &State, block: Block<'_>, area: Rect, buf: &mut Buffer) {
