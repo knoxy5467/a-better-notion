@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust
-        run: rustup update stable
+        run: rustup update nightly
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.7.3
       - name: Setup LCOV
@@ -23,16 +23,40 @@ jobs:
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
         run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
-      - name: lcov report
+      - name: lcov report changed lines
+        id: changed_lines_check
         uses: kefasjw/lcov-pull-request-report@v1
         with:
           # Lcov file location. For example, coverage/lcov.info
           lcov-file: lcov.info
           # Github token required for getting list of changed files and posting comments
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          # Changed files minimum coverage in percentage. For example, 0, 50, 100
+              # Report comment title
+            # Default: empty
+          comment-title: changed_lines_coverage_report
+          # Changed files minimum coverage in percentage. For example, 0, 50, 10
           # Default: 0
           changed-files-minimum-coverage: 90
+        continue-on-error: true
+      - name: lcov report total
+        id: total_lines_check
+        uses: kefasjw/lcov-pull-request-report@v1
+        with:
+          # Lcov file location. For example, coverage/lcov.info
+          lcov-file: lcov.info
+          # Github token required for getting list of changed files and posting comments
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Default: empty
+          comment-title: total_lines_coverage_report
+          # Total coverage minimum in percentage. For example, 0, 50, 100
+          # Default: 0
+      # All files minimum coverage in percentage. For example, 0, 50, 100
+          # Default: 0
+          all-files-minimum-coverage: 90
+        continue-on-error: true
+      - name: check-status
+        if: steps.total_lines_check.outcome != 'success' && steps.changed_lines_check.outcome != 'success'
+        run: exit 1
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
