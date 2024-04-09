@@ -1,6 +1,6 @@
 //! Middleware Logic
 #![allow(unused)] // for my sanity developing (TODO: remove this later)
-use color_eyre::eyre::Context;
+use color_eyre::eyre::{Context, ContextCompat};
 use common::{
     backend::{FilterRequest, ReadTaskShortRequest, ReadTasksShortRequest, ReadTasksShortResponse},
     *,
@@ -14,7 +14,9 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 new_key_type! { pub struct PropKey; }
-new_key_type! { pub struct TaskKey; }
+new_key_type! {
+    pub struct TaskKey;
+}
 
 /// All data associated with tasks, except for properties
 #[derive(Debug, Default)]
@@ -111,6 +113,21 @@ enum StateEvent {
     MultiState,
     /// The connection has either connected or disconnected.
     ServerStatus(bool),
+}
+
+/* // data events from server to be applied to middleware
+enum ServerResponse {
+    
+} */
+trait ServerResponse {
+    fn update_state(self, state: &mut State) -> color_eyre::Result<()>;
+}
+impl ServerResponse for ReadTaskShortRequest {
+    fn update_state(self, state: &mut State) -> color_eyre::Result<()> {
+        let key = state.task_map.get(&self.task_id).wrap_err_with(||format!("unknown task id: {}", self.task_id))?;
+        // state.task.get(key);
+        Ok(())
+    }
 }
 
 impl State {
