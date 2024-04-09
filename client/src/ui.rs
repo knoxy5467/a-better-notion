@@ -122,14 +122,8 @@ impl App {
             Up => self.task_list.shift(&self.state, -1, false),
             Down => self.task_list.shift(&self.state, 1, false),
             Char('d') => {
-                if let Some(selection) = self.task_list.list_state.selected() {
-                    if let Some(tasks) = self
-                        .task_list
-                        .current_view
-                        .and_then(|vk| self.state.view_tasks(vk))
-                        {
-                            self.task_delete_popup = Some(TaskDeletePopup::new(tasks[selection]))
-                        }
+                if let Some(selection) = self.task_list.selected_task {
+                    self.task_delete_popup = Some(TaskDeletePopup::new(selection));
                 }
             }
             Enter => {
