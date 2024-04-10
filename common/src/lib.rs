@@ -105,8 +105,10 @@ pub enum TaskPropVariant {
 /// A task property and its corresponding name.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct TaskProp {
-    name: String,
-    value: TaskPropVariant,
+    /// name
+    pub name: String,
+    /// actual value
+    pub value: TaskPropVariant,
 }
 
 /// Represents a filter on tasks using their properties that the database computes.
