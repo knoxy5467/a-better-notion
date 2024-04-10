@@ -1,7 +1,7 @@
-use crate::database::{task, task_property};
+use crate::database::{task, task_property, task_string_property};
 #[allow(unused)]
 use actix_web::{delete, get, post, put, web, Responder, Result};
-use common::{backend::*, TaskPropVariant};
+use common::{backend::*, TaskProp, TaskPropVariant};
 use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Condition, Set};
 /// get /task endpoint for retrieving a single TaskShort
 #[get("/task")]
@@ -124,19 +124,18 @@ async fn update_task(
     }
     for prop in req.props_to_add.iter() {
         //create the new property
-        let typ = match prop.value {
-            TaskPropVariant::Date(_) => "date",
-            TaskPropVariant::String(_) => "string",
-            TaskPropVariant::Boolean(_) => "boolean",
-            TaskPropVariant::Number(_) => "number",
+        match &prop.value {
+            TaskPropVariant::String(val) => {
+                let newprop = task_string_property::ActiveModel {
+                    task_id: Set(req.task_id),
+                    name: Set(prop.name.to_owned()),
+                    value: Set(val.to_string()),
+                };
+            }
+            TaskPropVariant::Number(val) => {}
+            TaskPropVariant::Date(val) => {}
+            TaskPropVariant::Boolean(val) => {}
         };
-
-        let _newprop = task_property::ActiveModel {
-            task_id: Set(req.task_id),
-            name: Set(prop.name.to_owned()),
-            typ: Set(typ.to_owned()),
-        };
-        todo!("needs prop types");
     }
     for _prop in req.props_to_remove.iter() {
         todo!("remove task_property and typed tasks");
