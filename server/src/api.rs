@@ -1,8 +1,8 @@
-use crate::database::task;
+use crate::database::{task, task_property};
 #[allow(unused)]
-use actix_web::{get, put, web, Responder, Result};
-use common::backend::*;
-use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Set};
+use actix_web::{delete, get, post, put, web, Responder, Result};
+use common::{backend::*, TaskPropVariant};
+use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Condition, Set};
 /// get /task endpoint for retrieving a single TaskShort
 #[get("/task")]
 async fn get_task_request(
@@ -58,6 +58,163 @@ async fn get_tasks_request(
     }
 
     Ok(web::Json(res))
+}
+
+/// post /task endpoint creates a single task
+async fn create_task(
+    data: &web::Data<DatabaseConnection>,
+    req: &CreateTaskRequest,
+) -> Result<web::Json<CreateTaskResponse>> {
+    let task_model = task::ActiveModel {
+        id: NotSet,
+        title: Set(req.name.clone()),
+        completed: Set(req.completed),
+        last_edited: Set(chrono::Local::now().naive_local()),
+    };
+    let result_task = task::Entity::insert(task_model)
+        .exec(data.as_ref())
+        .await
+        .map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!("task not inserted {}", e))
+        })?; //TODO handle this error better, for example for unique constraint violation
+    Ok(web::Json(result_task.last_insert_id as CreateTaskResponse))
+}
+
+#[post("/task")]
+async fn create_task_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<CreateTaskRequest>,
+) -> Result<web::Json<CreateTaskResponse>> {
+    create_task(&data, &req).await
+}
+/// post /tasks endpoint cretes multiple tasks
+#[post("/tasks")]
+async fn create_tasks_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<CreateTasksRequest>,
+) -> Result<web::Json<CreateTasksResponse>> {
+    let mut res: CreateTasksResponse = Vec::new();
+    for taskreq in req.iter() {
+        let id = create_task(&data, taskreq)
+            .await
+            .unwrap_or(web::Json(-1))
+            .to_owned();
+        res.push(id)
+    }
+    Ok(web::Json(res))
+}
+
+/// put /task updates one task
+async fn update_task(
+    data: &web::Data<DatabaseConnection>,
+    req: &UpdateTaskRequest,
+) -> Result<web::Json<UpdateTaskResponse>> {
+    let task = task::Entity::find_by_id(req.task_id)
+        .one(data.as_ref())
+        .await
+        .map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!("couldn't fetch tasks: {}", e))
+        })?;
+    let mut task: task::ActiveModel = task.unwrap().into();
+    if req.name.is_some() {
+        task.title = Set(req.name.to_owned().unwrap());
+    }
+    if req.checked.is_some() {
+        task.completed = Set(req.checked.unwrap());
+    }
+    for prop in req.props_to_add.iter() {
+        //create the new property
+        let typ = match prop.value {
+            TaskPropVariant::Date(_) => "date",
+            TaskPropVariant::String(_) => "string",
+            TaskPropVariant::Boolean(_) => "boolean",
+            TaskPropVariant::Number(_) => "number",
+        };
+
+        let newprop = task_property::ActiveModel {
+            task_id: Set(req.task_id),
+            name: Set(prop.name.to_owned()),
+            typ: Set(typ.to_owned()),
+        };
+        todo!("needs prop types");
+    }
+    for prop in req.props_to_remove.iter() {
+        todo!("remove task_property and typed tasks");
+    }
+    for _dep in req.deps_to_add.iter() {
+        //TODO: implement deps
+    }
+    for _dep in req.deps_to_remove.iter() {
+        //TODO: implement deps
+    }
+    for _script in req.scripts_to_add.iter() {
+        //TODO: implement scripts
+    }
+    for _script in req.scripts_to_remove.iter() {
+        //TODO: implement scripts
+    }
+
+    Ok(web::Json(1))
+}
+#[put("/task")]
+async fn update_task_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<UpdateTaskRequest>,
+) -> Result<web::Json<UpdateTaskResponse>> {
+    update_task(&data, &req).await
+}
+#[put("/tasks")]
+async fn update_tasks_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<UpdateTasksRequest>,
+) -> Result<web::Json<UpdateTasksResponse>> {
+    let mut res: UpdateTasksResponse = Vec::new();
+    for taskreq in req.iter() {
+        let id = update_task(&data, taskreq)
+            .await
+            .unwrap_or(web::Json(-1))
+            .to_owned();
+        res.push(id);
+    }
+    Ok(web::Json(res))
+}
+
+async fn delete_task(
+    data: &web::Data<DatabaseConnection>,
+    req: &DeleteTaskRequest,
+) -> Result<web::Json<DeleteTaskResponse>> {
+    task::Entity::find_by_id(req.task_id)
+        .one(data.as_ref())
+        .await
+        .map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!("couldn't find task: {}", e))
+        })?
+        .unwrap()
+        .delete(data.as_ref())
+        .await
+        .map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!("couldn't delete task: {}", e))
+        })?;
+
+    Ok(web::Json(()))
+}
+
+#[delete("/task")]
+async fn delete_task_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<DeleteTaskRequest>,
+) -> Result<web::Json<DeleteTaskResponse>> {
+    delete_task(&data, &req).await
+}
+#[delete("/tasks")]
+async fn delete_tasks_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<DeleteTasksRequest>,
+) -> Result<web::Json<DeleteTasksResponse>> {
+    for task in req.iter() {
+        delete_task(&data, task);
+    }
+    Ok(web::Json(()))
 }
 
 /// get /filter endpoint for retrieving some number of TaskShorts

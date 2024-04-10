@@ -78,6 +78,7 @@ mod test_main {
         main();
     }
 }
+
 #[cfg(test)]
 mod integration_tests {
     use std::{env, net::TcpStream, time::Duration};
