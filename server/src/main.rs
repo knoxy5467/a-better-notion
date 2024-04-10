@@ -5,6 +5,7 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 mod api;
 mod database;
+
 use actix_web::{
     dev::{Server, ServerHandle},
     web::Data,
@@ -25,7 +26,7 @@ fn initialize_logger() {
 async fn main() -> () {
     let (server_handle, _server) = start_server().await;
     tokio::signal::ctrl_c().await.unwrap();
-    server_handle.stop(true).await;
+    //server_handle.stop(false).await;
 }
 #[allow(clippy::needless_return)]
 async fn start_server() -> (ServerHandle, Server) {
