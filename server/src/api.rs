@@ -10,6 +10,7 @@ async fn get_task_request(
     req: web::Json<ReadTaskShortRequest>,
 ) -> Result<impl Responder> {
     let db = data;
+    println!("handling request");
     let task = task::Entity::find_by_id(req.task_id)
         .one(db.as_ref())
         .await

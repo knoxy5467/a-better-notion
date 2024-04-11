@@ -24,37 +24,57 @@ fn initialize_logger() {
 #[coverage(off)]
 #[actix_web::main]
 async fn main() -> () {
-    let (server_handle, _server) = start_server().await;
-    tokio::signal::ctrl_c().await.unwrap();
-    //server_handle.stop(false).await;
-}
-#[allow(clippy::needless_return)]
-async fn start_server() -> (ServerHandle, Server) {
+    println!("starting server");
+    println!("starting server function");
     initialize_logger();
+    println!("connecting to db");
     let db =
         Database::connect("postgres://abn:abn@localhost:5432/abn?options=-c%20search_path%3Dtask")
             .await
             .unwrap();
     let db_data: Data<DatabaseConnection> = Data::new(db);
+    println!("starting http server");
     let server = HttpServer::new(move || {
+        print!("dbdata");
         let db_data = db_data.clone();
-        App::new()
-            .app_data(db_data)
-            .service(get_task_request)
-            .service(get_tasks_request)
-            .service(get_filter_request)
-            .service(create_task_request)
+        println!("adding app");
+        let app = App::new();
+        println!("1");
+        let app = app
+            .app_data(db_data);
+        println!("1");
+        let app = app
+            .service(get_task_request);
+        println!("1");
+        let app = app
+            .service(get_tasks_request);
+        println!("1");
+        let app = app
+            .service(get_filter_request);
+        println!("1");
+        let app = app
+            .service(create_task_request);
+        println!("1");
+        return app;
     })
-    .bind(("127.0.0.1", 8080))
-    .unwrap();
+    .bind(("127.0.0.1", 8080)).unwrap().run().await;
     info!("server starting");
-    let server_obj = server.run();
+    //let server_obj = server.run();
     info!("server started, creating handle");
-    let server_handle = server_obj.handle();
+    //let server_handle = server_obj.handle();
     info!("server handle created returning");
-    return (server_handle, server_obj);
+    //let (server_handle, _server) = start_server().await;
+    //server_handle.stop(false).await;
+}
+/* 
+#[allow(clippy::needless_return)]
+async fn start_server() -> (ServerHandle, Server) {
+   
+    //return (server_handle, server_obj);
 }
 
+*/
+/* 
 #[cfg(test)]
 #[path = "./tests/test_filter.rs"]
 mod test_filter;
@@ -88,7 +108,7 @@ mod integration_tests {
     use testcontainers_modules::{postgres::Postgres, testcontainers::RunnableImage};
     use tokio::time;
 
-    use crate::start_server;
+    //use crate::start_server;
     #[actix_web::test]
     async fn test_database_connection() {
         env::set_var("RUST_LOG", "info");
@@ -127,3 +147,4 @@ mod integration_tests {
         let _res = server_handle.stop(false);
     }
 }
+*/

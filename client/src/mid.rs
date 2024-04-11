@@ -2,7 +2,7 @@
 #![allow(unused)] // for my sanity developing (TODO: remove this later)
 use color_eyre::eyre::Context;
 use common::{
-    backend::{FilterRequest, ReadTaskShortRequest, ReadTasksShortRequest, ReadTasksShortResponse},
+    backend::{FilterRequest, ReadTaskShortRequest, ReadTaskShortResponse, ReadTasksShortRequest, ReadTasksShortResponse},
     *,
 };
 use reqwest::Response;
@@ -297,8 +297,11 @@ where
     Req: Serialize + std::fmt::Debug,
     Res: for<'d> Deserialize<'d> + std::fmt::Debug,
 {
+    println!("in do_request sending req");
     let res: Response = req_builder.json(&req).send().await?;
+    println!("in do_request, got response");
     let bytes = res.bytes().await?.to_vec();
+    println!("got bytes");
     let res: Res = serde_json::from_reader(&bytes[..]).with_context(|| {
         format!(
             "should have received type {}, as json, received: \"{}\"",
@@ -322,14 +325,22 @@ pub async fn init(url: &str) -> color_eyre::Result<State> {
     let client = ClientBuilder::new(reqwest::Client::new())
         .with(TracingMiddleware::<SpanBackendWithUrl>::new())
         .build();
-
+    println!("built client");
     // request all tasks using a "None" filter
     let filter_request = FilterRequest {
         filter: Filter::None,
     };
+    println!("made filter request");
+    let test_req = ReadTaskShortRequest {
+        task_id: 1
+    };
+    println!("sending test request");
+    let test_resp: ReadTaskShortResponse = do_request(client.get(format!("{url}/task")), test_req).await?;
+    println!("got a response");
+    println!("{:?}", test_resp);
     let task_ids: Vec<TaskID> =
         do_request(client.get(format!("{url}/filter")), filter_request).await?;
-
+    println!("sent filter request");
     // request task data for all filter data passed back
     let tasks_request = task_ids
         .into_iter()
