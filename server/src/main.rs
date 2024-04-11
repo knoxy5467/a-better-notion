@@ -4,6 +4,7 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 mod api;
 mod database;
+use actix_settings::{ApplySettings, Settings};
 use actix_web::{web::Data, App, HttpServer};
 use api::*;
 use sea_orm::{Database, DatabaseConnection};
@@ -16,6 +17,8 @@ async fn main() -> std::io::Result<()> {
             .await
             .unwrap();
     let db_data: Data<DatabaseConnection> = Data::new(db);
+    let settings = Settings::parse_toml(format!("{}/server/Server.toml", project_root::get_project_root()?.as_os_str().to_str().unwrap()))
+        .expect("Failed to parse `Settings` from Server.toml");
     HttpServer::new(move || {
         let db_data = db_data.clone();
         App::new()
@@ -25,7 +28,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_filter_request)
             .service(create_task_request)
     })
-    .bind(("127.0.0.1", 8080))?
+    .apply_settings(&settings)
     .run()
     .await
 }

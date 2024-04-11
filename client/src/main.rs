@@ -8,6 +8,7 @@ use std::{
     panic,
 };
 
+use actix_settings::Settings;
 use color_eyre::eyre;
 
 use crossterm::event::EventStream;
@@ -18,23 +19,25 @@ mod mid;
 mod term;
 mod ui;
 
-#[coverage(off)]
-fn main() -> color_eyre::Result<()> {
-    // manually create tokio runtime
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(
-        #[coverage(off)]
-        async {
-            initialize_logging()?;
-            install_hooks()?;
-            term::enable()?;
-            let state = mid::init("http://localhost:8080").await?;
-            let res = ui::run(CrosstermBackend::new(stdout()), state, EventStream::new()).await;
-            term::restore()?;
-            res?;
-            Ok(())
-        },
-    )
+const BACKGROUND: Color = Color::Reset;
+const TEXT_COLOR: Color = Color::White;
+const SELECTED_STYLE_FG: Color = Color::LightYellow;
+const COMPLETED_TEXT_COLOR: Color = Color::Green;
+
+#[tokio::main]
+async fn main() -> color_eyre::Result<()> {
+    initialize_logging()?;
+    install_hooks()?;
+    let term = term::init(std::io::stdout())?;
+    let res = run(term).await;
+    term::restore()?;
+    res
+}
+async fn run<W: io::Write>(mut term: term::Tui<W>) -> color_eyre::Result<()> {
+    let settings = Settings::parse_toml("./server/Server.toml").unwrap();
+    let state = mid::init(&format!("http://{}:{}", settings.actix.hosts[0].host, settings.actix.hosts[0].port)).await?;
+    let events = EventStream::new();
+    App::new(state).run(&mut term, events).await
 }
 
 #[coverage(off)]

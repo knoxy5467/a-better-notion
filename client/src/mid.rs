@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use slotmap::{new_key_type, SlotMap};
 use std::collections::HashMap;
 use thiserror::Error;
+use actix_settings::{*};
 
 new_key_type! { pub struct PropKey; }
 new_key_type! { pub struct TaskKey; }
