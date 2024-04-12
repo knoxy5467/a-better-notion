@@ -4,10 +4,18 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 mod api;
 mod database;
-use actix_settings::{ApplySettings, Settings};
+
+use actix_settings::{ApplySettings, BasicSettings, NoSettings, Settings};
 use actix_web::{web::Data, App, HttpServer};
 use api::*;
 use sea_orm::{Database, DatabaseConnection};
+
+async fn load_settings() -> std::io::Result<BasicSettings<NoSettings>> {
+    let basic_settings = Settings::parse_toml(format!("{}/server/Server.toml", project_root::get_project_root()?.as_os_str().to_str().unwrap()))
+        .expect("Failed to parse `Settings` from Server.toml");
+    Ok(basic_settings)
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     println!("Starting server");
@@ -17,8 +25,7 @@ async fn main() -> std::io::Result<()> {
             .await
             .unwrap();
     let db_data: Data<DatabaseConnection> = Data::new(db);
-    let settings = Settings::parse_toml(format!("{}/server/Server.toml", project_root::get_project_root()?.as_os_str().to_str().unwrap()))
-        .expect("Failed to parse `Settings` from Server.toml");
+    let settings = load_settings().await.unwrap();
     HttpServer::new(move || {
         let db_data = db_data.clone();
         App::new()
@@ -44,6 +51,11 @@ mod tests {
             std::process::exit(0)
         });
         main().unwrap();
+    }
+
+    #[actix_web::test]
+    async fn test_load_settings() {
+        load_settings().await.unwrap();
     }
 
     #[actix_web::test]
