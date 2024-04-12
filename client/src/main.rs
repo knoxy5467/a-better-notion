@@ -8,7 +8,7 @@ use std::{
     panic,
 };
 
-use actix_settings::Settings;
+use actix_settings::{BasicSettings, NoSettings, Settings};
 use color_eyre::eyre;
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyEventKind};
 use futures::{Stream, StreamExt};
@@ -38,8 +38,15 @@ async fn main() -> color_eyre::Result<()> {
     term::restore()?;
     res
 }
+
+// load settings from the config file
+pub async fn load_settings() -> std::io::Result<BasicSettings<NoSettings>> {
+    let config_file = include_str!("../../server/Server.toml");
+    Ok(Settings::from_template(config_file)?)
+}
+
 async fn run<W: io::Write>(mut term: term::Tui<W>) -> color_eyre::Result<()> {
-    let settings = server::load_settings();
+    let settings = load_settings().await.unwrap();
     let state = mid::init(&format!("http://{}:{}", settings.actix.hosts[0].host, settings.actix.hosts[0].port)).await?;
     let events = EventStream::new();
     App::new(state).run(&mut term, events).await
