@@ -13,9 +13,11 @@ use crate::{mid::State, term};
 
 use self::task_create_popup::TaskCreatePopup;
 use self::task_delete_popup::TaskDeletePopup;
+use self::task_edit_popup::TaskEditPopup;
 
 mod task_create_popup;
 mod task_delete_popup;
+mod task_edit_popup;
 mod task_list;
 
 const BACKGROUND: Color = Color::Reset;
@@ -47,7 +49,8 @@ pub struct App {
     /// number of frame updates (used for debug purposes)
     updates: usize,
     task_create_popup: Option<TaskCreatePopup>,
-    task_delete_popup: Option<TaskDeletePopup>
+    task_delete_popup: Option<TaskDeletePopup>,
+    task_edit_popup: Option<TaskEditPopup>,
 }
 
 impl App {
@@ -60,6 +63,7 @@ impl App {
             updates: 0,
             task_create_popup: None,
             task_delete_popup: None,
+            task_edit_popup: None,
         }
     }
     /// run app with some terminal output and event stream input
@@ -114,7 +118,11 @@ impl App {
         }
         if let Some(task_delete_popup) = &mut self.task_delete_popup {
             return task_delete_popup.handle_key_event(&mut self.state, key_event.code);
-        } 
+        }
+
+        if let Some(task_edit_popup) = &mut self.task_edit_popup {
+            return task_edit_popup.handle_key_event(&mut self.state, key_event.code);
+        }
 
         match key_event.code {
             Char('q') => self.should_exit = true,
@@ -124,6 +132,17 @@ impl App {
             Char('d') => {
                 if let Some(selection) = self.task_list.selected_task {
                     self.task_delete_popup = Some(TaskDeletePopup::new(selection));
+                }
+            }
+            Char('x') => {
+                if let Some(selection) = self.task_list.selected_task {
+                    if let Some(tasks) = self
+                        .task_list
+                        .current_view
+                        .and_then(|vk| self.state.view_tasks(vk))
+                    {
+                        self.task_edit_popup = Some(TaskEditPopup::new(Some(selection)));
+                    }
                 }
             }
             Enter => {
@@ -189,9 +208,16 @@ impl Widget for &mut App {
         if let Some(task_delete_popup) = &mut self.task_delete_popup {
             if task_delete_popup.should_close {
                 self.task_delete_popup = None;
-            }
-            else {
+            } else {
                 task_delete_popup.render(area, buf);
+            }
+        }
+
+        if let Some(task_edit_popup) = &mut self.task_edit_popup {
+            if task_edit_popup.should_close {
+                self.task_edit_popup = None;
+            } else {
+                task_edit_popup.render(area, buf);
             }
         }
     }
