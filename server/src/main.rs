@@ -10,10 +10,10 @@ use actix_web::{web::Data, App, HttpServer};
 use api::*;
 use sea_orm::{Database, DatabaseConnection};
 
-async fn load_settings() -> std::io::Result<BasicSettings<NoSettings>> {
-    let basic_settings = Settings::parse_toml(format!("{}/server/Server.toml", project_root::get_project_root()?.as_os_str().to_str().unwrap()))
-        .expect("Failed to parse `Settings` from Server.toml");
-    Ok(basic_settings)
+// load settings from the config file
+pub async fn load_settings() -> std::io::Result<BasicSettings<NoSettings>> {
+    let config_file = include_str!("../Server.toml");
+    Ok(Settings::from_template(config_file)?)
 }
 
 #[actix_web::main]
@@ -55,7 +55,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_load_settings() {
-        load_settings().await.unwrap();
+        println!("running load test");
+        load_settings().await.expect("what happened??");
     }
 
     #[actix_web::test]
