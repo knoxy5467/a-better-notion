@@ -60,6 +60,9 @@ mod test_filter;
 #[cfg(test)]
 #[path = "./tests/test_tasks.rs"]
 mod test_tasks;
+#[cfg(test)]
+#[path = "./tests/test_update.rs"]
+mod test_update;
 
 #[cfg(test)]
 mod test_main {
