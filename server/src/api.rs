@@ -1,8 +1,11 @@
-use crate::database::{task, task_property, task_string_property};
+use crate::database::*;
+use actix_web::error::{ErrorInternalServerError, ErrorNotFound};
 #[allow(unused)]
 use actix_web::{delete, get, post, put, web, Responder, Result};
-use common::{backend::*, TaskProp, TaskPropVariant};
-use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Condition, Set};
+use common::{backend::*, TaskPropVariant};
+use rust_decimal::prelude::FromPrimitive;
+use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Condition, IntoActiveModel, Set};
+
 /// get /task endpoint for retrieving a single TaskShort
 #[get("/task")]
 async fn get_task_request(
@@ -13,7 +16,7 @@ async fn get_task_request(
     let task = task::Entity::find_by_id(req.task_id)
         .one(db.as_ref())
         .await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("SQL error: {}", e)))?; // TODO handle this error better, if it does not exist then it should be a http 204 error
+        .map_err(|e| ErrorInternalServerError(format!("SQL error: {}", e)))?; // TODO handle this error better, if it does not exist then it should be a http 204 error
     match task {
         Some(model) => Ok(web::Json(ReadTaskShortResponse {
             task_id: model.id,
@@ -24,7 +27,7 @@ async fn get_task_request(
             scripts: Vec::new(), //TODO 26mar24 Mrknox: implement scripts
             last_edited: model.last_edited,
         })),
-        None => Err(actix_web::error::ErrorNotFound("task not found by ID")),
+        None => Err(ErrorNotFound("task not found by ID")),
     }
 }
 
@@ -40,9 +43,7 @@ async fn get_tasks_request(
         let task = task::Entity::find_by_id(taskreq.task_id)
             .one(data.as_ref())
             .await
-            .map_err(|e| {
-                actix_web::error::ErrorInternalServerError(format!("couldn't fetch tasks: {}", e))
-            })?;
+            .map_err(|e| ErrorInternalServerError(format!("couldn't fetch tasks: {}", e)))?;
         match task {
             Some(model) => res.push(Ok(ReadTaskShortResponse {
                 task_id: model.id,
@@ -74,9 +75,7 @@ async fn create_task(
     let result_task = task::Entity::insert(task_model)
         .exec(data.as_ref())
         .await
-        .map_err(|e| {
-            actix_web::error::ErrorInternalServerError(format!("task not inserted {}", e))
-        })?; //TODO handle this error better, for example for unique constraint violation
+        .map_err(|e| ErrorInternalServerError(format!("task not inserted {}", e)))?; //TODO handle this error better, for example for unique constraint violation
     Ok(web::Json(result_task.last_insert_id as CreateTaskResponse))
 }
 
@@ -112,10 +111,11 @@ async fn update_task(
     let task = task::Entity::find_by_id(req.task_id)
         .one(data.as_ref())
         .await
-        .map_err(|e| {
-            actix_web::error::ErrorInternalServerError(format!("couldn't fetch tasks: {}", e))
-        })?;
-    let mut task: task::ActiveModel = task.unwrap().into();
+        .map_err(|e| ErrorInternalServerError(format!("couldn't fetch tasks: {}", e)))?
+        .ok_or("no task by id")
+        .map_err(|e| ErrorInternalServerError(e))?;
+
+    let mut task: task::ActiveModel = task.into();
     if req.name.is_some() {
         task.title = Set(req.name.to_owned().unwrap());
     }
@@ -123,28 +123,180 @@ async fn update_task(
         task.completed = Set(req.checked.unwrap());
     }
     for prop in req.props_to_add.iter() {
-        //create the new property
+        let model = task_property::Entity::find()
+            .filter(
+                Condition::all()
+                    .add(task_property::Column::TaskId.eq(req.task_id))
+                    .add(task_property::Column::Name.eq(req.name.to_owned())),
+            )
+            .one(data.as_ref())
+            .await
+            .map_err(|e| ErrorInternalServerError(format!("couldn't find property: {}", e)))?;
+
+        //model exists but type is wrong
+        if model
+            .as_ref()
+            .is_some_and(|m| m.typ != prop.value.type_string())
+        {
+            return Err(ErrorInternalServerError(format!(
+                "proprty {} has wrong type (expecting {})",
+                prop.name,
+                model.unwrap().typ
+            )));
+        }
+
+        //model already exists and we can just update
+        if model.is_some() {
+            match &prop.value {
+                TaskPropVariant::String(val) => {
+                    let p = task_string_property::Entity::find()
+                        .filter(
+                            Condition::all()
+                                .add(task_string_property::Column::TaskId.eq(req.task_id))
+                                .add(task_string_property::Column::Name.eq(prop.name.to_owned())),
+                        )
+                        .one(data.as_ref())
+                        .await
+                        .map_err(ErrorInternalServerError)?
+                        .ok_or("couldn't find property by name")
+                        .map_err(ErrorInternalServerError)?;
+                    let mut p = p.into_active_model();
+                    p.value = Set(val.to_owned());
+                }
+                TaskPropVariant::Date(val) => {
+                    let p = task_date_property::Entity::find()
+                        .filter(
+                            Condition::all()
+                                .add(task_date_property::Column::TaskId.eq(req.task_id))
+                                .add(task_date_property::Column::Name.eq(prop.name.to_owned())),
+                        )
+                        .one(data.as_ref())
+                        .await
+                        .map_err(ErrorInternalServerError)?
+                        .ok_or("couldn't find property by name")
+                        .map_err(ErrorInternalServerError)?;
+                    let mut p = p.into_active_model();
+                    p.value = Set(*val);
+                }
+                TaskPropVariant::Number(val) => {
+                    let p = task_num_property::Entity::find()
+                        .filter(
+                            Condition::all()
+                                .add(task_num_property::Column::TaskId.eq(req.task_id))
+                                .add(task_num_property::Column::Name.eq(prop.name.to_owned())),
+                        )
+                        .one(data.as_ref())
+                        .await
+                        .map_err(ErrorInternalServerError)?
+                        .ok_or("couldn't find property by name")
+                        .map_err(ErrorInternalServerError)?;
+                    let mut p = p.into_active_model();
+                    p.value = Set(Decimal::from_f64(*val).unwrap());
+                }
+                TaskPropVariant::Boolean(val) => {
+                    let p = task_bool_property::Entity::find()
+                        .filter(
+                            Condition::all()
+                                .add(task_bool_property::Column::TaskId.eq(req.task_id))
+                                .add(task_bool_property::Column::Name.eq(prop.name.to_owned())),
+                        )
+                        .one(data.as_ref())
+                        .await
+                        .map_err(ErrorInternalServerError)?
+                        .ok_or("couldn't find property by name")
+                        .map_err(ErrorInternalServerError)?;
+                    let mut p = p.into_active_model();
+                    p.value = Set(*val);
+                }
+            }
+
+            continue;
+        }
+
+        //otherwise we create a new property
         match &prop.value {
             TaskPropVariant::String(val) => {
-                let newprop = task_string_property::ActiveModel {
+                task_string_property::Entity::insert(task_string_property::ActiveModel {
                     task_id: Set(req.task_id),
                     name: Set(prop.name.to_owned()),
                     value: Set(val.to_string()),
-                };
+                })
+                .exec(data.as_ref())
+                .await
+                .map_err(ErrorInternalServerError)?;
             }
-            TaskPropVariant::Number(val) => {}
-            TaskPropVariant::Date(val) => {}
-            TaskPropVariant::Boolean(val) => {}
+            TaskPropVariant::Number(val) => {
+                task_num_property::Entity::insert(task_num_property::ActiveModel {
+                    task_id: Set(req.task_id),
+                    name: Set(prop.name.to_owned()),
+                    value: Set(Decimal::from_f64(*val).unwrap()),
+                })
+                .exec(data.as_ref())
+                .await
+                .map_err(ErrorInternalServerError)?;
+            }
+            TaskPropVariant::Date(val) => {
+                task_date_property::Entity::insert(task_date_property::ActiveModel {
+                    task_id: Set(req.task_id),
+                    name: Set(prop.name.to_owned()),
+                    value: Set(val.to_owned()),
+                })
+                .exec(data.as_ref())
+                .await
+                .map_err(ErrorInternalServerError)?;
+            }
+            TaskPropVariant::Boolean(val) => {
+                task_bool_property::Entity::insert(task_bool_property::ActiveModel {
+                    task_id: Set(req.task_id),
+                    name: Set(prop.name.to_owned()),
+                    value: Set(*val),
+                })
+                .exec(data.as_ref())
+                .await
+                .map_err(ErrorInternalServerError)?;
+            }
         };
     }
-    for _prop in req.props_to_remove.iter() {
-        todo!("remove task_property and typed tasks");
+    for prop in req.props_to_remove.iter() {
+        task_property::Entity::find()
+            .filter(
+                Condition::all()
+                    .add(task_property::Column::TaskId.eq(req.task_id))
+                    .add(task_property::Column::Name.eq(prop)),
+            )
+            .one(data.as_ref())
+            .await
+            .map_err(ErrorInternalServerError)?
+            .ok_or("no property by id")
+            .map_err(ErrorInternalServerError)?
+            .delete(data.as_ref())
+            .await
+            .map_err(ErrorInternalServerError)?;
     }
-    for _dep in req.deps_to_add.iter() {
-        //TODO: implement deps
+    for dep in req.deps_to_add.iter() {
+        dependency::Entity::insert(dependency::ActiveModel {
+            task_id: Set(req.task_id),
+            depends_on_id: Set(*dep),
+        })
+        .exec(data.as_ref())
+        .await
+        .map_err(ErrorInternalServerError)?;
     }
-    for _dep in req.deps_to_remove.iter() {
-        //TODO: implement deps
+    for dep in req.deps_to_remove.iter() {
+        dependency::Entity::find()
+            .filter(
+                Condition::all()
+                    .add(dependency::Column::TaskId.eq(req.task_id))
+                    .add(dependency::Column::DependsOnId.eq(*dep)),
+            )
+            .one(data.as_ref())
+            .await
+            .map_err(ErrorInternalServerError)?
+            .ok_or("dependency couldn't be found")
+            .map_err(ErrorInternalServerError)?
+            .delete(data.as_ref())
+            .await
+            .map_err(ErrorInternalServerError)?;
     }
     for _script in req.scripts_to_add.iter() {
         //TODO: implement scripts
@@ -153,7 +305,7 @@ async fn update_task(
         //TODO: implement scripts
     }
 
-    Ok(web::Json(1))
+    Ok(web::Json(req.task_id))
 }
 #[put("/task")]
 async fn update_task_request(
@@ -185,15 +337,12 @@ async fn delete_task(
     task::Entity::find_by_id(req.task_id)
         .one(data.as_ref())
         .await
-        .map_err(|e| {
-            actix_web::error::ErrorInternalServerError(format!("couldn't find task: {}", e))
-        })?
-        .unwrap()
+        .map_err(|e| ErrorInternalServerError(format!("couldn't find task: {}", e)))?
+        .ok_or("couldn't find task by id")
+        .map_err(ErrorInternalServerError)?
         .delete(data.as_ref())
         .await
-        .map_err(|e| {
-            actix_web::error::ErrorInternalServerError(format!("couldn't delete task: {}", e))
-        })?;
+        .map_err(|e| ErrorInternalServerError(format!("couldn't delete task: {}", e)))?;
 
     Ok(web::Json(()))
 }
@@ -211,7 +360,7 @@ async fn delete_tasks_request(
     req: web::Json<DeleteTasksRequest>,
 ) -> Result<web::Json<DeleteTasksResponse>> {
     for task in req.iter() {
-        delete_task(&data, task);
+        delete_task(&data, task).await?;
     }
     Ok(web::Json(()))
 }
@@ -225,31 +374,12 @@ async fn get_filter_request(
 ) -> Result<impl Responder> {
     //TODO: construct filter
 
-    let tasks: Vec<task::Model> = task::Entity::find().all(data.as_ref()).await.map_err(|e| {
-        actix_web::error::ErrorInternalServerError(format!("couldn't filter tasks: {}", e))
-    })?;
+    let tasks: Vec<task::Model> = task::Entity::find()
+        .all(data.as_ref())
+        .await
+        .map_err(|e| ErrorInternalServerError(format!("couldn't filter tasks: {}", e)))?;
 
     Ok(web::Json(
         tasks.iter().map(|a| a.id).collect::<FilterResponse>(),
     ))
-}
-#[put("/task")]
-async fn create_task_request(
-    data: web::Data<DatabaseConnection>,
-    req: web::Json<CreateTaskRequest>,
-) -> Result<impl Responder> {
-    let db = data;
-    let task_model = task::ActiveModel {
-        id: NotSet,
-        title: Set(req.name.clone()),
-        completed: Set(req.completed),
-        last_edited: Set(chrono::Local::now().naive_local()),
-    };
-    let result_task = task::Entity::insert(task_model)
-        .exec(db.as_ref())
-        .await
-        .map_err(|e| {
-            actix_web::error::ErrorInternalServerError(format!("task not inserted {}", e))
-        })?; //TODO handle this error better, for example for unique constraint violation
-    Ok(web::Json(result_task.last_insert_id as CreateTaskResponse))
 }
