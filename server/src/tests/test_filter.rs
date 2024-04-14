@@ -1,6 +1,10 @@
+use std::env;
+
+use self::testcontainer_common_utils::DB;
+
 use super::*;
 use common::{backend::*, Filter};
-
+use testcontainer_common_utils::setup_db;
 #[actix_web::test]
 async fn filter_request() {
     use actix_web::test;
@@ -35,4 +39,17 @@ async fn filter_request() {
 
     assert_eq!(resp[0], 1);
     assert_eq!(resp[1], 2);
+}
+#[actix_web::test]
+async fn db_test() {
+    env::set_var("RUST_LOG", "info");
+    initialize_logger();
+    info!("starting db");
+    setup_db();
+    // run all my tests
+
+    info!("shutting down db");
+    // if tests are async you must await all of them before running below this will shut down the docker container
+    let db = DB.get().unwrap();
+    db.stop();
 }

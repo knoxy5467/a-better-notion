@@ -54,7 +54,9 @@ mod test_filter;
 #[cfg(test)]
 #[path = "./tests/test_tasks.rs"]
 mod test_tasks;
-
+#[cfg(test)]
+#[path = "./tests/testcontainer_common_utils.rs"]
+mod testcontainer_common_utils;
 #[cfg(test)]
 mod test_main {
     use super::*;
