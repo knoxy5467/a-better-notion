@@ -63,7 +63,7 @@ async fn get_tasks_request(
 
 /// post /task endpoint creates a single task
 async fn create_task(
-    data: &web::Data<DatabaseConnection>,
+    db: &DatabaseConnection,
     req: &CreateTaskRequest,
 ) -> Result<web::Json<CreateTaskResponse>> {
     let task_model = task::ActiveModel {
@@ -73,9 +73,9 @@ async fn create_task(
         last_edited: Set(chrono::Local::now().naive_local()),
     };
     let result_task = task::Entity::insert(task_model)
-        .exec(data.as_ref())
+        .exec(db)
         .await
-        .map_err(|e| ErrorInternalServerError(format!("task not inserted {}", e)))?; //TODO handle this error better, for example for unique constraint violation
+        .map_err(|e| ErrorInternalServerError(format!("task not inserted: {}", e)))?; //TODO handle this error better, for example for unique constraint violation
     Ok(web::Json(result_task.last_insert_id as CreateTaskResponse))
 }
 
@@ -98,7 +98,7 @@ async fn create_tasks_request(
             .await
             .unwrap_or(web::Json(-1))
             .to_owned();
-        res.push(id)
+        res.push(id);
     }
     Ok(web::Json(res))
 }
@@ -412,6 +412,9 @@ async fn get_filter_request(
     ))
 }
 
+#[cfg(test)]
+#[path = "./tests/test_create.rs"]
+mod test_create;
 #[cfg(test)]
 #[path = "./tests/test_update.rs"]
 mod test_update;
