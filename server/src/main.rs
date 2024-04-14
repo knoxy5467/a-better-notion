@@ -96,7 +96,7 @@ mod integration_tests {
     use crate::start_server;
     #[actix_web::test]
     async fn test_database_connection() {
-        env::set_var("RUST_LOG", "trace");
+        env::set_var("RUST_LOG", "debug");
         crate::initialize_logger();
         info!("Starting test");
         let docker = clients::Cli::default();
