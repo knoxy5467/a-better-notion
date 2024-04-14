@@ -175,13 +175,21 @@ pub struct TaskPropColumn {
 /// # FILTER APIS
 
 /// reqwest::get("/filter")
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct FilterRequest {
     /// filter to apply
     pub filter: Filter,
+    /// request id so middleware knows which view to update
+    pub req_id: u64,
 }
 /// responose to GET /filter
-pub type FilterResponse = Vec<TaskID>;
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FilterResponse {
+    /// tasks that filter resolves to
+    pub tasks: Vec<TaskID>,
+    /// request id for middleware
+    pub req_id: u64
+}
 /// reqwest::get("/filter")
 struct FilterTaskRequest {
     filter: Filter,
