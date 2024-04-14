@@ -39,7 +39,8 @@ async fn main() -> color_eyre::Result<()> {
     res
 }
 
-// load settings from the config file
+/// helper function for loading settings from the config file
+/// moving Server.toml around should cause errors
 pub async fn load_settings() -> std::io::Result<BasicSettings<NoSettings>> {
     let config_file = include_str!("../../server/Server.toml");
     Ok(Settings::from_template(config_file)?)
