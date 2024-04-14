@@ -2,21 +2,21 @@
 #![allow(unused)] // for my sanity developing (TODO: remove this later)
 use color_eyre::eyre::{Context, ContextCompat};
 use common::{
-    backend::{FilterRequest, ReadTaskShortRequest, ReadTasksShortRequest, ReadTasksShortResponse},
+    backend::{CreateTaskRequest, CreateTaskResponse, DeleteTaskResponse, FilterRequest, FilterResponse, ReadTaskShortRequest, ReadTaskShortResponse, ReadTasksShortRequest, ReadTasksShortResponse, UpdateTaskResponse},
     *,
 };
+use futures::{channel::mpsc::{self, Receiver, Sender}, SinkExt, Stream, StreamExt};
 use reqwest::Response;
-use reqwest_middleware::{ClientBuilder, RequestBuilder};
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, RequestBuilder};
 use reqwest_tracing::{SpanBackendWithUrl, TracingMiddleware};
-use serde::{Deserialize, Serialize};
-use slotmap::{new_key_type, SlotMap};
-use std::collections::HashMap;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use slotmap::{new_key_type, KeyData, SlotMap};
+use tokio::task::JoinHandle;
+use std::{collections::HashMap, fmt};
 use thiserror::Error;
 
 new_key_type! { pub struct PropKey; }
-new_key_type! {
-    pub struct TaskKey;
-}
+new_key_type! { pub struct TaskKey; }
 
 /// All data associated with tasks, except for properties
 #[derive(Debug, Default)]
@@ -26,11 +26,13 @@ pub struct Task {
     /// Whether the task is completed or not
     pub completed: bool,
     /// Dependencies of this task
-    pub dependencies: Vec<TaskID>,
+    pub dependencies: Vec<TaskKey>,
     /// Associated scripts
     pub scripts: Vec<ScriptID>,
     /// if it is stored in the database, it will have a unique task_id.
     pub db_id: Option<TaskID>,
+    /// latest should be set to true if this value matches server (if false and needed, it should be fetched and updated as soon as possible)
+    pub is_syncronized: bool,
 }
 
 /// Middleware stored View
@@ -52,9 +54,11 @@ new_key_type! { pub struct PropNameKey; }
 new_key_type! { pub struct ViewKey; }
 
 /// Middleware State structure.
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct State {
     /// maps between database ID and middleware ID for task
+    /// If task is only stored locally, may not contain entry for task key
+    /// TaskIDs here must have corresponding Task in hashmap
     task_map: HashMap<TaskID, TaskKey>,
     /// stores task in dense datastructure for iteration efficiency
     tasks: SlotMap<TaskKey, Task>,
@@ -75,8 +79,24 @@ pub struct State {
     views: SlotMap<ViewKey, View>,
     /// connected url
     url: String,
+    client: ClientWithMiddleware,
     /// Connection status
     status: bool,
+    mid_event_sender: Sender<MidEvent>,
+}
+#[derive(Debug)]
+/// Events to be handled by the middleware
+pub enum MidEvent {
+    ServerResponse(color_eyre::Result<Box<dyn ServerResponse>>),
+}
+impl State {
+    pub fn handle_mid_event(&mut self, event: MidEvent) -> color_eyre::Result<()> {
+        match event {
+            MidEvent::ServerResponse(Ok(resp)) => resp.update_state(self)?,
+            MidEvent::ServerResponse(Err(err)) => {Err(err)?},
+        }
+        Ok(())
+    }
 }
 
 /// Error returned if property does not exist
@@ -115,18 +135,133 @@ enum StateEvent {
     ServerStatus(bool),
 }
 
-/* // data events from server to be applied to middleware
-enum ServerResponse {
-    
-} */
-trait ServerResponse {
-    fn update_state(self, state: &mut State) -> color_eyre::Result<()>;
+// data events received from server must implement this trait to be applied to middleware
+pub trait ServerResponse: fmt::Debug + Send + Sync + 'static {
+    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<()>;
 }
-impl ServerResponse for ReadTaskShortRequest {
-    fn update_state(self, state: &mut State) -> color_eyre::Result<()> {
-        let key = state.task_map.get(&self.task_id).wrap_err_with(||format!("unknown task id: {}", self.task_id))?;
-        // state.task.get(key);
+impl ServerResponse for ReadTaskShortResponse {
+    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<()> {
+        // create task from received info
+        let mut task = Task {
+            name: self.name,
+            completed: self.completed,
+            dependencies: self.deps.iter().map(|tid|state.new_server_task(*tid).0).collect::<Vec<TaskKey>>(),
+            scripts: self.scripts,
+            db_id: Some(self.task_id),
+            is_syncronized: true,
+        };
+        // create/update existing task with read task
+        *state.new_server_task(self.task_id).1 = task;
         Ok(())
+    }
+}
+// should only receive this if we already know the server has the task (i.e. sent CreateTaskResponse)
+impl ServerResponse for UpdateTaskResponse {
+    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<()> {
+        let task_key = state.task_map.get(&self).with_context(||format!("cannot find locally stored task associated with DB id: {:?}", self))?;
+        if let Some(task) = state.tasks.get_mut(*task_key) {
+            task.db_id = Some(*self);
+        } else {
+            panic!("fatal: DB id {:?} was associated with task key {:?} but task didn't exist", self, task_key);
+        }
+        Ok(())
+    }
+}
+impl ServerResponse for CreateTaskResponse {
+    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<()> {
+        let task_key = TaskKey(slotmap::KeyData::from_ffi(self.req_id));
+        let task = state.tasks.get_mut(task_key).with_context(||format!("req_id received from CreateTaskResponse does not match a local task key: {task_key:?}"))?;
+        task.db_id = Some(self.new_task_id);
+        Ok(())
+    }
+}
+impl ServerResponse for DeleteTaskResponse {
+    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<()> {
+        // get task key from response (should have been sent with request)
+        let task_key = TaskKey(slotmap::KeyData::from_ffi(self.0));
+        // remove task key
+        let task = state.tasks.remove(task_key).with_context(||format!("req_id received from DeleteTaskResponse does not match a local task key: {task_key:?}"))?;
+        if let Some(db_id) = task.db_id { // if we have a local db_id, remove it from the map
+            state.task_map.remove(&db_id);
+        }
+        Ok(())
+    }
+}
+
+impl ServerResponse for ReadTasksShortResponse {
+    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<()> {
+        for res in *self {
+            if let Ok(res) = res {
+                Box::new(res).update_state(state);
+            }   
+        }
+        Ok(())
+    }
+}
+impl ServerResponse for FilterResponse {
+    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<()> {
+        let tasks = self.tasks.into_iter().map(|tid|state.new_server_task(tid).0).collect::<Vec<TaskKey>>();
+        let view_key = ViewKey(KeyData::from_ffi(self.req_id));
+        let view = state.views.get_mut(view_key).with_context(||format!("request id corresponding to view key: {:?} sent back was invalid", view_key))?; // TODO add context
+        view.tasks = Some(tasks);
+
+        let tasks_to_fetch = state.view_tasks(view_key).unwrap()
+            .iter().filter_map(|tkey|state.tasks.get(*tkey)
+            .map(|t|if !t.is_syncronized {t.db_id} else {None}).flatten())
+            .map(|task_id|ReadTaskShortRequest { task_id }).collect::<Vec<ReadTaskShortRequest>>();
+        if tasks_to_fetch.is_empty() {
+            state.spawn_request::<ReadTasksShortRequest, ReadTasksShortResponse>(state.client.get(format!("{}/tasks", state.url)), tasks_to_fetch);
+        }
+        Ok(())
+    }
+}
+
+impl State {
+    /// Create a new state. This should be (mostly) used internally, use init_test() or init() for regular applications.
+    pub fn new() -> (State, Receiver<MidEvent>) {
+        let (mid_event_sender, receiver) = mpsc::channel(30);
+        (State {
+            task_map: Default::default(),
+            tasks: Default::default(),
+            prop_names: Default::default(),
+            prop_name_map: Default::default(),
+            prop_map: Default::default(),
+            props: Default::default(),
+            scripts: Default::default(),
+            views_map: Default::default(),
+            views: Default::default(),
+            url: Default::default(),
+            status: Default::default(),
+            mid_event_sender,
+            client: ClientBuilder::new(reqwest::Client::new())
+            .with(TracingMiddleware::<SpanBackendWithUrl>::new())
+            .build(),
+        }, receiver)
+    }
+    // create new or return existing task given server TaskID
+    fn new_server_task(&mut self, task_id: TaskID) -> (TaskKey, &mut Task) {
+        if let Some(key) = self.task_map.get(&task_id).cloned() {
+            (key, self.tasks.get_mut(key).expect("fatal: a key in the task_map should imply that tasks has the relevant key"))
+        } else {
+            let key = self.tasks.insert(Task::default());
+            self.task_map.insert(task_id, key);
+            (key, self.tasks.get_mut(key).unwrap())
+        }
+
+    }
+    fn spawn_request<Req, Res>(&mut self, req_builder: RequestBuilder, req: Req) -> JoinHandle<()>
+    where
+    Req: Serialize + std::fmt::Debug + Send + Sync + 'static,
+    Res: ServerResponse + for<'d> Deserialize<'d>,
+    {
+        log::debug!("doing a request: {:?}", req);
+        let mut sender = self.mid_event_sender.clone();
+        tokio::spawn(async move {
+            let resp = do_request::<Req, Res>(req_builder, req).await;
+            let resp = resp.map(|e|Box::new(e) as Box<dyn ServerResponse>);
+            log::debug!("received a response: {:?}", resp);
+            sender.send(MidEvent::ServerResponse(resp)).await;
+        })
     }
 }
 
@@ -134,7 +269,16 @@ impl State {
     /// define a task, get a key that uniquely identifies it
     pub fn task_def(&mut self, task: Task) -> TaskKey {
         // TODO: register definition to queue so that we can sync to server
-        self.tasks.insert(task)
+        let key = self.tasks.insert(task);
+        let task = &self.tasks[key]; // safety: we just inserted key
+        self.spawn_request::<CreateTaskRequest, CreateTaskResponse>(self.client.put(format!("{}/task", self.url)), CreateTaskRequest {
+            name: task.name.clone(),
+            completed: task.completed,
+            properties: vec![], // TODO: send props
+            dependencies: vec![], // TODO: send deps
+            req_id: key.0.as_ffi(),
+        });
+        key
     }
     /// get task using a key, if it exists
     pub fn task_get(&self, key: TaskKey) -> Option<&Task> {
@@ -266,8 +410,7 @@ impl State {
     }
     /// shorthand function to get the list of tasks associated with a view
     pub fn view_tasks(&self, view_key: ViewKey) -> Option<&[TaskKey]> {
-        self.views
-            .get(view_key)
+        self.view_get(view_key)
             .and_then(|v| v.tasks.as_ref())
             .map(|v| v.as_slice())
     }
@@ -299,11 +442,11 @@ impl State {
     }
 
     /* pub fn register_event(&mut self, name: &str) {
-        todo!()
+        Default::default()
     }
 
     pub fn event_notify(&mut self, name: &str) -> bool {
-        todo!()
+        Default::default()
     } */
 }
 
@@ -330,61 +473,26 @@ where
 /// This function is called by UI to create the Middleware state and establish a connection to the Database.
 /// Important: Make sure `url` does not contain a trailing `/`
 #[tracing::instrument]
-pub async fn init(url: &str) -> color_eyre::Result<State> {
-    let mut state = State {
-        url: url.to_owned(),
-        ..Default::default()
-    };
+pub async fn init(url: &str) -> color_eyre::Result<(State, Receiver<MidEvent>)> {
+    let (mut state, receiver) = State::new();
+    state.url = url.to_owned();
 
-    let client = ClientBuilder::new(reqwest::Client::new())
-        .with(TracingMiddleware::<SpanBackendWithUrl>::new())
-        .build();
-
-    // request all tasks using a "None" filter
-    let filter_request = FilterRequest {
-        filter: Filter::None,
-    };
-    let task_ids: Vec<TaskID> =
-        do_request(client.get(format!("{url}/filter")), filter_request).await?;
-
-    // request task data for all filter data passed back
-    let tasks_request = task_ids
-        .into_iter()
-        .map(|task_id| ReadTaskShortRequest { task_id, req_id: 0 })
-        .collect::<ReadTasksShortRequest>();
-    let tasks_res: ReadTasksShortResponse =
-        do_request(client.get(format!("{url}/tasks")), tasks_request).await?;
-
-    // insert received tasks into middleware tasks list
-    let task_keys = tasks_res.into_iter().flat_map(|res| {
-        res.ok().map(|res| {
-            (
-                res.task_id,
-                state.tasks.insert(Task {
-                    name: res.name,
-                    dependencies: res.deps,
-                    completed: res.completed,
-                    scripts: res.scripts,
-                    db_id: Some(res.task_id),
-                }),
-            )
-        })
-    });
-    state.task_map.extend(task_keys); // update DbID -> TaskKey map
-
-    // create default "Main View" and make it show all default tasks
     let view_key = state.view_def(View {
         name: "Main View".to_string(),
         tasks: Some(state.tasks.keys().collect::<Vec<TaskKey>>()),
         ..View::default()
     });
-    let view_tasks = state.tasks.keys().collect::<Vec<TaskKey>>();
-    state.view_mod(view_key, |v| v.tasks = Some(view_tasks));
-    Ok(state)
+    // request all tasks using a "None" filter into the default "Main View"
+    state.spawn_request::<FilterRequest, FilterResponse>(state.client.get(format!("{url}/filter")), FilterRequest {
+        filter: Filter::None,
+        req_id: view_key.0.as_ffi(),
+    });
+
+    Ok((state, receiver))
 }
 
-pub fn init_test() -> State {
-    let mut state = State::default();
+pub fn init_test() -> (State, Receiver<MidEvent>) {
+    let (mut state, receiver) = State::new();
     let task1 = state.task_def(Task {
         name: "Eat Lunch".to_owned(),
         completed: true,
@@ -399,7 +507,7 @@ pub fn init_test() -> State {
         ..View::default()
     });
     state.view_mod(view_key, |v| v.tasks = Some(vec![task1, task2]));
-    state
+    (state, receiver)
 }
 
 #[cfg(test)]
@@ -408,7 +516,6 @@ mod tests {
     use common::backend::{FilterResponse, ReadTaskShortResponse};
     use mockito::Server;
     use serde_json::to_vec;
-    // use tracing_test::traced_test;
 
     #[tokio::test]
     async fn test_do_request() {
@@ -437,6 +544,7 @@ mod tests {
             client.get("localhost:1234/cantconnect"),
             FilterRequest {
                 filter: Filter::None,
+                req_id: 0,
             },
         )
         .await
@@ -446,6 +554,7 @@ mod tests {
             client.get(format!("{}/shouldincomplete", server.url())),
             FilterRequest {
                 filter: Filter::None,
+                req_id: 0,
             },
         )
         .await
@@ -504,7 +613,7 @@ mod tests {
         println!("url: {url}");
 
         // init state
-        let state = init(&url).await.unwrap();
+        let (state, receiver) = init(&url).await.unwrap();
 
         // make sure view was created with correct state
         let view = state.view_get(state.view_get_default().unwrap()).unwrap();
@@ -518,7 +627,7 @@ mod tests {
     #[test]
     fn test_frontend_api() {
         // test view_def, view_mod & task_def
-        let mut state = init_test();
+        let (mut state, _) = init_test();
         dbg!(&state);
         let view_key = state.view_get_default().unwrap();
         // test view_get

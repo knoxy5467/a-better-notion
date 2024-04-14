@@ -11,6 +11,7 @@ use std::{
 use color_eyre::eyre;
 
 use crossterm::event::EventStream;
+use flexi_logger::{FileSpec, Logger, WriteMode};
 use ratatui::backend::CrosstermBackend;
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
@@ -20,14 +21,21 @@ mod ui;
 
 #[coverage(off)]
 fn main() -> color_eyre::Result<()> {
+    
+    
     // manually create tokio runtime
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(
         #[coverage(off)]
         async {
-            initialize_logging()?;
+            initialize_tracing()?;
             install_hooks()?;
-            term::enable()?;
+            // Initialize the logger and start the service.
+            Logger::try_with_str("debug")?
+                .log_to_file(FileSpec::default())
+                .write_mode(WriteMode::BufferAndFlush)
+                .start()?;
+                term::enable()?;
             let state = mid::init("http://localhost:8080").await?;
             let res = ui::run(CrosstermBackend::new(stdout()), state, EventStream::new()).await;
             term::restore()?;
@@ -38,7 +46,7 @@ fn main() -> color_eyre::Result<()> {
 }
 
 #[coverage(off)]
-fn initialize_logging() -> color_eyre::Result<()> {
+fn initialize_tracing() -> color_eyre::Result<()> {
     let file_subscriber = tracing_subscriber::fmt::layer()
         .with_file(true)
         .with_line_number(true)

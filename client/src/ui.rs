@@ -1,15 +1,14 @@
 use std::io;
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind};
-use futures::{Stream, StreamExt};
+use futures::{channel::mpsc::Receiver, Stream, StreamExt};
 use ratatui::{
     prelude::*,
     symbols::border,
     widgets::{block::*, *},
 };
-use tokio::runtime::Handle;
 
-use crate::{mid::State, term};
+use crate::{mid::{MidEvent, State}, term};
 
 use self::task_create_popup::TaskCreatePopup;
 use self::task_delete_popup::TaskDeletePopup;
@@ -26,12 +25,12 @@ const COMPLETED_TEXT_COLOR: Color = Color::Green;
 /// Run the program using writer, state, and event stream. abstracts between tests & main
 pub async fn run<B: Backend>(
     backend: B,
-    state: State,
+    state: (State, Receiver<MidEvent>),
     events: impl Stream<Item = io::Result<Event>> + Unpin,
 ) -> color_eyre::Result<App> {
     let mut term = Terminal::new(backend)?;
-    let mut app = App::new(state);
-    app.run(&mut term, events).await?;
+    let mut app = App::new(state.0);
+    app.run(&mut term, events, state.1).await?;
     Ok(app)
 }
 
@@ -67,18 +66,27 @@ impl App {
         &mut self,
         term: &mut term::Tui<B>,
         mut events: impl Stream<Item = io::Result<Event>> + Unpin,
+        mut state_events: impl Stream<Item = MidEvent> + Unpin,
     ) -> color_eyre::Result<()> {
         self.task_list.current_view = self.state.view_get_default();
         // render initial frame
         term.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
         // wait for events
-        while let Some(event) = events.next().await {
-            self.step(term, event?)?;
-            // if we should exit, break loop
+        loop {
+            tokio::select! {
+                Some(event) = events.next() => self.step(term, event?)?,
+                Some(mid_event) = state_events.next() => self.state.handle_mid_event(mid_event)?,
+                else => break,
+            }
             if self.should_exit {
                 break;
             }
         }
+        /* while let Some(event) = events.next().await {
+            self.step(term, event?)?;
+            // if we should exit, break loop
+            
+        } */
         Ok(())
     }
     pub fn step<B: Backend>(
@@ -270,7 +278,7 @@ mod tests {
     #[test]
     fn render_test() -> color_eyre::Result<()> {
         // test default state
-        let (_, mut term) = create_render_test(State::default(), 55, 5);
+        let (_, mut term) = create_render_test(State::new().0, 55, 5);
 
         reset_buffer_style(&mut term);
         let expected = Buffer::with_lines(vec![
@@ -283,7 +291,8 @@ mod tests {
         term.backend_mut().assert_buffer(&expected);
 
         // test task state
-        let (mut app, mut term) = create_render_test(init_test(), 55, 5);
+        let (state, _) = init_test();
+        let (mut app, mut term) = create_render_test(state, 55, 5);
         app.task_list.current_view = app.state.view_get_default(); // set the view key as is currently done in run()
         println!("{:?}", app);
 
@@ -354,9 +363,9 @@ mod tests {
 
     #[test]
     fn handle_key_event() -> color_eyre::Result<()> {
-        let mut app = App::new(State::default());
+        let mut app = App::new(State::new().0);
         // test up and down in example mid state
-        let state = init_test();
+        let (state, _) = init_test();
         app.state = state;
         app.task_list.current_view = Some(app.state.view_get_default().unwrap());
         app.handle_event(Event::Key(KeyCode::Up.into()));
@@ -381,22 +390,22 @@ mod tests {
         ); // second task in example view is marked as completed, so the Enter key should uncomplete it
 
         // test up and down in regular state
-        let mut app = App::new(State::default());
+        let mut app = App::new(State::new().0);
         app.handle_event(Event::Key(KeyCode::Up.into()));
         assert_eq!(app.task_list.list_state.selected(), None);
         app.handle_event(Event::Key(KeyCode::Down.into()));
         assert_eq!(app.task_list.list_state.selected(), None);
         app.handle_key_event(KeyCode::Enter.into());
 
-        let mut app = App::new(State::default());
+        let mut app = App::new(State::new().0);
         app.handle_key_event(KeyCode::Char('q').into());
         assert_eq!(app.should_exit, true);
 
-        let mut app = App::new(State::default());
+        let mut app = App::new(State::new().0);
         app.handle_key_event(KeyCode::Char('.').into());
         assert_eq!(app.should_exit, false);
 
-        let mut app = App::new(State::default());
+        let mut app = App::new(State::new().0);
         app.handle_event(Event::FocusLost.into());
         assert_eq!(app.should_exit, false);
 
