@@ -113,7 +113,7 @@ async fn insert_task_fails_with_bad_request() {
     )
     .await;
     let req = test::TestRequest::default()
-        .method(actix_web::http::Method::PUT)
+        .method(actix_web::http::Method::POST)
         .set_json(CreateTaskRequest {
             name: "test".to_string(),
             completed: false,
@@ -150,7 +150,7 @@ async fn insert_task_succeeds_with_good_request() {
     )
     .await;
     let req = test::TestRequest::default()
-        .method(actix_web::http::Method::PUT)
+        .method(actix_web::http::Method::POST)
         .set_json(CreateTaskRequest {
             name: "test".to_string(),
             completed: false,

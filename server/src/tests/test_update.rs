@@ -1,4 +1,5 @@
 use super::*;
+use actix_web::test;
 use common::TaskProp;
 use sea_orm::{MockDatabase, MockExecResult};
 
@@ -687,6 +688,104 @@ async fn remove_dep_bad_req() {
     );
 }
 #[actix_web::test]
-async fn test_task_update_request() {}
+async fn test_task_update_request() {
+    let db = MockDatabase::new(sea_orm::DatabaseBackend::Postgres)
+        .append_query_results([[task::Model {
+            id: 1,
+            title: "notdog".to_string(),
+            completed: true,
+            last_edited: chrono::NaiveDateTime::default(),
+        }]])
+        .append_exec_results([MockExecResult {
+            last_insert_id: 1,
+            rows_affected: 1,
+        }])
+        .into_connection();
+
+    let app = test::init_service(
+        actix_web::App::new()
+            .app_data(web::Data::new(db))
+            .service(update_task_request),
+    )
+    .await;
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::PUT)
+        .set_json(UpdateTaskRequest {
+            task_id: 1,
+            name: Some("dog".to_string()),
+            checked: None,
+            props_to_add: vec![],
+            props_to_remove: vec![],
+            deps_to_add: vec![],
+            deps_to_remove: vec![],
+            scripts_to_add: vec![],
+            scripts_to_remove: vec![],
+        })
+        .uri("/task")
+        .to_request();
+    let resp: UpdateTaskResponse = test::call_and_read_body_json(&app, req).await;
+    assert_eq!(resp, 1);
+}
 #[actix_web::test]
-async fn test_tasks_update_request() {}
+async fn test_tasks_update_request() {
+    let db = MockDatabase::new(sea_orm::DatabaseBackend::Postgres)
+        .append_query_results([[task::Model {
+            id: 1,
+            title: "notdog".to_string(),
+            completed: true,
+            last_edited: chrono::NaiveDateTime::default(),
+        }]])
+        .append_query_results([[task::Model {
+            id: 2,
+            title: "notdog".to_string(),
+            completed: true,
+            last_edited: chrono::NaiveDateTime::default(),
+        }]])
+        .append_exec_results([MockExecResult {
+            last_insert_id: 2,
+            rows_affected: 1,
+        }])
+        .append_exec_results([MockExecResult {
+            last_insert_id: 2,
+            rows_affected: 1,
+        }])
+        .into_connection();
+
+    let app = test::init_service(
+        actix_web::App::new()
+            .app_data(web::Data::new(db))
+            .service(update_tasks_request),
+    )
+    .await;
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::PUT)
+        .set_json([
+            UpdateTaskRequest {
+                task_id: 1,
+                name: Some("dog".to_string()),
+                checked: None,
+                props_to_add: vec![],
+                props_to_remove: vec![],
+                deps_to_add: vec![],
+                deps_to_remove: vec![],
+                scripts_to_add: vec![],
+                scripts_to_remove: vec![],
+            },
+            UpdateTaskRequest {
+                task_id: 2,
+                name: Some("dog".to_string()),
+                checked: None,
+                props_to_add: vec![],
+                props_to_remove: vec![],
+                deps_to_add: vec![],
+                deps_to_remove: vec![],
+                scripts_to_add: vec![],
+                scripts_to_remove: vec![],
+            },
+        ])
+        .uri("/tasks")
+        .to_request();
+    let resp: UpdateTasksResponse = test::call_and_read_body_json(&app, req).await;
+    assert_eq!(resp[0], 1);
+    assert_eq!(resp[1], 2);
+}

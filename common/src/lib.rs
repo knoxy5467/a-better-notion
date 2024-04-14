@@ -165,7 +165,7 @@ mod tests {
     fn serde_task_prop() {
         test_serde_commutes(TaskProp {
             name: "test".to_owned(),
-            value: TaskPropVariant::Date(chrono::NaiveDateTime::now()),
+            value: TaskPropVariant::Date(chrono::NaiveDateTime::default()),
         });
     }
     #[test]

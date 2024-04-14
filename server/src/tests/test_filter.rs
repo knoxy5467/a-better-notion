@@ -4,11 +4,6 @@ use common::{backend::*, Filter};
 use sea_orm::MockDatabase;
 
 #[actix_web::test]
-async fn test_filter() {
-    let db = MockDatabase::new(sea_orm::DatabaseBackend::Postgres);
-}
-
-#[actix_web::test]
 async fn test_empty_filter() {
     let db = MockDatabase::new(sea_orm::DatabaseBackend::Postgres);
     let db_conn = db
