@@ -5,11 +5,7 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 mod api;
 mod database;
-use actix_web::{
-    dev::{Server, ServerHandle},
-    web::Data,
-    App, HttpServer,
-};
+use actix_web::{dev::Server, web::Data, App, HttpServer};
 use api::*;
 use log::{info, warn};
 use sea_orm::{Database, DatabaseConnection};
@@ -24,7 +20,6 @@ fn initialize_logger() {
 #[actix_web::main]
 async fn main() -> () {
     let server = start_server().await;
-    let server_handle = server.handle();
     server.await.unwrap();
 }
 #[allow(clippy::needless_return)]
@@ -81,16 +76,13 @@ mod test_main {
 mod integration_tests {
     use std::{env, net::TcpStream, time::Duration};
 
-    use actix_web::{
-        rt::{Runtime, System},
-        HttpServer,
-    };
     use log::info;
     use testcontainers::clients;
     use testcontainers_modules::{postgres::Postgres, testcontainers::RunnableImage};
     use tokio::time;
 
     use crate::start_server;
+    #[allow(unused_must_use)]
     #[actix_web::test]
     async fn test_database_connection() {
         env::set_var("RUST_LOG", "debug");
@@ -129,6 +121,5 @@ mod integration_tests {
         _node.stop();
         info!("stopping server");
         server_handle.stop(false);
-        server_handle.stop(true);
     }
 }
