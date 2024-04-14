@@ -326,12 +326,12 @@ async fn update_task(
             .await
             .map_err(|e| ErrorInternalServerError(format!("couldn't delete dependancy: {}", e)))?;
     }
-    for _script in req.scripts_to_add.iter() {
+    /*for _script in req.scripts_to_add.iter() {
         //TODO: implement scripts
     }
     for _script in req.scripts_to_remove.iter() {
         //TODO: implement scripts
-    }
+    }*/
 
     Ok(web::Json(req.task_id))
 }
@@ -359,16 +359,16 @@ async fn update_tasks_request(
 }
 
 async fn delete_task(
-    data: &web::Data<DatabaseConnection>,
+    db: &DatabaseConnection,
     req: &DeleteTaskRequest,
 ) -> Result<web::Json<DeleteTaskResponse>> {
     task::Entity::find_by_id(req.task_id)
-        .one(data.as_ref())
+        .one(db)
         .await
         .map_err(|e| ErrorInternalServerError(format!("couldn't find task: {}", e)))?
         .ok_or("couldn't find task by id")
         .map_err(ErrorInternalServerError)?
-        .delete(data.as_ref())
+        .delete(db)
         .await
         .map_err(|e| ErrorInternalServerError(format!("couldn't delete task: {}", e)))?;
 
@@ -415,6 +415,9 @@ async fn get_filter_request(
 #[cfg(test)]
 #[path = "./tests/test_create.rs"]
 mod test_create;
+#[cfg(test)]
+#[path = "./tests/test_delete.rs"]
+mod test_delete;
 #[cfg(test)]
 #[path = "./tests/test_update.rs"]
 mod test_update;
