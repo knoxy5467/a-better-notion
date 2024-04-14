@@ -105,15 +105,15 @@ async fn create_tasks_request(
 
 /// put /task updates one task
 async fn update_task(
-    data: &web::Data<DatabaseConnection>,
+    db: &DatabaseConnection,
     req: &UpdateTaskRequest,
 ) -> Result<web::Json<UpdateTaskResponse>> {
     let task = task::Entity::find_by_id(req.task_id)
-        .one(data.as_ref())
+        .one(db)
         .await
         .map_err(|e| ErrorInternalServerError(format!("couldn't fetch tasks: {}", e)))?
         .ok_or("no task by id")
-        .map_err(|e| ErrorInternalServerError(e))?;
+        .map_err(ErrorInternalServerError)?;
 
     let mut task: task::ActiveModel = task.into();
     if req.name.is_some() {
@@ -129,9 +129,9 @@ async fn update_task(
                     .add(task_property::Column::TaskId.eq(req.task_id))
                     .add(task_property::Column::Name.eq(req.name.to_owned())),
             )
-            .one(data.as_ref())
+            .one(db)
             .await
-            .map_err(|e| ErrorInternalServerError(format!("couldn't find property: {}", e)))?;
+            .map_err(|e| ErrorInternalServerError(format!("couldn't fetch property: {}", e)))?;
 
         //model exists but type is wrong
         if model
@@ -139,7 +139,7 @@ async fn update_task(
             .is_some_and(|m| m.typ != prop.value.type_string())
         {
             return Err(ErrorInternalServerError(format!(
-                "proprty {} has wrong type (expecting {})",
+                "property {} has wrong type (expecting {})",
                 prop.name,
                 model.unwrap().typ
             )));
@@ -155,9 +155,11 @@ async fn update_task(
                                 .add(task_string_property::Column::TaskId.eq(req.task_id))
                                 .add(task_string_property::Column::Name.eq(prop.name.to_owned())),
                         )
-                        .one(data.as_ref())
+                        .one(db)
                         .await
-                        .map_err(ErrorInternalServerError)?
+                        .map_err(|e| {
+                            ErrorInternalServerError(format!("couldn't fetch property: {}", e))
+                        })?
                         .ok_or("couldn't find property by name")
                         .map_err(ErrorInternalServerError)?;
                     let mut p = p.into_active_model();
@@ -170,9 +172,11 @@ async fn update_task(
                                 .add(task_date_property::Column::TaskId.eq(req.task_id))
                                 .add(task_date_property::Column::Name.eq(prop.name.to_owned())),
                         )
-                        .one(data.as_ref())
+                        .one(db)
                         .await
-                        .map_err(ErrorInternalServerError)?
+                        .map_err(|e| {
+                            ErrorInternalServerError(format!("couldn't fetch property: {}", e))
+                        })?
                         .ok_or("couldn't find property by name")
                         .map_err(ErrorInternalServerError)?;
                     let mut p = p.into_active_model();
@@ -185,9 +189,11 @@ async fn update_task(
                                 .add(task_num_property::Column::TaskId.eq(req.task_id))
                                 .add(task_num_property::Column::Name.eq(prop.name.to_owned())),
                         )
-                        .one(data.as_ref())
+                        .one(db)
                         .await
-                        .map_err(ErrorInternalServerError)?
+                        .map_err(|e| {
+                            ErrorInternalServerError(format!("couldn't fetch property: {}", e))
+                        })?
                         .ok_or("couldn't find property by name")
                         .map_err(ErrorInternalServerError)?;
                     let mut p = p.into_active_model();
@@ -200,9 +206,11 @@ async fn update_task(
                                 .add(task_bool_property::Column::TaskId.eq(req.task_id))
                                 .add(task_bool_property::Column::Name.eq(prop.name.to_owned())),
                         )
-                        .one(data.as_ref())
+                        .one(db)
                         .await
-                        .map_err(ErrorInternalServerError)?
+                        .map_err(|e| {
+                            ErrorInternalServerError(format!("couldn't fetch property: {}", e))
+                        })?
                         .ok_or("couldn't find property by name")
                         .map_err(ErrorInternalServerError)?;
                     let mut p = p.into_active_model();
@@ -221,9 +229,11 @@ async fn update_task(
                     name: Set(prop.name.to_owned()),
                     value: Set(val.to_string()),
                 })
-                .exec(data.as_ref())
+                .exec(db)
                 .await
-                .map_err(ErrorInternalServerError)?;
+                .map_err(|e| {
+                    ErrorInternalServerError(format!("couldn't create property: {}", e))
+                })?;
             }
             TaskPropVariant::Number(val) => {
                 task_num_property::Entity::insert(task_num_property::ActiveModel {
@@ -231,9 +241,11 @@ async fn update_task(
                     name: Set(prop.name.to_owned()),
                     value: Set(Decimal::from_f64(*val).unwrap()),
                 })
-                .exec(data.as_ref())
+                .exec(db)
                 .await
-                .map_err(ErrorInternalServerError)?;
+                .map_err(|e| {
+                    ErrorInternalServerError(format!("couldn't create property: {}", e))
+                })?;
             }
             TaskPropVariant::Date(val) => {
                 task_date_property::Entity::insert(task_date_property::ActiveModel {
@@ -241,9 +253,11 @@ async fn update_task(
                     name: Set(prop.name.to_owned()),
                     value: Set(val.to_owned()),
                 })
-                .exec(data.as_ref())
+                .exec(db)
                 .await
-                .map_err(ErrorInternalServerError)?;
+                .map_err(|e| {
+                    ErrorInternalServerError(format!("couldn't create property: {}", e))
+                })?;
             }
             TaskPropVariant::Boolean(val) => {
                 task_bool_property::Entity::insert(task_bool_property::ActiveModel {
@@ -251,9 +265,11 @@ async fn update_task(
                     name: Set(prop.name.to_owned()),
                     value: Set(*val),
                 })
-                .exec(data.as_ref())
+                .exec(db)
                 .await
-                .map_err(ErrorInternalServerError)?;
+                .map_err(|e| {
+                    ErrorInternalServerError(format!("couldn't create property: {}", e))
+                })?;
             }
         };
     }
@@ -264,23 +280,35 @@ async fn update_task(
                     .add(task_property::Column::TaskId.eq(req.task_id))
                     .add(task_property::Column::Name.eq(prop)),
             )
-            .one(data.as_ref())
+            .one(db)
             .await
+            .map_err(|e| ErrorInternalServerError(format!("couldn't fetch property: {}", e)))?
+            .ok_or("no property by name")
             .map_err(ErrorInternalServerError)?
-            .ok_or("no property by id")
-            .map_err(ErrorInternalServerError)?
-            .delete(data.as_ref())
+            .delete(db)
             .await
             .map_err(ErrorInternalServerError)?;
     }
     for dep in req.deps_to_add.iter() {
+        if task::Entity::find_by_id(*dep)
+            .one(db)
+            .await
+            .map_err(|e| ErrorInternalServerError(format!("couldn't fetch task: {}", e)))?
+            .is_none()
+        {
+            return Err(ErrorInternalServerError(format!(
+                "task {} can't depend on nonexistant task with id {}",
+                req.task_id, dep
+            )));
+        }
+
         dependency::Entity::insert(dependency::ActiveModel {
             task_id: Set(req.task_id),
             depends_on_id: Set(*dep),
         })
-        .exec(data.as_ref())
+        .exec(db)
         .await
-        .map_err(ErrorInternalServerError)?;
+        .map_err(|e| ErrorInternalServerError(format!("couldn't create dependancy: {}", e)))?;
     }
     for dep in req.deps_to_remove.iter() {
         dependency::Entity::find()
@@ -289,14 +317,14 @@ async fn update_task(
                     .add(dependency::Column::TaskId.eq(req.task_id))
                     .add(dependency::Column::DependsOnId.eq(*dep)),
             )
-            .one(data.as_ref())
+            .one(db)
             .await
-            .map_err(ErrorInternalServerError)?
+            .map_err(|e| ErrorInternalServerError(format!("couldn't fetch dependancy: {}", e)))?
             .ok_or("dependency couldn't be found")
             .map_err(ErrorInternalServerError)?
-            .delete(data.as_ref())
+            .delete(db)
             .await
-            .map_err(ErrorInternalServerError)?;
+            .map_err(|e| ErrorInternalServerError(format!("couldn't delete dependancy: {}", e)))?;
     }
     for _script in req.scripts_to_add.iter() {
         //TODO: implement scripts
@@ -383,3 +411,7 @@ async fn get_filter_request(
         tasks.iter().map(|a| a.id).collect::<FilterResponse>(),
     ))
 }
+
+#[cfg(test)]
+#[path = "./tests/test_update.rs"]
+mod test_update;
