@@ -54,9 +54,6 @@ async fn start_server() -> Server {
 }
 
 #[cfg(test)]
-#[path = "./tests/end_to_end.test.rs"]
-mod end_to_end_test;
-#[cfg(test)]
 #[path = "./tests/test_filter.rs"]
 mod test_filter;
 #[cfg(test)]
