@@ -23,12 +23,12 @@ fn initialize_logger() {
 #[coverage(off)]
 #[actix_web::main]
 async fn main() -> () {
-    let (server_handle, _server) = start_server().await;
-    tokio::signal::ctrl_c().await.unwrap();
-    server_handle.stop(true).await;
+    let server = start_server().await;
+    let server_handle = server.handle();
+    server.await.unwrap();
 }
 #[allow(clippy::needless_return)]
-async fn start_server() -> (ServerHandle, Server) {
+async fn start_server() -> Server {
     initialize_logger();
     let db =
         Database::connect("postgres://abn:abn@localhost:5432/abn?options=-c%20search_path%3Dtask")
@@ -45,13 +45,12 @@ async fn start_server() -> (ServerHandle, Server) {
             .service(create_task_request)
     })
     .bind(("127.0.0.1", 8080))
-    .unwrap();
+    .unwrap()
+    .system_exit();
     info!("server starting");
     let server_obj = server.run();
-    info!("server started, creating handle");
-    let server_handle = server_obj.handle();
     info!("server handle created returning");
-    return (server_handle, server_obj);
+    return server_obj;
 }
 
 #[cfg(test)]
@@ -85,6 +84,10 @@ mod test_main {
 mod integration_tests {
     use std::{env, net::TcpStream, time::Duration};
 
+    use actix_web::{
+        rt::{Runtime, System},
+        HttpServer,
+    };
     use log::info;
     use testcontainers::clients;
     use testcontainers_modules::{postgres::Postgres, testcontainers::RunnableImage};
@@ -93,23 +96,27 @@ mod integration_tests {
     use crate::start_server;
     #[actix_web::test]
     async fn test_database_connection() {
-        env::set_var("RUST_LOG", "info");
+        env::set_var("RUST_LOG", "trace");
         crate::initialize_logger();
         info!("Starting test");
         let docker = clients::Cli::default();
         info!("creating docker image for database");
+        info!("{}", std::env::current_dir().unwrap().to_str().unwrap());
         let postgres_image = RunnableImage::from(Postgres::default())
             .with_tag("latest")
             .with_mapped_port((5432, 5432))
             .with_env_var(("POSTGRES_USER", "abn"))
             .with_env_var(("POSTGRES_PASSWORD", "abn"))
-            .with_env_var(("POSTGRES_DB", "abn"));
+            .with_env_var(("POSTGRES_DB", "abn"))
+            .with_volume((
+                "./database/createTable.sql",
+                "/docker-entrypoint-initdb.d/createTable.sql",
+            ));
         info!("running docker image");
         let _node = docker.run(postgres_image);
         info!("running main");
-        info!("current system {:?}", actix_web::rt::System::current());
-        let (server_handle, server_obj) = start_server().await;
-
+        let server = start_server().await;
+        let server_handle = server.handle();
         time::sleep(Duration::from_secs(5)).await;
         match TcpStream::connect("127.0.0.1:8080") {
             Ok(_) => {
@@ -124,8 +131,7 @@ mod integration_tests {
         info!("stopping docker");
         _node.stop();
         info!("stopping server");
-        let _unused_future = server_obj.handle().stop(false);
-        info!("stopping server");
-        let _res = server_handle.stop(false);
+        server_handle.stop(false);
+        server_handle.stop(true);
     }
 }
