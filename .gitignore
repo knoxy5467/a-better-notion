@@ -18,3 +18,5 @@ lcov.info
 
 # mac garbo
 .DS_Store
+.vscode/*
+

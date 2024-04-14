@@ -34,4 +34,7 @@ actix-settings = "0.7.1"
 [profile.dev.package.backtrace]
 opt-level = 3
 
+[dev-dependencies]
+mockito = "1.4.0"
+
 
