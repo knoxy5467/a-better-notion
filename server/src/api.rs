@@ -2,7 +2,7 @@ use crate::database::*;
 use actix_web::error::{ErrorInternalServerError, ErrorNotFound};
 #[allow(unused)]
 use actix_web::{delete, get, post, put, web, Responder, Result};
-use common::{backend::*, TaskPropVariant};
+use common::{backend::*, TaskID, TaskPropVariant};
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Condition, IntoActiveModel, Set};
 
@@ -26,6 +26,7 @@ async fn get_task_request(
             deps: Vec::new(),    //TODO 26mar24 Mrknox: implement dependencies
             scripts: Vec::new(), //TODO 26mar24 Mrknox: implement scripts
             last_edited: model.last_edited,
+            req_id: req.req_id,
         })),
         None => Err(ErrorNotFound("task not found by ID")),
     }
@@ -53,6 +54,7 @@ async fn get_tasks_request(
                 deps: Vec::new(),
                 scripts: Vec::new(),
                 last_edited: model.last_edited,
+                req_id: taskreq.req_id,
             })),
             None => res.push(Err("task not found by ID".to_string())),
         }
@@ -62,10 +64,7 @@ async fn get_tasks_request(
 }
 
 /// post /task endpoint creates a single task
-async fn create_task(
-    db: &DatabaseConnection,
-    req: &CreateTaskRequest,
-) -> Result<web::Json<CreateTaskResponse>> {
+async fn create_task(db: &DatabaseConnection, req: &CreateTaskRequest) -> Result<TaskID> {
     let task_model = task::ActiveModel {
         id: NotSet,
         title: Set(req.name.clone()),
@@ -76,7 +75,7 @@ async fn create_task(
         .exec(db)
         .await
         .map_err(|e| ErrorInternalServerError(format!("task not inserted: {}", e)))?; //TODO handle this error better, for example for unique constraint violation
-    Ok(web::Json(result_task.last_insert_id as CreateTaskResponse))
+    Ok(result_task.last_insert_id)
 }
 
 #[post("/task")]
@@ -84,7 +83,11 @@ async fn create_task_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<CreateTaskRequest>,
 ) -> Result<web::Json<CreateTaskResponse>> {
-    create_task(&data, &req).await
+    let id = create_task(&data, &req).await?;
+    Ok(web::Json(CreateTaskResponse {
+        task_id: id,
+        req_id: req.req_id,
+    }))
 }
 /// post /tasks endpoint cretes multiple tasks
 #[post("/tasks")]
@@ -94,20 +97,17 @@ async fn create_tasks_request(
 ) -> Result<web::Json<CreateTasksResponse>> {
     let mut res: CreateTasksResponse = Vec::new();
     for taskreq in req.iter() {
-        let id = create_task(&data, taskreq)
-            .await
-            .unwrap_or(web::Json(-1))
-            .to_owned();
-        res.push(id);
+        let id = create_task(&data, taskreq).await?;
+        res.push(CreateTaskResponse {
+            task_id: id,
+            req_id: taskreq.req_id,
+        });
     }
     Ok(web::Json(res))
 }
 
 /// put /task updates one task
-async fn update_task(
-    db: &DatabaseConnection,
-    req: &UpdateTaskRequest,
-) -> Result<web::Json<UpdateTaskResponse>> {
+async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result<TaskID> {
     let task = task::Entity::find_by_id(req.task_id)
         .one(db)
         .await
@@ -333,14 +333,18 @@ async fn update_task(
         //TODO: implement scripts
     }*/
 
-    Ok(web::Json(req.task_id))
+    Ok(req.task_id)
 }
 #[put("/task")]
 async fn update_task_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<UpdateTaskRequest>,
 ) -> Result<web::Json<UpdateTaskResponse>> {
-    update_task(&data, &req).await
+    let id = update_task(&data, &req).await?;
+    Ok(web::Json(UpdateTaskResponse {
+        task_id: id,
+        req_id: req.req_id,
+    }))
 }
 #[put("/tasks")]
 async fn update_tasks_request(
@@ -349,11 +353,11 @@ async fn update_tasks_request(
 ) -> Result<web::Json<UpdateTasksResponse>> {
     let mut res: UpdateTasksResponse = Vec::new();
     for taskreq in req.iter() {
-        let id = update_task(&data, taskreq)
-            .await
-            .unwrap_or(web::Json(-1))
-            .to_owned();
-        res.push(id);
+        let id = update_task(&data, taskreq).await.unwrap_or(-1).to_owned();
+        res.push(UpdateTaskResponse {
+            task_id: id,
+            req_id: taskreq.req_id,
+        });
     }
     Ok(web::Json(res))
 }
@@ -372,7 +376,7 @@ async fn delete_task(
         .await
         .map_err(|e| ErrorInternalServerError(format!("couldn't delete task: {}", e)))?;
 
-    Ok(web::Json(()))
+    Ok(web::Json(req.req_id))
 }
 
 #[delete("/task")]
@@ -387,10 +391,12 @@ async fn delete_tasks_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<DeleteTasksRequest>,
 ) -> Result<web::Json<DeleteTasksResponse>> {
+    let mut res: Vec<u64> = vec![];
     for task in req.iter() {
         delete_task(&data, task).await?;
+        res.push(task.req_id);
     }
-    Ok(web::Json(()))
+    Ok(web::Json(res))
 }
 
 /// get /filter endpoint for retrieving some number of TaskShorts
@@ -496,7 +502,10 @@ async fn get_properties_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<PropertiesRequest>,
 ) -> Result<web::Json<PropertiesResponse>> {
-    let mut res: PropertiesResponse = vec![];
+    let mut res = PropertiesResponse {
+        res: vec![],
+        req_id: req.req_id,
+    };
     for prop_name in req.properties.iter() {
         let mut prop_column: Vec<Option<TaskPropVariant>> = vec![];
         for task_id in req.task_ids.iter() {
@@ -506,7 +515,7 @@ async fn get_properties_request(
             prop_column.push(prop);
         }
 
-        res.push((prop_name.to_owned(), prop_column));
+        res.res.push((prop_name.to_owned(), prop_column));
     }
 
     Ok(web::Json(res))
@@ -516,12 +525,15 @@ async fn get_property_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<PropertyRequest>,
 ) -> Result<web::Json<PropertyResponse>> {
-    let mut res: PropertyResponse = vec![];
+    let mut res = PropertyResponse {
+        res: vec![],
+        req_id: req.req_id,
+    };
     for prop_name in req.properties.iter() {
         let prop = get_property_or_err(data.as_ref(), prop_name, req.task_id)
             .await
             .unwrap_or(None);
-        res.push((prop_name.to_owned(), prop));
+        res.res.push((prop_name.to_owned(), prop));
     }
 
     Ok(web::Json(res))
