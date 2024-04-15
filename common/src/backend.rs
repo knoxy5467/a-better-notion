@@ -97,17 +97,25 @@ pub type DeleteTasksResponse = ();
 /// # PROPERTIES API
 
 /// reqwest::get("/prop")
-struct PropertyRequest {
-    task_id: TaskID,
-    properties: Vec<String>,
+#[derive(Serialize, Deserialize)]
+pub struct PropertyRequest {
+    /// task id
+    pub task_id: TaskID,
+    /// list of property names we want to get values for
+    pub properties: Vec<String>,
 }
-type PropertyResponse = Vec<(String, TaskPropVariant)>;
+/// does smth
+pub type PropertyResponse = Vec<(String, Option<TaskPropVariant>)>;
 /// reqwest::get("/props")
-struct PropertiesRequest {
-    task_id: Vec<TaskID>,
-    properties: Vec<String>,
+#[derive(Serialize, Deserialize)]
+pub struct PropertiesRequest {
+    /// list of task ids we want properties for
+    pub task_ids: Vec<TaskID>,
+    /// list of properties we want to get for each
+    pub properties: Vec<String>,
 }
-type PropertiesResponse = Vec<(String, Vec<TaskPropVariant>)>;
+/// does smth
+pub type PropertiesResponse = Vec<(String, Vec<Option<TaskPropVariant>>)>;
 
 /// # FILTER APIS
 

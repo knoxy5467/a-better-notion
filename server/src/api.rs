@@ -3,7 +3,7 @@ use actix_web::error::{ErrorInternalServerError, ErrorNotFound};
 #[allow(unused)]
 use actix_web::{delete, get, post, put, web, Responder, Result};
 use common::{backend::*, TaskPropVariant};
-use rust_decimal::prelude::FromPrimitive;
+use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Condition, IntoActiveModel, Set};
 
 /// get /task endpoint for retrieving a single TaskShort
@@ -412,12 +412,130 @@ async fn get_filter_request(
     ))
 }
 
+async fn get_property_or_err(
+    db: &DatabaseConnection,
+    prop: &String,
+    task_id: i32,
+) -> Result<Option<TaskPropVariant>, ()> {
+    let typ = task_property::Entity::find()
+        .filter(
+            Condition::all()
+                .add(task_property::Column::TaskId.eq(task_id))
+                .add(task_property::Column::Name.eq(prop)),
+        )
+        .one(db)
+        .await
+        .map_err(|_| ())?
+        .ok_or(())?
+        .typ;
+
+    let res = match typ.as_str() {
+        "string" => TaskPropVariant::String(
+            task_string_property::Entity::find()
+                .filter(
+                    Condition::all()
+                        .add(task_string_property::Column::TaskId.eq(task_id))
+                        .add(task_string_property::Column::Name.eq(prop)),
+                )
+                .one(db)
+                .await
+                .map_err(|_| ())?
+                .ok_or(())?
+                .value,
+        ),
+        "number" => TaskPropVariant::Number(
+            Decimal::to_f64(
+                &task_num_property::Entity::find()
+                    .filter(
+                        Condition::all()
+                            .add(task_num_property::Column::TaskId.eq(task_id))
+                            .add(task_num_property::Column::Name.eq(prop)),
+                    )
+                    .one(db)
+                    .await
+                    .map_err(|_| ())?
+                    .ok_or(())?
+                    .value,
+            )
+            .unwrap(),
+        ),
+        "date" => TaskPropVariant::Date(
+            task_date_property::Entity::find()
+                .filter(
+                    Condition::all()
+                        .add(task_date_property::Column::TaskId.eq(task_id))
+                        .add(task_date_property::Column::Name.eq(prop)),
+                )
+                .one(db)
+                .await
+                .map_err(|_| ())?
+                .ok_or(())?
+                .value,
+        ),
+        "boolean" => TaskPropVariant::Boolean(
+            task_bool_property::Entity::find()
+                .filter(
+                    Condition::all()
+                        .add(task_bool_property::Column::TaskId.eq(task_id))
+                        .add(task_bool_property::Column::Name.eq(prop)),
+                )
+                .one(db)
+                .await
+                .map_err(|_| ())?
+                .ok_or(())?
+                .value,
+        ),
+        _ => unreachable!(),
+    };
+
+    Ok(Some(res))
+}
+
+#[get("/properties")]
+async fn get_properties_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<PropertiesRequest>,
+) -> Result<web::Json<PropertiesResponse>> {
+    let mut res: PropertiesResponse = vec![];
+    for prop_name in req.properties.iter() {
+        let mut prop_column: Vec<Option<TaskPropVariant>> = vec![];
+        for task_id in req.task_ids.iter() {
+            let prop = get_property_or_err(data.as_ref(), prop_name, *task_id)
+                .await
+                .unwrap_or(None);
+            prop_column.push(prop);
+        }
+
+        res.push((prop_name.to_owned(), prop_column));
+    }
+
+    Ok(web::Json(res))
+}
+#[get("/property")]
+async fn get_property_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<PropertyRequest>,
+) -> Result<web::Json<PropertyResponse>> {
+    let mut res: PropertyResponse = vec![];
+    for prop_name in req.properties.iter() {
+        let prop = get_property_or_err(data.as_ref(), prop_name, req.task_id)
+            .await
+            .unwrap_or(None);
+        res.push((prop_name.to_owned(), prop));
+    }
+
+    Ok(web::Json(res))
+}
+
 #[cfg(test)]
 #[path = "./tests/test_create.rs"]
 mod test_create;
 #[cfg(test)]
 #[path = "./tests/test_delete.rs"]
 mod test_delete;
+#[cfg(test)]
+#[path = "./tests/test_props.rs"]
+mod test_props;
 #[cfg(test)]
 #[path = "./tests/test_update.rs"]
 mod test_update;
