@@ -1,4 +1,5 @@
 use super::*;
+use actix_web::test;
 use sea_orm::MockDatabase;
 
 #[actix_web::test]
@@ -102,6 +103,78 @@ async fn get_prop_dne() {
     assert!(res.is_err());
 }
 #[actix_web::test]
-async fn test_property_request() {}
+async fn test_property_request() {
+    let db = MockDatabase::new(sea_orm::DatabaseBackend::Postgres)
+        .append_query_results([[task_property::Model {
+            task_id: 1,
+            name: "name".to_string(),
+            typ: "string".to_string(),
+        }]])
+        .append_query_results([[task_string_property::Model {
+            task_id: 1,
+            name: "name".to_string(),
+            value: "value".to_string(),
+        }]])
+        .into_connection();
+
+    let app = test::init_service(
+        actix_web::App::new()
+            .app_data(web::Data::new(db))
+            .service(get_property_request),
+    )
+    .await;
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::GET)
+        .set_json(PropertyRequest {
+            task_id: 1,
+            properties: vec!["name".to_string()],
+            req_id: 0,
+        })
+        .uri("/prop")
+        .to_request();
+
+    let resp: PropertyResponse = test::call_and_read_body_json(&app, req).await;
+    assert_eq!(resp.res[0].name, "name".to_owned());
+    assert_eq!(
+        resp.res[0].value,
+        Some(TaskPropVariant::String("value".to_string()))
+    )
+}
 #[actix_web::test]
-async fn test_properties_request() {}
+async fn test_properties_request() {
+    let db = MockDatabase::new(sea_orm::DatabaseBackend::Postgres)
+        .append_query_results([[task_property::Model {
+            task_id: 1,
+            name: "name".to_string(),
+            typ: "string".to_string(),
+        }]])
+        .append_query_results([[task_string_property::Model {
+            task_id: 1,
+            name: "name".to_string(),
+            value: "value".to_string(),
+        }]])
+        .into_connection();
+
+    let app = test::init_service(
+        actix_web::App::new()
+            .app_data(web::Data::new(db))
+            .service(get_properties_request),
+    )
+    .await;
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::GET)
+        .set_json(PropertiesRequest {
+            task_ids: vec![1],
+            properties: vec!["name".to_string()],
+            req_id: 0,
+        })
+        .uri("/props")
+        .to_request();
+
+    let resp: PropertiesResponse = test::call_and_read_body_json(&app, req).await;
+    assert_eq!(resp.res[0].name, "name".to_owned());
+    assert_eq!(
+        resp.res[0].values,
+        vec![Some(TaskPropVariant::String("value".to_string()))]
+    )
+}

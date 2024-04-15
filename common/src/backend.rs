@@ -129,16 +129,24 @@ pub struct PropertyRequest {
     /// id of request
     pub req_id: u64,
 }
-/// does smth
+/// response to GET /props
 #[derive(Serialize, Deserialize)]
 pub struct PropertyResponse {
     /// actual result
-    pub res: Vec<(String, Option<TaskPropVariant>)>,
+    pub res: Vec<TaskPropOption>,
     /// id of request
     pub req_id: u64,
 }
-/// reqwest::get("/props")
+/// individual property but an option
 #[derive(Serialize, Deserialize)]
+pub struct TaskPropOption {
+    /// name of property
+    pub name: String,
+    /// value of property
+    pub value: Option<TaskPropVariant>,
+}
+/// reqwest::get("/props")
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct PropertiesRequest {
     /// list of task ids we want properties for
     pub task_ids: Vec<TaskID>,
@@ -148,12 +156,20 @@ pub struct PropertiesRequest {
     pub req_id: u64,
 }
 /// does smth
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct PropertiesResponse {
     /// actual result
-    pub res: Vec<(String, Vec<Option<TaskPropVariant>>)>,
+    pub res: Vec<TaskPropColumn>,
     /// id of request
     pub req_id: u64,
+}
+/// column of task properties with name
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct TaskPropColumn {
+    /// name of property
+    pub name: String,
+    /// properties ordered by the taskid they were requested in
+    pub values: Vec<Option<TaskPropVariant>>,
 }
 
 /// # FILTER APIS
@@ -196,5 +212,24 @@ mod tests {
             dependencies: vec![],
             req_id: 0,
         });
+    }
+
+    #[test]
+    fn serde_properties_request() {
+        test_serde_commutes(PropertiesRequest {
+            task_ids: vec![1],
+            properties: vec!["hi".to_string()],
+            req_id: 0,
+        })
+    }
+    #[test]
+    fn serde_properties_response() {
+        test_serde_commutes(PropertiesResponse {
+            req_id: 0,
+            res: vec![TaskPropColumn {
+                name: "dog".to_string(),
+                values: vec![None, Some(TaskPropVariant::String("dog2".to_string()))],
+            }],
+        })
     }
 }
