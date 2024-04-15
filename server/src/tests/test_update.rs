@@ -23,6 +23,7 @@ async fn task_id_fails() {
             deps_to_remove: vec![],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         },
     )
     .await;
@@ -56,6 +57,7 @@ async fn name_changed() {
             deps_to_remove: vec![],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         },
     )
     .await;
@@ -90,6 +92,7 @@ async fn checked_changed() {
             deps_to_remove: vec![],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         },
     )
     .await;
@@ -137,6 +140,7 @@ async fn update_prop_string() {
             deps_to_remove: vec![],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         },
     )
     .await;
@@ -174,6 +178,7 @@ async fn create_prop_string() {
             deps_to_remove: vec![],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         },
     )
     .await;
@@ -220,6 +225,7 @@ async fn update_prop_num() {
             deps_to_remove: vec![],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         },
     )
     .await;
@@ -257,6 +263,7 @@ async fn create_prop_num() {
             deps_to_remove: vec![],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         },
     )
     .await;
@@ -303,6 +310,7 @@ async fn update_prop_date() {
             deps_to_remove: vec![],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         },
     )
     .await;
@@ -340,6 +348,7 @@ async fn create_prop_date() {
             deps_to_remove: vec![],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         },
     )
     .await;
@@ -386,6 +395,7 @@ async fn update_prop_bool() {
             deps_to_remove: vec![],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         },
     )
     .await;
@@ -423,6 +433,7 @@ async fn create_prop_bool() {
             deps_to_remove: vec![],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         },
     )
     .await;
@@ -461,6 +472,7 @@ async fn prop_wrong_type() {
             deps_to_remove: vec![],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         },
     )
     .await;
@@ -503,6 +515,7 @@ async fn delete_prop() {
             deps_to_remove: vec![],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         },
     )
     .await;
@@ -533,6 +546,7 @@ async fn delete_prop_bad_req() {
             deps_to_remove: vec![],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         },
     )
     .await;
@@ -576,6 +590,7 @@ async fn add_dep() {
             deps_to_remove: vec![],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         },
     )
     .await;
@@ -606,6 +621,7 @@ async fn add_dep_doesnt_exist() {
             deps_to_remove: vec![],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         },
     )
     .await;
@@ -647,6 +663,7 @@ async fn remove_dep() {
             deps_to_remove: vec![2],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         },
     )
     .await;
@@ -677,6 +694,7 @@ async fn remove_dep_bad_req() {
             deps_to_remove: vec![2],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         },
     )
     .await;
@@ -720,11 +738,12 @@ async fn test_task_update_request() {
             deps_to_remove: vec![],
             scripts_to_add: vec![],
             scripts_to_remove: vec![],
+            req_id: 0,
         })
         .uri("/task")
         .to_request();
     let resp: UpdateTaskResponse = test::call_and_read_body_json(&app, req).await;
-    assert_eq!(resp, 1);
+    assert_eq!(resp.task_id, 1);
 }
 #[actix_web::test]
 async fn test_tasks_update_request() {
@@ -770,6 +789,7 @@ async fn test_tasks_update_request() {
                 deps_to_remove: vec![],
                 scripts_to_add: vec![],
                 scripts_to_remove: vec![],
+                req_id: 0,
             },
             UpdateTaskRequest {
                 task_id: 2,
@@ -781,11 +801,12 @@ async fn test_tasks_update_request() {
                 deps_to_remove: vec![],
                 scripts_to_add: vec![],
                 scripts_to_remove: vec![],
+                req_id: 1,
             },
         ])
         .uri("/tasks")
         .to_request();
     let resp: UpdateTasksResponse = test::call_and_read_body_json(&app, req).await;
-    assert_eq!(resp[0], 1);
-    assert_eq!(resp[1], 2);
+    assert_eq!(resp[0].task_id, 1);
+    assert_eq!(resp[1].task_id, 2);
 }

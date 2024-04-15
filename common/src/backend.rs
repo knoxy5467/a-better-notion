@@ -10,6 +10,8 @@ use crate::*;
 pub struct ReadTaskShortRequest {
     /// task id to request
     pub task_id: TaskID,
+    /// id of request
+    pub req_id: u64,
 }
 /// response to GET /task
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -28,6 +30,8 @@ pub struct ReadTaskShortResponse {
     pub scripts: Vec<ScriptID>,
     /// last time this task was edited
     pub last_edited: chrono::NaiveDateTime,
+    /// id of request
+    pub req_id: u64,
 }
 /// request to GET /tasks, just list of GET /task requests
 pub type ReadTasksShortRequest = Vec<ReadTaskShortRequest>;
@@ -45,13 +49,22 @@ pub struct CreateTaskRequest {
     pub properties: Vec<TaskProp>,
     /// [name, date, value]
     pub dependencies: Vec<TaskID>,
+    /// id of request
+    pub req_id: u64,
 }
 /// response to POST /task contains the ID of the created task.
-pub type CreateTaskResponse = TaskID;
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct CreateTaskResponse {
+    /// id of task
+    pub task_id: TaskID,
+    /// id of request
+    pub req_id: u64,
+}
+
 /// reqwest::post("/tasks").body(CreateTaskRequest {})
 pub type CreateTasksRequest = Vec<CreateTaskRequest>;
 /// a list of task ids that were created
-pub type CreateTasksResponse = Vec<TaskID>;
+pub type CreateTasksResponse = Vec<CreateTaskResponse>;
 
 /// reqwest::put("/task")
 #[derive(Serialize, Deserialize)]
@@ -74,25 +87,35 @@ pub struct UpdateTaskRequest {
     pub scripts_to_add: Vec<ScriptID>,
     /// scripts to remove
     pub scripts_to_remove: Vec<ScriptID>,
+    /// id of request
+    pub req_id: u64,
 }
 /// respone is just taskid
-pub type UpdateTaskResponse = TaskID;
+#[derive(Serialize, Deserialize)]
+pub struct UpdateTaskResponse {
+    /// id of task
+    pub task_id: TaskID,
+    /// id of request
+    pub req_id: u64,
+}
 /// reqwest::put("/tasks")
 pub type UpdateTasksRequest = Vec<UpdateTaskRequest>;
 /// response is just taskids
-pub type UpdateTasksResponse = Vec<TaskID>;
+pub type UpdateTasksResponse = Vec<UpdateTaskResponse>;
 /// reqwest::delete("/task")
 #[derive(Serialize, Deserialize)]
 pub struct DeleteTaskRequest {
     /// id to delete
     pub task_id: TaskID,
+    /// id of request
+    pub req_id: u64,
 }
 /// response is empty
-pub type DeleteTaskResponse = ();
+pub type DeleteTaskResponse = u64;
 /// reawest::delete("/tasks")
 pub type DeleteTasksRequest = Vec<DeleteTaskRequest>;
 /// response is empty
-pub type DeleteTasksResponse = ();
+pub type DeleteTasksResponse = Vec<u64>;
 
 /// # PROPERTIES API
 
@@ -103,9 +126,17 @@ pub struct PropertyRequest {
     pub task_id: TaskID,
     /// list of property names we want to get values for
     pub properties: Vec<String>,
+    /// id of request
+    pub req_id: u64,
 }
 /// does smth
-pub type PropertyResponse = Vec<(String, Option<TaskPropVariant>)>;
+#[derive(Serialize, Deserialize)]
+pub struct PropertyResponse {
+    /// actual result
+    pub res: Vec<(String, Option<TaskPropVariant>)>,
+    /// id of request
+    pub req_id: u64,
+}
 /// reqwest::get("/props")
 #[derive(Serialize, Deserialize)]
 pub struct PropertiesRequest {
@@ -113,9 +144,17 @@ pub struct PropertiesRequest {
     pub task_ids: Vec<TaskID>,
     /// list of properties we want to get for each
     pub properties: Vec<String>,
+    /// id of request
+    pub req_id: u64,
 }
 /// does smth
-pub type PropertiesResponse = Vec<(String, Vec<Option<TaskPropVariant>>)>;
+#[derive(Serialize, Deserialize)]
+pub struct PropertiesResponse {
+    /// actual result
+    pub res: Vec<(String, Vec<Option<TaskPropVariant>>)>,
+    /// id of request
+    pub req_id: u64,
+}
 
 /// # FILTER APIS
 
@@ -155,6 +194,7 @@ mod tests {
             completed: false,
             properties: vec![],
             dependencies: vec![],
+            req_id: 0,
         });
     }
 }

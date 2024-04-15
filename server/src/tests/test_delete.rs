@@ -17,7 +17,14 @@ async fn test_delete() {
         }])
         .into_connection();
 
-    let res = delete_task(&db, &DeleteTaskRequest { task_id: 1 }).await;
+    let res = delete_task(
+        &db,
+        &DeleteTaskRequest {
+            task_id: 1,
+            req_id: 0,
+        },
+    )
+    .await;
 
     assert!(res.is_ok());
 }
@@ -27,7 +34,14 @@ async fn test_delete_bad_id() {
         .append_query_results([vec![] as Vec<task::Model>])
         .into_connection();
 
-    let res = delete_task(&db, &DeleteTaskRequest { task_id: 1 }).await;
+    let res = delete_task(
+        &db,
+        &DeleteTaskRequest {
+            task_id: 1,
+            req_id: 0,
+        },
+    )
+    .await;
 
     assert!(res.is_err());
     assert_eq!(
@@ -59,7 +73,10 @@ async fn test_delete_request() {
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::DELETE)
-        .set_json(DeleteTaskRequest { task_id: 1 })
+        .set_json(DeleteTaskRequest {
+            task_id: 1,
+            req_id: 0,
+        })
         .uri("/task")
         .to_request();
 
@@ -100,8 +117,14 @@ async fn test_delete_many_request() {
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::DELETE)
         .set_json([
-            DeleteTaskRequest { task_id: 2 },
-            DeleteTaskRequest { task_id: 1 },
+            DeleteTaskRequest {
+                task_id: 2,
+                req_id: 0,
+            },
+            DeleteTaskRequest {
+                task_id: 1,
+                req_id: 1,
+            },
         ])
         .uri("/tasks")
         .to_request();

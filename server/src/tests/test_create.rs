@@ -28,6 +28,7 @@ async fn insert_task_fails_with_bad_request() {
             completed: false,
             properties: vec![],
             dependencies: vec![],
+            req_id: 0,
         })
         .uri("/task")
         .to_request();
@@ -63,11 +64,18 @@ async fn insert_task_succeeds_with_good_request() {
             completed: false,
             properties: vec![],
             dependencies: vec![],
+            req_id: 0,
         })
         .uri("/task")
         .to_request();
     let response: CreateTaskResponse = test::call_and_read_body_json(&app, req).await;
-    assert_eq!(response, 1);
+    assert_eq!(
+        response,
+        CreateTaskResponse {
+            task_id: 1,
+            req_id: 0
+        }
+    );
 }
 
 #[actix_web::test]
@@ -108,12 +116,14 @@ async fn insert_tasks_works() {
                 completed: false,
                 properties: vec![],
                 dependencies: vec![],
+                req_id: 0,
             },
             CreateTaskRequest {
                 name: "test2".to_string(),
                 completed: false,
                 properties: vec![],
                 dependencies: vec![],
+                req_id: 1,
             },
         ])
         .uri("/tasks")
@@ -121,6 +131,18 @@ async fn insert_tasks_works() {
 
     let resp: CreateTasksResponse = test::call_and_read_body_json(&app, req).await;
     println!("{:?}", resp);
-    assert_eq!(resp[0], 1);
-    assert_eq!(resp[1], 2);
+    assert_eq!(
+        resp[0],
+        CreateTaskResponse {
+            task_id: 1,
+            req_id: 0
+        }
+    );
+    assert_eq!(
+        resp[1],
+        CreateTaskResponse {
+            task_id: 2,
+            req_id: 1
+        }
+    );
 }

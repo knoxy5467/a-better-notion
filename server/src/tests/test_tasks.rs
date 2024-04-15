@@ -23,7 +23,10 @@ async fn get_task_fails_with_bad_request() {
     .await;
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
-        .set_json(ReadTaskShortRequest { task_id: 2 })
+        .set_json(ReadTaskShortRequest {
+            task_id: 2,
+            req_id: 1,
+        })
         .uri("/task")
         .to_request();
     let resp: ServiceResponse = test::call_service(&app, req).await;
@@ -47,7 +50,10 @@ async fn get_task_succeeds_with_good_request() {
     let app = test::init_service(App::new().app_data(db_data).service(get_task_request)).await;
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
-        .set_json(ReadTaskShortRequest { task_id: 1 })
+        .set_json(ReadTaskShortRequest {
+            task_id: 1,
+            req_id: 0,
+        })
         .uri("/task")
         .to_request();
     let resp: ReadTaskShortResponse = test::call_and_read_body_json(&app, req).await;
@@ -80,9 +86,18 @@ async fn get_tasks_request_succeeds_with_good_request() {
     let app = test::init_service(App::new().app_data(db_data).service(get_tasks_request)).await;
     let req = test::TestRequest::default()
         .set_json(vec![
-            ReadTaskShortRequest { task_id: 1 },
-            ReadTaskShortRequest { task_id: 2 },
-            ReadTaskShortRequest { task_id: 3 },
+            ReadTaskShortRequest {
+                task_id: 1,
+                req_id: 0,
+            },
+            ReadTaskShortRequest {
+                task_id: 2,
+                req_id: 1,
+            },
+            ReadTaskShortRequest {
+                task_id: 3,
+                req_id: 2,
+            },
         ])
         .uri("/tasks")
         .to_request();
