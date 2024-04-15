@@ -497,30 +497,7 @@ async fn get_property_or_err(
     Ok(Some(res))
 }
 
-#[get("/properties")]
-async fn get_properties_request(
-    data: web::Data<DatabaseConnection>,
-    req: web::Json<PropertiesRequest>,
-) -> Result<web::Json<PropertiesResponse>> {
-    let mut res = PropertiesResponse {
-        res: vec![],
-        req_id: req.req_id,
-    };
-    for prop_name in req.properties.iter() {
-        let mut prop_column: Vec<Option<TaskPropVariant>> = vec![];
-        for task_id in req.task_ids.iter() {
-            let prop = get_property_or_err(data.as_ref(), prop_name, *task_id)
-                .await
-                .unwrap_or(None);
-            prop_column.push(prop);
-        }
-
-        res.res.push((prop_name.to_owned(), prop_column));
-    }
-
-    Ok(web::Json(res))
-}
-#[get("/property")]
+#[get("/prop")]
 async fn get_property_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<PropertyRequest>,
@@ -533,7 +510,36 @@ async fn get_property_request(
         let prop = get_property_or_err(data.as_ref(), prop_name, req.task_id)
             .await
             .unwrap_or(None);
-        res.res.push((prop_name.to_owned(), prop));
+        res.res.push(TaskPropOption {
+            name: prop_name.to_owned(),
+            value: prop,
+        });
+    }
+
+    Ok(web::Json(res))
+}
+#[get("/props")]
+async fn get_properties_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<PropertiesRequest>,
+) -> Result<web::Json<PropertiesResponse>> {
+    let mut res = PropertiesResponse {
+        res: vec![],
+        req_id: req.req_id,
+    };
+    for prop_name in req.properties.iter() {
+        let mut prop_column = TaskPropColumn {
+            name: prop_name.to_owned(),
+            values: vec![],
+        };
+        for task_id in req.task_ids.iter() {
+            let prop = get_property_or_err(data.as_ref(), prop_name, *task_id)
+                .await
+                .unwrap_or(None);
+            prop_column.values.push(prop);
+        }
+
+        res.res.push(prop_column);
     }
 
     Ok(web::Json(res))

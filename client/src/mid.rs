@@ -333,7 +333,7 @@ pub async fn init(url: &str) -> color_eyre::Result<State> {
     // request task data for all filter data passed back
     let tasks_request = task_ids
         .into_iter()
-        .map(|task_id| ReadTaskShortRequest { task_id })
+        .map(|task_id| ReadTaskShortRequest { task_id, req_id: 0 })
         .collect::<ReadTasksShortRequest>();
     let tasks_res: ReadTasksShortResponse =
         do_request(client.get(format!("{url}/tasks")), tasks_request).await?;
