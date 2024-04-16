@@ -60,9 +60,19 @@ impl TaskEditPopup {
     pub fn handle_key_event(&mut self, state: &mut State, key_code: KeyCode) -> bool {
         match key_code {
             KeyCode::Esc => self.should_close = true,
-            KeyCode::Char('n') => self.should_close = true,
+            KeyCode::Char('n') => {
+                if !self.editing_mode {
+                    self.should_close = true;
+                } else {
+                    self.name.push('n');
+                }
+            }
             KeyCode::Char('y') => {
-                self.editing_mode = true;
+                if !self.editing_mode {
+                    self.editing_mode = true;
+                } else {
+                    self.name.push('y');
+                }
             }
 
             KeyCode::Char(c) => {
@@ -80,7 +90,8 @@ impl TaskEditPopup {
                 if self.editing_mode {
                     if let Some(selection) = self.selection {
                         state.task_mod(selection, |task| {
-                            task.name = self.name.clone();
+                            // task.name = self.name.clone();
+                            task.name.clone_from(&self.name)
                         });
                         self.should_close = true;
                     }

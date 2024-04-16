@@ -7,7 +7,7 @@ use ratatui::{
     symbols::border,
     widgets::{block::*, *},
 };
-use tokio::runtime::Handle;
+// use tokio::runtime::Handle;
 
 use crate::{mid::State, term};
 
@@ -432,9 +432,10 @@ mod tests {
         app.handle_event(Event::Key(KeyCode::Char('x').into()));
         assert!(app.task_edit_popup.is_some());
 
-        // Initial task name is empty
+        // Initial task name from popup is empty
         if let Some(task_edit_popup) = &app.task_edit_popup {
             assert!(task_edit_popup.selection.is_some());
+            assert!(!task_edit_popup.should_close);
             assert_eq!(task_edit_popup.name, "");
         }
 
@@ -460,9 +461,9 @@ mod tests {
         app.handle_event(Event::Key(KeyCode::Char('x').into()));
         assert!(app.task_edit_popup.is_some());
         app.handle_event(Event::Key(KeyCode::Char('y').into()));
-        assert_eq!(app.task_edit_popup.unwrap().should_close, false);
+        assert!(!app.task_edit_popup.unwrap().should_close);
 
-        // Edit task name
+        // Edit current task name
         let mut app = App::new(State::default());
         let state = init_test();
         app.state = state;
@@ -481,6 +482,54 @@ mod tests {
         let updated_task_key = task_keys[0];
         let updated_task = app.state.task_get(updated_task_key).unwrap();
         assert_eq!(updated_task.name, "hi");
+
+        // Press esc to cancel editing
+        let mut app = App::new(State::default());
+        let state = init_test();
+        app.state = state;
+        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
+
+        app.handle_event(Event::Key(KeyCode::Up.into()));
+        app.handle_event(Event::Key(KeyCode::Char('x').into()));
+        app.handle_event(Event::Key(KeyCode::Char('y').into()));
+        app.handle_event(Event::Key(KeyCode::Char('h').into()));
+        app.handle_event(Event::Key(KeyCode::Char('i').into()));
+        app.handle_event(Event::Key(KeyCode::Esc.into()));
+        assert!(app.task_edit_popup.unwrap().should_close);
+
+        // 'n' does not close popup
+        let mut app = App::new(State::default());
+        let state = init_test();
+        app.state = state;
+        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
+
+        app.handle_event(Event::Key(KeyCode::Up.into()));
+        app.handle_event(Event::Key(KeyCode::Char('x').into()));
+        app.handle_event(Event::Key(KeyCode::Char('y').into()));
+        app.handle_event(Event::Key(KeyCode::Char('n').into()));
+        assert!(!app.task_edit_popup.unwrap().should_close);
+
+        //
+        let mut app = App::new(State::default());
+        let state = init_test();
+        app.state = state;
+        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
+
+        app.handle_event(Event::Key(KeyCode::Up.into()));
+        app.handle_event(Event::Key(KeyCode::Char('x').into()));
+        app.handle_event(Event::Key(KeyCode::Char('y').into()));
+        app.handle_event(Event::Key(KeyCode::Char('n').into()));
+        app.handle_event(Event::Key(KeyCode::Char('o').into()));
+        app.handle_event(Event::Key(KeyCode::Enter.into()));
+        let task_keys = app
+            .state
+            .view_tasks(app.state.view_get_default().unwrap())
+            .unwrap();
+        let updated_task_key = task_keys[0];
+        let updated_task = app.state.task_get(updated_task_key).unwrap();
+        assert!(app.task_edit_popup.is_some());
+        assert_eq!(updated_task.name, "no");
+        assert!(app.task_edit_popup.unwrap().should_close);
 
         Ok(())
     }
