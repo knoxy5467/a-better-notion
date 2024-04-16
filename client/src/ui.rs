@@ -7,7 +7,6 @@ use ratatui::{
     symbols::border,
     widgets::{block::*, *},
 };
-use tokio::runtime::Handle;
 
 use crate::{mid::State, term};
 
@@ -131,7 +130,7 @@ impl App {
                     if let Some(tasks) = self
                         .task_list
                         .current_view
-                        .and_then(|vk| self.state.view_tasks(vk))
+                        .and_then(|vk| self.state.view_task_keys(vk))
                     {
                         self.state
                             .task_mod(tasks[selection], |t| t.completed = !t.completed);
@@ -372,7 +371,7 @@ mod tests {
             app.state
                 .task_get(
                     app.state
-                        .view_tasks(app.state.view_get_default().unwrap())
+                        .view_task_keys(app.state.view_get_default().unwrap())
                         .unwrap()[1]
                 )
                 .unwrap()
