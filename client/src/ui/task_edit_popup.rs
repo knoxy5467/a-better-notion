@@ -10,9 +10,9 @@ use crate::mid::{State, TaskKey};
 
 #[derive(Debug)]
 pub struct TaskEditPopup {
-    name: String,
+    pub name: String,
     pub should_close: bool,
-    selection: Option<TaskKey>,
+    pub selection: Option<TaskKey>,
     editing_mode: bool,
 }
 
