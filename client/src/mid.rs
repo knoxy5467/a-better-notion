@@ -87,7 +87,7 @@ pub struct State {
 #[derive(Debug)]
 /// Events to be handled by the middleware
 pub enum MidEvent {
-    ServerResponse(color_eyre::Result<Box<dyn ServerResponse>>),
+    ServerResponse(Result<Box<dyn ServerResponse>, reqwest_middleware::Error>),
 }
 impl State {
     pub fn handle_mid_event(&mut self, event: MidEvent) -> color_eyre::Result<()> {
@@ -158,11 +158,11 @@ impl ServerResponse for ReadTaskShortResponse {
 // should only receive this if we already know the server has the task (i.e. sent CreateTaskResponse)
 impl ServerResponse for UpdateTaskResponse {
     fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<()> {
-        let task_key = state.task_map.get(&self).with_context(||format!("cannot find locally stored task associated with DB id: {:?}", self))?;
+        let task_key = state.task_map.get(&self.task_id).with_context(||format!("cannot find locally stored task associated with DB id: {:?}", self.task_id))?;
         if let Some(task) = state.tasks.get_mut(*task_key) {
-            task.db_id = Some(*self);
+            task.db_id = Some(self.task_id);
         } else {
-            panic!("fatal: DB id {:?} was associated with task key {:?} but task didn't exist", self, task_key);
+            panic!("fatal: DB id {:?} was associated with task key {:?} but task didn't exist", self.task_id, task_key);
         }
         Ok(())
     }
@@ -171,14 +171,14 @@ impl ServerResponse for CreateTaskResponse {
     fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<()> {
         let task_key = TaskKey(slotmap::KeyData::from_ffi(self.req_id));
         let task = state.tasks.get_mut(task_key).with_context(||format!("req_id received from CreateTaskResponse does not match a local task key: {task_key:?}"))?;
-        task.db_id = Some(self.new_task_id);
+        task.db_id = Some(self.task_id);
         Ok(())
     }
 }
 impl ServerResponse for DeleteTaskResponse {
     fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<()> {
         // get task key from response (should have been sent with request)
-        let task_key = TaskKey(slotmap::KeyData::from_ffi(self.0));
+        let task_key = TaskKey(slotmap::KeyData::from_ffi(*self));
         // remove task key
         let task = state.tasks.remove(task_key).with_context(||format!("req_id received from DeleteTaskResponse does not match a local task key: {task_key:?}"))?;
         if let Some(db_id) = task.db_id { // if we have a local db_id, remove it from the map
@@ -208,7 +208,7 @@ impl ServerResponse for FilterResponse {
         let tasks_to_fetch = state.view_tasks(view_key).unwrap()
             .iter().filter_map(|tkey|state.tasks.get(*tkey)
             .map(|t|if !t.is_syncronized {t.db_id} else {None}).flatten())
-            .map(|task_id|ReadTaskShortRequest { task_id }).collect::<Vec<ReadTaskShortRequest>>();
+            .map(|task_id|ReadTaskShortRequest { task_id, req_id: 0 }).collect::<Vec<ReadTaskShortRequest>>();
         if tasks_to_fetch.is_empty() {
             state.spawn_request::<ReadTasksShortRequest, ReadTasksShortResponse>(state.client.get(format!("{}/tasks", state.url)), tasks_to_fetch);
         }
@@ -249,17 +249,18 @@ impl State {
         }
 
     }
+    #[tracing::instrument]
     fn spawn_request<Req, Res>(&mut self, req_builder: RequestBuilder, req: Req) -> JoinHandle<()>
     where
     Req: Serialize + std::fmt::Debug + Send + Sync + 'static,
     Res: ServerResponse + for<'d> Deserialize<'d>,
     {
-        log::debug!("doing a request: {:?}", req);
+        tracing::debug!("doing a request: {:?}", req);
         let mut sender = self.mid_event_sender.clone();
         tokio::spawn(async move {
             let resp = do_request::<Req, Res>(req_builder, req).await;
             let resp = resp.map(|e|Box::new(e) as Box<dyn ServerResponse>);
-            log::debug!("received a response: {:?}", resp);
+            tracing::debug!("received a response: {:?}", resp);
             sender.send(MidEvent::ServerResponse(resp)).await;
         })
     }
@@ -450,22 +451,16 @@ impl State {
     } */
 }
 
+
 // request helper function
 #[tracing::instrument]
-async fn do_request<Req, Res>(req_builder: RequestBuilder, req: Req) -> color_eyre::Result<Res>
+async fn do_request<Req, Res>(req_builder: RequestBuilder, req: Req) -> reqwest_middleware::Result<Res>
 where
     Req: Serialize + std::fmt::Debug,
     Res: for<'d> Deserialize<'d> + std::fmt::Debug,
 {
     let res: Response = req_builder.json(&req).send().await?;
-    let bytes = res.bytes().await?.to_vec();
-    let res: Res = serde_json::from_reader(&bytes[..]).with_context(|| {
-        format!(
-            "should have received type {}, as json, received: \"{}\"",
-            std::any::type_name::<Res>(),
-            String::from_utf8_lossy(&bytes)
-        )
-    })?;
+    let res: Res = res.json().await?;
     Ok(res)
 }
 
