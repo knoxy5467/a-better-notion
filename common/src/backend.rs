@@ -91,7 +91,7 @@ pub struct UpdateTaskRequest {
     pub req_id: u64,
 }
 /// respone is just taskid
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateTaskResponse {
     /// id of task
     pub task_id: TaskID,

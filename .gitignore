@@ -17,3 +17,6 @@ lcov.info
 *.profraw
 .vscode/*
 .cargo/config.toml
+
+# log files
+logs/

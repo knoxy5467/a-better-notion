@@ -414,7 +414,7 @@ async fn get_filter_request(
         .map_err(|e| ErrorInternalServerError(format!("couldn't filter tasks: {}", e)))?;
 
     Ok(web::Json(
-        tasks.iter().map(|a| a.id).collect::<FilterResponse>(),
+        FilterResponse { tasks: tasks.iter().map(|a| a.id).collect::<Vec<i32>>(), req_id: req.req_id},
     ))
 }
 

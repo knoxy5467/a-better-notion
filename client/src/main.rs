@@ -3,17 +3,13 @@
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
-use std::{
-    io::{self, stdout},
-    panic,
-};
+use std::panic;
 
 use color_eyre::eyre;
 
 use crossterm::event::EventStream;
-use flexi_logger::{FileSpec, Logger, WriteMode};
 use ratatui::backend::CrosstermBackend;
-use tracing_error::ErrorLayer;
+use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 mod mid;
 mod term;
@@ -21,44 +17,44 @@ mod ui;
 
 #[coverage(off)]
 fn main() -> color_eyre::Result<()> {
-    
-    
     // manually create tokio runtime
     let rt = tokio::runtime::Runtime::new().unwrap();
+    let guard = initialize_tracing()?;
+    install_hooks()?;
     rt.block_on(
         #[coverage(off)]
         async {
-            initialize_tracing()?;
-            install_hooks()?;
-            // Initialize the logger and start the service.
-            Logger::try_with_str("debug")?
-                .log_to_file(FileSpec::default())
-                .write_mode(WriteMode::BufferAndFlush)
-                .start()?;
-                term::enable()?;
+            tracing::info!("Starting Client");
+            term::enable()?;
             let state = mid::init("http://localhost:8080").await?;
-            let res = ui::run(CrosstermBackend::new(stdout()), state, EventStream::new()).await;
+            let res = ui::run(CrosstermBackend::new(std::io::stdout()), state, EventStream::new()).await;
             term::restore()?;
             res?;
+            drop(guard); // must keep track of guard so log file is written correctly
             Ok(())
         },
     )
 }
 
 #[coverage(off)]
-fn initialize_tracing() -> color_eyre::Result<()> {
+fn initialize_tracing() -> color_eyre::Result<WorkerGuard> {
+    let _ = std::fs::File::create("logs/rolling.log").expect("failed to clear file"); // truncate
+    let file_appender = tracing_appender::rolling::never("logs", "rolling.log");
+    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+    
     let file_subscriber = tracing_subscriber::fmt::layer()
         .with_file(true)
         .with_line_number(true)
-        .with_writer(io::stdout)
+        .with_writer(non_blocking)
         .with_target(false)
         .with_ansi(false)
-        .with_filter(tracing_subscriber::filter::EnvFilter::from_default_env());
+        .with_filter(tracing_subscriber::filter::EnvFilter::from_default_env())
+        .with_filter(tracing_subscriber::filter::filter_fn(|e|e.is_event())); // prevent errors being logged (those are sent to console)
     tracing_subscriber::registry()
         .with(file_subscriber)
-        .with(ErrorLayer::default())
+        .with(tracing_error::ErrorLayer::default())
         .init();
-    Ok(())
+    Ok(guard)
 }
 
 /// This replaces the standard color_eyre panic and error hooks with hooks that
