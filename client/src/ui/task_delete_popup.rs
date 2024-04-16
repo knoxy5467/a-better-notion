@@ -45,10 +45,9 @@ impl TaskDeletePopup {
     }
     pub fn handle_key_event(&mut self, state: &mut State, key_code: KeyCode) -> bool {
         match key_code {
-            KeyCode::Esc       => self.should_close = true,
+            KeyCode::Esc => self.should_close = true,
             KeyCode::Char('n') => self.should_close = true,
             KeyCode::Char('y') => {
-                
                 state.task_rm(self.key);
 
                 self.should_close = true;

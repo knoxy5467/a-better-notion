@@ -30,9 +30,13 @@ impl TaskList {
             std::cmp::Ordering::Less => tasks.last().cloned(),
             std::cmp::Ordering::Greater => tasks.first().cloned(),
             _ => None,
-        }) else { return; };
+        }) else {
+            return;
+        };
         // get index in tasks list of selected_task
-        let Some(cur_index) = tasks.iter().position(|key|*key == selected_task) else {return;};
+        let Some(cur_index) = tasks.iter().position(|key| *key == selected_task) else {
+            return;
+        };
         // add the index
         let new_index = (cur_index as isize) + amt;
         let new_index = if wrap {

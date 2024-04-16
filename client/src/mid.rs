@@ -117,14 +117,17 @@ enum StateEvent {
 
 /* // data events from server to be applied to middleware
 enum ServerResponse {
-    
+
 } */
 trait ServerResponse {
     fn update_state(self, state: &mut State) -> color_eyre::Result<()>;
 }
 impl ServerResponse for ReadTaskShortRequest {
     fn update_state(self, state: &mut State) -> color_eyre::Result<()> {
-        let key = state.task_map.get(&self.task_id).wrap_err_with(||format!("unknown task id: {}", self.task_id))?;
+        let key = state
+            .task_map
+            .get(&self.task_id)
+            .wrap_err_with(|| format!("unknown task id: {}", self.task_id))?;
         // state.task.get(key);
         Ok(())
     }
