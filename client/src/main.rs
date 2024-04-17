@@ -9,7 +9,7 @@ use std::{
 };
 
 use color_eyre::eyre;
-use actix_settings::{ActixSettings, NoSettings, Settings};
+use actix_settings::{NoSettings, Settings};
 use crossterm::event::EventStream;
 use ratatui::backend::CrosstermBackend;
 use tracing_error::ErrorLayer;
@@ -19,7 +19,7 @@ mod term;
 mod ui;
 
 fn load_settings() -> Result<actix_settings::BasicSettings<NoSettings>, actix_settings::Error> {
-    return Settings::parse_toml("Server.toml")
+    Settings::parse_toml("Server.toml")
 }
 
 #[coverage(off)]

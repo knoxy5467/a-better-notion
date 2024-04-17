@@ -6,7 +6,7 @@
 mod api;
 mod database;
 use actix_web::{dev::Server, web::Data, App, HttpServer};
-use actix_settings::{ApplySettings as _, Mode, NoSettings, Settings};
+use actix_settings::{ApplySettings as _, NoSettings, Settings};
 use api::*;
 use log::{info, warn};
 use sea_orm::{Database, DatabaseConnection};
@@ -25,7 +25,7 @@ async fn main() -> () {
 }
 
 fn load_settings() -> Result<actix_settings::BasicSettings<NoSettings>, actix_settings::Error> {
-    return Settings::parse_toml("Server.toml")
+    Settings::parse_toml("Server.toml")
 }
 
 #[allow(clippy::needless_return)]
