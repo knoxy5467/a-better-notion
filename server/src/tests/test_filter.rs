@@ -1,11 +1,10 @@
 use super::*;
+use actix_web::test;
 use common::{backend::*, Filter};
+use sea_orm::MockDatabase;
 
 #[actix_web::test]
-async fn filter_request() {
-    use actix_web::test;
-    use sea_orm::MockDatabase;
-
+async fn test_empty_filter() {
     let db = MockDatabase::new(sea_orm::DatabaseBackend::Postgres);
     let db_conn = db
         .append_query_results([vec![

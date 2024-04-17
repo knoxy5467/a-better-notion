@@ -5,31 +5,13 @@ use serde::{Deserialize, Serialize};
 use crate::*;
 
 /// # TASK API
-
-/// reqwest::post("/task").body(CreateTaskRequest {})
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct CreateTaskRequest {
-    /// name of task
-    pub name: String,
-    /// completion status of task
-    pub completed: bool,
-    /// list of properties to add to task
-    pub properties: Vec<TaskProp>,
-    /// [name, date, value]
-    pub dependencies: Vec<TaskID>,
-}
-/// response to POST /task contains the ID of the created task.
-pub type CreateTaskResponse = TaskID;
-/// reqwest::post("/tasks").body(CreateTaskRequest {})
-pub type CreateTasksRequest = Vec<CreateTaskRequest>;
-/// a list of task ids that were created
-pub type CreateTasksResponse = Vec<TaskID>;
-
 /// reawest::get("/task")
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ReadTaskShortRequest {
     /// task id to request
     pub task_id: TaskID,
+    /// id of request
+    pub req_id: u64,
 }
 /// response to GET /task
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -48,51 +30,147 @@ pub struct ReadTaskShortResponse {
     pub scripts: Vec<ScriptID>,
     /// last time this task was edited
     pub last_edited: chrono::NaiveDateTime,
+    /// id of request
+    pub req_id: u64,
 }
 /// request to GET /tasks, just list of GET /task requests
 pub type ReadTasksShortRequest = Vec<ReadTaskShortRequest>;
 /// response to GET /tasks, just list of GET /task responses
 pub type ReadTasksShortResponse = Vec<Result<ReadTaskShortResponse, String>>;
 
+/// reqwest::post("/task").body(CreateTaskRequest {})
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct CreateTaskRequest {
+    /// name of task
+    pub name: String,
+    /// completion status of task
+    pub completed: bool,
+    /// list of properties to add to task
+    pub properties: Vec<TaskProp>,
+    /// [name, date, value]
+    pub dependencies: Vec<TaskID>,
+    /// id of request
+    pub req_id: u64,
+}
+/// response to POST /task contains the ID of the created task.
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct CreateTaskResponse {
+    /// id of task
+    pub task_id: TaskID,
+    /// id of request
+    pub req_id: u64,
+}
+
+/// reqwest::post("/tasks").body(CreateTaskRequest {})
+pub type CreateTasksRequest = Vec<CreateTaskRequest>;
+/// a list of task ids that were created
+pub type CreateTasksResponse = Vec<CreateTaskResponse>;
+
 /// reqwest::put("/task")
-struct UpdateTaskRequest {
-    task_id: TaskID,
-    name: Option<String>,
-    checked: Option<bool>,
-    props_to_add: Vec<TaskProp>,
-    props_to_remove: Vec<String>,
-    deps_to_add: Vec<TaskID>,
-    deps_to_remove: Vec<TaskID>,
-    scripts_to_add: Vec<ScriptID>,
-    scripts_to_remove: Vec<ScriptID>,
+#[derive(Serialize, Deserialize)]
+pub struct UpdateTaskRequest {
+    /// task id
+    pub task_id: TaskID,
+    /// name change
+    pub name: Option<String>,
+    /// checked change
+    pub checked: Option<bool>,
+    /// props to add
+    pub props_to_add: Vec<TaskProp>,
+    /// props to remove
+    pub props_to_remove: Vec<String>,
+    /// deps to add
+    pub deps_to_add: Vec<TaskID>,
+    /// deps to remove
+    pub deps_to_remove: Vec<TaskID>,
+    /// scripts to add
+    pub scripts_to_add: Vec<ScriptID>,
+    /// scripts to remove
+    pub scripts_to_remove: Vec<ScriptID>,
+    /// id of request
+    pub req_id: u64,
 }
-type UpdateTaskResponse = TaskID;
+/// respone is just taskid
+#[derive(Serialize, Deserialize)]
+pub struct UpdateTaskResponse {
+    /// id of task
+    pub task_id: TaskID,
+    /// id of request
+    pub req_id: u64,
+}
 /// reqwest::put("/tasks")
-type UpdateTasksRequest = Vec<UpdateTaskRequest>;
-type UpdateTasksResponse = Vec<TaskID>;
+pub type UpdateTasksRequest = Vec<UpdateTaskRequest>;
+/// response is just taskids
+pub type UpdateTasksResponse = Vec<UpdateTaskResponse>;
 /// reqwest::delete("/task")
-struct DeleteTaskRequest {
-    task_id: TaskID,
+#[derive(Serialize, Deserialize)]
+pub struct DeleteTaskRequest {
+    /// id to delete
+    pub task_id: TaskID,
+    /// id of request
+    pub req_id: u64,
 }
-type DeleteTaskResponse = ();
+/// response is empty
+pub type DeleteTaskResponse = u64;
 /// reawest::delete("/tasks")
-type DeleteTasksRequest = Vec<DeleteTaskRequest>;
-type DeleteTasksResponse = ();
+pub type DeleteTasksRequest = Vec<DeleteTaskRequest>;
+/// response is empty
+pub type DeleteTasksResponse = Vec<u64>;
 
 /// # PROPERTIES API
 
 /// reqwest::get("/prop")
-struct PropertyRequest {
-    task_id: TaskID,
-    properties: Vec<String>,
+#[derive(Serialize, Deserialize)]
+pub struct PropertyRequest {
+    /// task id
+    pub task_id: TaskID,
+    /// list of property names we want to get values for
+    pub properties: Vec<String>,
+    /// id of request
+    pub req_id: u64,
 }
-type PropertyResponse = Vec<(String, TaskPropVariant)>;
+/// response to GET /props
+#[derive(Serialize, Deserialize)]
+pub struct PropertyResponse {
+    /// actual result
+    pub res: Vec<TaskPropOption>,
+    /// id of request
+    pub req_id: u64,
+}
+/// individual property but an option
+#[derive(Serialize, Deserialize)]
+pub struct TaskPropOption {
+    /// name of property
+    pub name: String,
+    /// value of property
+    pub value: Option<TaskPropVariant>,
+}
 /// reqwest::get("/props")
-struct PropertiesRequest {
-    task_id: Vec<TaskID>,
-    properties: Vec<String>,
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct PropertiesRequest {
+    /// list of task ids we want properties for
+    pub task_ids: Vec<TaskID>,
+    /// list of properties we want to get for each
+    pub properties: Vec<String>,
+    /// id of request
+    pub req_id: u64,
 }
-type PropertiesResponse = Vec<(String, Vec<TaskPropVariant>)>;
+/// does smth
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct PropertiesResponse {
+    /// actual result
+    pub res: Vec<TaskPropColumn>,
+    /// id of request
+    pub req_id: u64,
+}
+/// column of task properties with name
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct TaskPropColumn {
+    /// name of property
+    pub name: String,
+    /// properties ordered by the taskid they were requested in
+    pub values: Vec<Option<TaskPropVariant>>,
+}
 
 /// # FILTER APIS
 
@@ -132,6 +210,26 @@ mod tests {
             completed: false,
             properties: vec![],
             dependencies: vec![],
+            req_id: 0,
         });
+    }
+
+    #[test]
+    fn serde_properties_request() {
+        test_serde_commutes(PropertiesRequest {
+            task_ids: vec![1],
+            properties: vec!["hi".to_string()],
+            req_id: 0,
+        })
+    }
+    #[test]
+    fn serde_properties_response() {
+        test_serde_commutes(PropertiesResponse {
+            req_id: 0,
+            res: vec![TaskPropColumn {
+                name: "dog".to_string(),
+                values: vec![None, Some(TaskPropVariant::String("dog2".to_string()))],
+            }],
+        })
     }
 }

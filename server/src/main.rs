@@ -83,6 +83,7 @@ mod test_main {
         load_settings().expect("failed to load settings");
     }
 }
+
 #[cfg(test)]
 mod integration_tests {
     use std::{env, net::TcpStream, time::Duration};

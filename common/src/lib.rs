@@ -94,7 +94,7 @@ pub enum Operator {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum TaskPropVariant {
     /// Local-time-zone representation of postgresql's timestamp
-    Date(chrono::DateTime<chrono::Utc>),
+    Date(chrono::NaiveDateTime),
     /// String variant
     String(String),
     /// Decimal variant (NOTE: should we have an integer variant?)
@@ -102,11 +102,24 @@ pub enum TaskPropVariant {
     /// Boolean variant
     Boolean(bool),
 }
+impl TaskPropVariant {
+    /// get the string name of a proprty typer
+    pub fn type_string(&self) -> &'static str {
+        match self {
+            TaskPropVariant::Date(_) => "date",
+            TaskPropVariant::String(_) => "string",
+            TaskPropVariant::Number(_) => "number",
+            TaskPropVariant::Boolean(_) => "boolean",
+        }
+    }
+}
 /// A task property and its corresponding name.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct TaskProp {
-    name: String,
-    value: TaskPropVariant,
+    /// name
+    pub name: String,
+    /// actual value
+    pub value: TaskPropVariant,
 }
 
 /// Represents a filter on tasks using their properties that the database computes.
@@ -152,7 +165,7 @@ mod tests {
     fn serde_task_prop() {
         test_serde_commutes(TaskProp {
             name: "test".to_owned(),
-            value: TaskPropVariant::Date(chrono::Utc::now()),
+            value: TaskPropVariant::Date(chrono::NaiveDateTime::default()),
         });
     }
     #[test]
