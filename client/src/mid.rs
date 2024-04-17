@@ -460,7 +460,7 @@ impl State {
     pub fn view_get_default(&self) -> Option<ViewKey> {
         self.views.keys().next()
     }
-    /// shorthand function to get the list of tasks associated with a view
+    /// shorthand function to get the list of tasks associated with a view (some keys may be invalid)
     pub fn view_task_keys(&self, view_key: ViewKey) -> Option<&[TaskKey]> {
         self.view_get(view_key)
             .and_then(|v| v.tasks.as_ref())

@@ -51,6 +51,7 @@ pub struct App {
     task_create_popup: Option<TaskCreatePopup>,
     task_delete_popup: Option<TaskDeletePopup>,
     task_edit_popup: Option<TaskEditPopup>,
+    help_box_shown: bool,
 }
 
 pub enum UIEvent {
@@ -69,6 +70,7 @@ impl App {
             task_create_popup: None,
             task_delete_popup: None,
             task_edit_popup: None,
+            help_box_shown: false,
         }
     }
     /// run app with some terminal output and event stream input
@@ -96,11 +98,6 @@ impl App {
                 break;
             }
         }
-        /* while let Some(event) = events.next().await {
-            self.step(term, event?)?;
-            // if we should exit, break loop
-            
-        } */
         Ok(())
     }
     pub fn step<B: Backend>(
@@ -152,9 +149,10 @@ impl App {
         if let Some(task_edit_popup) = &mut self.task_edit_popup {
             return task_edit_popup.handle_key_event(&mut self.state, key_event.code);
         }
-
+        if let Char('h') = key_event.code {} else { self.help_box_shown = false; }
         match key_event.code {
             Char('q') => self.should_exit = true,
+            Char('h') => self.help_box_shown = !self.help_box_shown,
             Char('c') => self.task_create_popup = Some(TaskCreatePopup::new()),
             Up => self.task_list.shift(&self.state, -1, false),
             Down => self.task_list.shift(&self.state, 1, false),
@@ -198,9 +196,9 @@ impl Widget for &mut App {
             "/".into(),
             "<Down>".blue().bold(),
             " Help: ".into(),
-            "<H> ".blue().bold(),
+            "<h> ".blue().bold(),
             ", Quit: ".into(),
-            "<Q> ".blue().bold(),
+            "<q> ".blue().bold(),
         ]));
         // bottom right render update count
         let update_counter = Title::from(format!("Updates: {}", self.updates));
@@ -221,6 +219,52 @@ impl Widget for &mut App {
             .border_set(border::ROUNDED);
 
         self.task_list.render(&self.state, block, area, buf);
+
+        // render help list
+        if self.help_box_shown {
+            // create a centered rect of fixed vertical size that takes up 50% of the vertical area.
+            let vertical_center = Layout::vertical([Constraint::Length(7)])
+            .flex(layout::Flex::Center)
+            .split(area);
+
+            let popup_area = Layout::horizontal([Constraint::Percentage(50)])
+                .flex(layout::Flex::Center)
+                .split(vertical_center[0])[0];
+
+            Clear.render(popup_area, buf); // clear background of popup area
+
+            // create task popup block with rounded corners
+            let block = Block::default()
+                .title("Help Menu")
+                .borders(Borders::ALL)
+                .border_set(border::ROUNDED);
+            let text = vec![
+                Line::from(vec![
+                    Span::raw("Quit: "),
+                    Span::styled("<q>", Style::new().blue().bold()),
+                ]),
+                Line::from(vec![
+                    Span::raw("Help: "),
+                    Span::styled("<h>", Style::new().blue().bold()),
+                ]),
+                Line::from(vec![
+                    Span::raw("Create Task: "),
+                    Span::styled("<c>", Style::new().blue().bold()),
+                ]),
+                Line::from(vec![
+                    Span::raw("Delete Task: "),
+                    Span::styled("<d>", Style::new().blue().bold()),
+                ]),
+                Line::from(vec![
+                    Span::raw("Edit Task: "),
+                    Span::styled("<e>", Style::new().blue().bold()),
+                ]),
+            ];
+            // create paragraph containing current string state inside `block` & render
+            Paragraph::new(text)
+                .block(block)
+                .render(popup_area, buf);
+        }
 
         if let Some(task_create_popup) = &mut self.task_create_popup {
             if task_create_popup.should_close {
