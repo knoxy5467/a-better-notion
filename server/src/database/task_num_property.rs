@@ -71,6 +71,7 @@ mod tests {
     use sea_orm::Iterable;
 
     use super::*;
+    use sea_orm::{DatabaseBackend, MockDatabase};
 
     #[test]
     fn test_copy_clone_debug() {
@@ -88,5 +89,87 @@ mod tests {
         assert_eq!(iter.next(), Some(Relation::Task));
         assert_eq!(iter.next(), Some(Relation::TaskProperty));
         assert_eq!(iter.next(), None);
+    }
+    #[tokio::test]
+    async fn test_task_num_related() {
+        let db = MockDatabase::new(DatabaseBackend::Postgres);
+        let db_connection = db
+            .append_query_results([[(
+                task_num_property::Model {
+                    task_id: 1,
+                    name: "test".to_owned(),
+                    value: rust_decimal::Decimal::new(1, 0),
+                },
+                crate::database::task_property::Model {
+                    task_id: 1,
+                    name: "test".to_owned(),
+                    typ: "num".to_owned(),
+                },
+            )]])
+            .into_connection();
+
+        assert_eq!(
+            crate::database::task_num_property::Entity::find()
+                .find_also_related(crate::database::task_property::Entity)
+                .all(&db_connection)
+                .await
+                .unwrap(),
+            [(
+                task_num_property::Model {
+                    task_id: 1,
+                    name: "test".to_owned(),
+                    value: rust_decimal::Decimal::new(1, 0),
+                },
+                Some(crate::database::task_property::Model {
+                    task_id: 1,
+                    name: "test".to_owned(),
+                    typ: "num".to_owned(),
+                })
+            )]
+        )
+    }
+    #[tokio::test]
+    async fn test_task_num_property_find_also_linked() {
+        let db = MockDatabase::new(DatabaseBackend::Postgres);
+        let db_connection = db
+            .append_query_results([[(
+                crate::database::task_property::Model {
+                    task_id: 1,
+                    name: "test".to_owned(),
+                    typ: "num".to_owned(),
+                },
+                task_num_property::Model {
+                    task_id: 1,
+                    name: "test".to_owned(),
+                    value: rust_decimal::Decimal::new(1, 0),
+                },
+            )]])
+            .into_connection();
+
+        assert_eq!(
+            crate::database::task_property::Entity::find()
+                .find_also_linked(crate::database::task_num_property::TaskPropertyLink)
+                .all(&db_connection)
+                .await
+                .unwrap(),
+            [(
+                crate::database::task_property::Model {
+                    task_id: 1,
+                    name: "test".to_owned(),
+                    typ: "num".to_owned(),
+                },
+                Some(task_num_property::Model {
+                    task_id: 1,
+                    name: "test".to_owned(),
+                    value: rust_decimal::Decimal::new(1, 0),
+                }),
+            )]
+        )
+    }
+    #[test]
+    fn test_linked_to_task_property() {
+        let link = TaskPropertyLink;
+        let relations = link.link();
+        assert_eq!(relations.len(), 4);
     }
 }
