@@ -16,12 +16,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@nightly
         with:
           components: clippy
-      - run: cargo install cargo-diff-tools
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.7.3
-      - run: |
-          git fetch origin $GITHUB_BASE_REF --depth=1
-          cargo-clippy-diff --output=github $(git merge-base origin/$GITHUB_BASE_REF $GITHUB_SHA) $GITHUB_SHA -- --no-deps
+      - run: cargo clippy
