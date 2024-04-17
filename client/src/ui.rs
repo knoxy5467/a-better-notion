@@ -146,7 +146,7 @@ impl App {
 
         match key_event.code {
             Char('q') => self.should_exit = true,
-            Char('e') => self.task_create_popup = Some(TaskCreatePopup::new()),
+            Char('c') => self.task_create_popup = Some(TaskCreatePopup::new()),
             Up => self.task_list.shift(&self.state, -1, false),
             Down => self.task_list.shift(&self.state, 1, false),
             Char('d') => {
@@ -183,6 +183,8 @@ impl Widget for &mut App {
             "<Up>".blue().bold(),
             "/".into(),
             "<Down>".blue().bold(),
+            " Help: ".into(),
+            "<H> ".blue().bold(),
             ", Quit: ".into(),
             "<Q> ".blue().bold(),
         ]));

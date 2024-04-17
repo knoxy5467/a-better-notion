@@ -39,6 +39,9 @@ fn main() -> color_eyre::Result<()> {
 
 #[coverage(off)]
 fn initialize_tracing() -> color_eyre::Result<WorkerGuard> {
+    let path = std::path::Path::new("logs/rolling.log");
+    let prefix = path.parent().unwrap();
+    std::fs::create_dir_all(prefix).unwrap();
     let _ = std::fs::File::create("logs/rolling.log").expect("failed to clear file"); // truncate
     let file_appender = tracing_appender::rolling::never("logs", "rolling.log");
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
@@ -49,8 +52,8 @@ fn initialize_tracing() -> color_eyre::Result<WorkerGuard> {
         .with_writer(non_blocking)
         .with_target(false)
         .with_ansi(false)
-        .with_filter(tracing_subscriber::filter::EnvFilter::from_default_env())
-        .with_filter(tracing_subscriber::filter::filter_fn(|e|e.is_event())); // prevent errors being logged (those are sent to console)
+        .with_filter(tracing_subscriber::filter::EnvFilter::from_default_env());
+        // .with_filter(tracing_subscriber::filter::filter_fn(|e|e.is_event())); // prevent errors being logged (those are sent to console)
     tracing_subscriber::registry()
         .with(file_subscriber)
         .with(tracing_error::ErrorLayer::default())

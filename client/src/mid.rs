@@ -510,7 +510,6 @@ impl State {
     } */
 }
 
-
 // request helper function
 #[tracing::instrument]
 async fn do_request<Req, Res>(req_builder: RequestBuilder, req: Req) -> reqwest_middleware::Result<Res>
@@ -519,7 +518,9 @@ where
     Res: for<'d> Deserialize<'d> + std::fmt::Debug,
 {
     let res: Response = req_builder.json(&req).send().await?;
-    let res: Res = res.json().await?;
+    let bytes = res.bytes().await?;
+    tracing::debug!("received data: {bytes:?}");
+    let res: Res = serde_json::from_slice(&bytes).map_err(|e|reqwest_middleware::Error::middleware(e))?;
     Ok(res)
 }
 
