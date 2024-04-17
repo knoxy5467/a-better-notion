@@ -10,13 +10,13 @@ use crate::mid::{State, TaskKey};
 
 #[derive(Debug)]
 pub struct TaskDeletePopup {
-    key: TaskKey,
+    selected_task: TaskKey,
     pub should_close: bool,
 }
 impl TaskDeletePopup {
     pub fn new(task_key: TaskKey) -> TaskDeletePopup {
         Self {
-            key: task_key,
+            selected_task: task_key,
             should_close: false,
         }
     }
@@ -34,12 +34,12 @@ impl TaskDeletePopup {
 
         // create task popup block with rounded corners
         let block = Block::default()
-            .title("Deleting Task")
+            .title("Delete Task")
             .borders(Borders::ALL)
             .border_set(border::ROUNDED);
 
         // create paragraph containing current string state inside `block` & render
-        Paragraph::new("You Sure Man? [Y/N]")
+        Paragraph::new("You sure man? [Y/N]")
             .block(block)
             .render(popup_area, buf);
     }
@@ -49,7 +49,7 @@ impl TaskDeletePopup {
             KeyCode::Char('n') => self.should_close = true,
             KeyCode::Char('y') => {
                 
-                state.task_rm(self.key);
+                state.task_rm(self.selected_task);
 
                 self.should_close = true;
             }

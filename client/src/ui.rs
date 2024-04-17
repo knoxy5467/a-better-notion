@@ -47,7 +47,7 @@ pub struct App {
     /// number of frame updates (used for debug purposes)
     updates: usize,
     task_create_popup: Option<TaskCreatePopup>,
-    task_delete_popup: Option<TaskDeletePopup>
+    task_delete_popup: Option<TaskDeletePopup>,
 }
 
 impl App {
@@ -109,6 +109,7 @@ impl App {
     fn handle_key_event(&mut self, key_event: KeyEvent) -> bool {
         use KeyCode::*;
         // handle if in popup state
+
         if let Some(task_create_popup) = &mut self.task_create_popup {
             return task_create_popup.handle_key_event(&mut self.state, key_event.code);
         }
@@ -194,6 +195,7 @@ impl Widget for &mut App {
                 task_delete_popup.render(area, buf);
             }
         }
+
     }
 }
 
@@ -349,6 +351,52 @@ mod tests {
             "╰────────── Select: <Up>/<Down>, Quit: <Q> Updates: 11╯",
         ]);
         term.backend().assert_buffer(&expected);
+
+        // test task deletion
+        app.step(&mut term, Event::Key(KeyCode::Char('d').into()))?;
+        app.step(&mut term, Event::Key(KeyCode::Char('h').into()))?;
+        app.step(&mut term, Event::Key(KeyCode::Char('!').into()))?;
+        reset_buffer_style(&mut term);
+        let expected = Buffer::with_lines(vec![
+            "╭────────────────── Task Management ──────────────────╮",
+            "│  ✓ Eat Lunch                                        │",
+            "│> ☐ Finish ABN                                       │",
+            "│  ☐ hi       ╭Delete Task──────────────╮             │",
+            "│             │You sure man? [Y/N]      │             │",
+            "│             ╰─────────────────────────╯             │",
+            "│                                                     │",
+            "╰────────── Select: <Up>/<Down>, Quit: <Q> Updates: 12╯",
+        ]);
+        term.backend().assert_buffer(&expected);
+
+        app.step(&mut term, Event::Key(KeyCode::Char('n').into()))?;
+        reset_buffer_style(&mut term);
+        let expected = Buffer::with_lines(vec![
+            "╭────────────────── Task Management ──────────────────╮",
+            "│  ✓ Eat Lunch                                        │",
+            "│> ☐ Finish ABN                                       │",
+            "│  ☐ hi                                               │",
+            "│                                                     │",
+            "│                                                     │",
+            "│                                                     │",
+            "╰────────── Select: <Up>/<Down>, Quit: <Q> Updates: 13╯",
+        ]);
+        term.backend().assert_buffer(&expected);
+
+        app.step(&mut term, Event::Key(KeyCode::Char('d').into()))?;
+        app.step(&mut term, Event::Key(KeyCode::Char('y').into()))?;
+        reset_buffer_style(&mut term);
+        let expected = Buffer::with_lines(vec![
+            "╭────────────────── Task Management ──────────────────╮",
+            "│  ✓ Eat Lunch                                        │",
+            "│> ☐ hi                                               │",
+            "│                                                     │",
+            "│                                                     │",
+            "│                                                     │",
+            "╰────────── Select: <Up>/<Down>, Quit: <Q> Updates: 15╯",
+        ]);
+        term.backend().assert_buffer(&expected);
+
         Ok(())
     }
 
@@ -399,6 +447,41 @@ mod tests {
         let mut app = App::new(State::default());
         app.handle_event(Event::FocusLost.into());
         assert_eq!(app.should_exit, false);
+
+        // test delete task
+        let mut app = App::new(State::default());
+
+        let state = init_test();
+        app.state = state;
+        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
+
+        app.handle_event(Event::Key(KeyCode::Up.into()));
+        app.handle_event(Event::Key(KeyCode::Char('d').into()));
+
+        if let Some(task_delete_popup) = &app.task_delete_popup {
+            assert!(!task_delete_popup.should_close);
+        } else { assert!(false) }
+
+        app.handle_event(Event::Key(KeyCode::Char('e').into()));
+        assert!(app.task_create_popup.is_none());
+
+        app.handle_event(Event::Key(KeyCode::Char('n').into()));
+        if let Some(task_delete_popup) = &app.task_delete_popup {
+            assert!(task_delete_popup.should_close);
+        } else { assert!(false) }
+
+        app.task_list.list_state.selected().unwrap();
+        app.handle_event(Event::Key(KeyCode::Char('d').into()));
+        if let Some(task_delete_popup) = &app.task_delete_popup {
+            assert!(!task_delete_popup.should_close); // ??
+        } else { assert!(false) }
+
+        let selected = app.task_list.selected_task.unwrap();
+        app.handle_event(Event::Key(KeyCode::Char('y').into()));
+        if let Some(task_delete_popup) = &app.task_delete_popup {
+            assert!(task_delete_popup.should_close);
+        } else { assert!(false) }
+        assert!(app.state.task_get(selected).is_none());
 
         Ok(())
     }
