@@ -151,6 +151,12 @@ impl State {
         if let Some(db_id) = self.tasks.remove(key).and_then(|t| t.db_id) {
             self.task_map.remove(&db_id);
         }
+        // remove from views
+        for (v_key, view) in &mut self.views {
+            if let Some(tasks) = &mut view.tasks {
+                tasks.retain(|tkey|*tkey != key); // delete deleted task from view task list
+            }
+        }
     }
     /// define a property of a certain type on an associated task
     pub fn prop_def(
@@ -264,12 +270,20 @@ impl State {
     pub fn view_get_default(&self) -> Option<ViewKey> {
         self.views.keys().next()
     }
-    /// shorthand function to get the list of tasks associated with a view
-    pub fn view_tasks(&self, view_key: ViewKey) -> Option<&[TaskKey]> {
+    /// returns reference to internal array of task keys
+    pub fn view_task_keys(&self, view_key: ViewKey) -> Option<&[TaskKey]> {
         self.views
             .get(view_key)
             .and_then(|v| v.tasks.as_ref())
             .map(|v| v.as_slice())
+    }
+    /// get an iterator of only valid tasks and their keys
+    pub fn view_tasks(&self, view_key: ViewKey) -> Option<impl DoubleEndedIterator<Item = (TaskKey, &Task)> + Clone> {
+        self.view_task_keys(view_key)
+            .map(|tks|tks.iter()
+                .map(|key|
+                    (*key, self.task_get(*key).expect("fatal: tasks keys in a view should correspond to valid task")) // note, should never be invalid since a view's task list must contain valid task keys
+                    ))
     }
     /// modify a view
     pub fn view_mod(&mut self, view_key: ViewKey, edit_fn: impl FnOnce(&mut View)) -> Option<()> {
