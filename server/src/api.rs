@@ -39,7 +39,7 @@ async fn get_tasks_request(
     req: web::Json<ReadTasksShortRequest>,
 ) -> Result<impl Responder> {
     let mut res: ReadTasksShortResponse = Vec::new();
-
+    log::debug!("getting tasks from req: {req:?}");
     for taskreq in req.iter() {
         let task = task::Entity::find_by_id(taskreq.task_id)
             .one(data.as_ref())
@@ -59,6 +59,7 @@ async fn get_tasks_request(
             None => res.push(Err("task not found by ID".to_string())),
         }
     }
+    log::debug!("sending back response: {:?}", res);
 
     Ok(web::Json(res))
 }

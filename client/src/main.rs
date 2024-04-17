@@ -29,6 +29,7 @@ fn main() -> color_eyre::Result<()> {
             let state = mid::init("http://localhost:8080").await?;
             let res = ui::run(CrosstermBackend::new(std::io::stdout()), state, EventStream::new()).await;
             term::restore()?;
+            tracing::info!("Exiting...");
             res?;
             drop(guard); // must keep track of guard so log file is written correctly
             Ok(())

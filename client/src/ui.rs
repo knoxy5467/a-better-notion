@@ -8,7 +8,7 @@ use ratatui::{
     widgets::{block::*, *},
 };
 
-use crate::{mid::{MidEvent, State}, term};
+use crate::{mid::{MidEvent, State, StateEvent}, term};
 
 use self::task_create_popup::TaskCreatePopup;
 use self::task_delete_popup::TaskDeletePopup;
@@ -49,6 +49,11 @@ pub struct App {
     task_delete_popup: Option<TaskDeletePopup>
 }
 
+pub enum UIEvent {
+    UserEvent(Event),
+    StateEvent(StateEvent),
+}
+
 impl App {
     /// create new app given middleware state
     pub fn new(state: State) -> Self {
@@ -74,8 +79,12 @@ impl App {
         // wait for events
         loop {
             tokio::select! {
-                Some(event) = events.next() => self.step(term, event?)?,
-                Some(mid_event) = state_events.next() => self.state.handle_mid_event(mid_event)?,
+                Some(event) = events.next() => self.step(term, UIEvent::UserEvent(event?))?,
+                Some(mid_event) = state_events.next() => if let MidEvent::StateEvent(state_event) = mid_event {
+                    self.step(term, UIEvent::StateEvent(state_event))?;
+                } else { // else handle middleware event
+                    self.state.handle_mid_event(mid_event)?;
+                },
                 else => break,
             }
             if self.should_exit {
@@ -92,7 +101,7 @@ impl App {
     pub fn step<B: Backend>(
         &mut self,
         term: &mut term::Tui<B>,
-        event: Event,
+        event: UIEvent,
     ) -> color_eyre::Result<()> {
         // if we determined that event should trigger redraw:
         if self.handle_event(event) {
@@ -103,16 +112,27 @@ impl App {
     }
 
     /// updates the application's state based on user input
-    fn handle_event(&mut self, event: Event) -> bool {
+    fn handle_event(&mut self, event: UIEvent) -> bool {
         match event {
-            // it's important to check that the event is a key press event as
-            // crossterm also emits key release and repeat events on Windows.
-            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                self.handle_key_event(key_event)
-            }
-            Event::Resize(_, _) => true,
-            _ => false,
+            UIEvent::UserEvent(event) => match event {
+                // it's important to check that the event is a key press event as
+                // crossterm also emits key release and repeat events on Windows.
+                Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
+                    self.handle_key_event(key_event)
+                }
+                Event::Resize(_, _) => true,
+                _ => false,
+            },
+            UIEvent::StateEvent(state_event) => match state_event {
+                StateEvent::TaskUpdate(_) => todo!(),
+                StateEvent::PropUpdate(_) => todo!(),
+                StateEvent::ViewUpdate(_) => todo!(),
+                StateEvent::ScriptUpdate(_) => todo!(),
+                StateEvent::MultiState => true,
+                StateEvent::ServerStatus(_) => todo!(),
+            },
         }
+        
     }
     fn handle_key_event(&mut self, key_event: KeyEvent) -> bool {
         use KeyCode::*;
@@ -212,7 +232,7 @@ mod tests {
     use futures::SinkExt;
     use ratatui::backend::TestBackend;
 
-    use crate::mid::init_test;
+    use crate::{mid::init_test, ui::UIEvent::UserEvent};
 
     use super::*;
 
@@ -296,7 +316,7 @@ mod tests {
         app.task_list.current_view = app.state.view_get_default(); // set the view key as is currently done in run()
         println!("{:?}", app);
 
-        app.step(&mut term, Event::Key(KeyCode::Down.into()))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Down.into())))?;
         println!("{:#?}", app);
         reset_buffer_style(&mut term);
         let expected = Buffer::with_lines(vec![
@@ -310,7 +330,7 @@ mod tests {
 
         // resize
         term.backend_mut().resize(55, 8);
-        app.step(&mut term, Event::Resize(55, 88))?;
+        app.step(&mut term, UserEvent(Event::Resize(55, 88)))?;
         reset_buffer_style(&mut term);
         let expected = Buffer::with_lines(vec![
             "╭────────────────── Task Management ──────────────────╮",
@@ -325,11 +345,11 @@ mod tests {
         term.backend().assert_buffer(&expected);
 
         // test task creation
-        app.step(&mut term, Event::Key(KeyCode::Char('e').into()))?;
-        app.step(&mut term, Event::Key(KeyCode::Char('h').into()))?;
-        app.step(&mut term, Event::Key(KeyCode::Char('i').into()))?;
-        app.step(&mut term, Event::Key(KeyCode::Char('!').into()))?;
-        app.step(&mut term, Event::Key(KeyCode::Backspace.into()))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('e').into())))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('h').into())))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('i').into())))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('!').into())))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Backspace.into())))?;
         reset_buffer_style(&mut term);
         let expected = Buffer::with_lines(vec![
             "╭────────────────── Task Management ──────────────────╮",
@@ -343,9 +363,9 @@ mod tests {
         ]);
         term.backend().assert_buffer(&expected);
 
-        app.step(&mut term, Event::Key(KeyCode::Enter.into()))?;
-        app.step(&mut term, Event::Key(KeyCode::Char('e').into()))?;
-        app.step(&mut term, Event::Key(KeyCode::Esc.into()))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Enter.into())))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('e').into())))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Esc.into())))?;
         reset_buffer_style(&mut term);
         let expected = Buffer::with_lines(vec![
             "╭────────────────── Task Management ──────────────────╮",
@@ -368,11 +388,11 @@ mod tests {
         let (state, _) = init_test();
         app.state = state;
         app.task_list.current_view = Some(app.state.view_get_default().unwrap());
-        app.handle_event(Event::Key(KeyCode::Up.into()));
+        app.handle_event(UserEvent(Event::Key(KeyCode::Up.into())));
 
         assert_eq!(app.task_list.list_state.selected(), Some(0));
 
-        app.handle_event(Event::Key(KeyCode::Down.into()));
+        app.handle_event(UserEvent(Event::Key(KeyCode::Down.into())));
         assert_eq!(app.task_list.list_state.selected(), Some(1));
 
         // test enter key
@@ -391,9 +411,9 @@ mod tests {
 
         // test up and down in regular state
         let mut app = App::new(State::new().0);
-        app.handle_event(Event::Key(KeyCode::Up.into()));
+        app.handle_event(UserEvent(Event::Key(KeyCode::Up.into())));
         assert_eq!(app.task_list.list_state.selected(), None);
-        app.handle_event(Event::Key(KeyCode::Down.into()));
+        app.handle_event(UserEvent(Event::Key(KeyCode::Down.into())));
         assert_eq!(app.task_list.list_state.selected(), None);
         app.handle_key_event(KeyCode::Enter.into());
 
@@ -406,7 +426,7 @@ mod tests {
         assert_eq!(app.should_exit, false);
 
         let mut app = App::new(State::new().0);
-        app.handle_event(Event::FocusLost.into());
+        app.handle_event(UserEvent(Event::FocusLost.into()));
         assert_eq!(app.should_exit, false);
 
         Ok(())
