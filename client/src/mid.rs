@@ -692,7 +692,7 @@ mod tests {
 
         let tasks = view.tasks.as_ref().unwrap().clone();
         // test task_mod
-        state.task_mod(tasks[0], |t| t.name = "Eat Dinner".to_owned());
+        state.task_mod(tasks[0], |t| "Eat Dinner".clone_into(&mut t.name));
         assert_eq!(state.task_get(tasks[0]).unwrap().name, "Eat Dinner");
 
         // test task_rm (& db key removal)
@@ -754,7 +754,7 @@ mod tests {
 
         // script testing
         let script_id = state.script_create();
-        state.script_mod(script_id, |s| s.content = "function do_lua()".to_owned());
+        state.script_mod(script_id, |s| "function do_lua()".clone_into(&mut s.content));
         assert_eq!(
             state.script_get(script_id).unwrap().content,
             "function do_lua()"
