@@ -9,8 +9,9 @@ use color_eyre::eyre;
 
 use crossterm::event::EventStream;
 use ratatui::backend::CrosstermBackend;
+use tracing::level_filters::LevelFilter;
 use tracing_appender::non_blocking::WorkerGuard;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 mod mid;
 mod term;
 mod ui;
@@ -25,6 +26,7 @@ fn main() -> color_eyre::Result<()> {
         #[coverage(off)]
         async {
             tracing::info!("Starting Client");
+            tracing::info!("Use RUST_LOG=debug for debug logs!");
             term::enable()?;
             let state = mid::init("http://localhost:8080").await?;
             let res = ui::run(CrosstermBackend::new(std::io::stdout()), state, EventStream::new()).await;
@@ -52,8 +54,10 @@ fn initialize_tracing() -> color_eyre::Result<WorkerGuard> {
         .with_writer(non_blocking)
         .with_target(false)
         .with_ansi(false)
-        .with_filter(tracing_subscriber::filter::EnvFilter::from_default_env());
-        // .with_filter(tracing_subscriber::filter::filter_fn(|e|e.is_event())); // prevent errors being logged (those are sent to console)
+        .with_filter(EnvFilter::builder()
+        .with_default_directive(LevelFilter::INFO.into())
+        .from_env_lossy())
+        .with_filter(tracing_subscriber::filter::filter_fn(|e|e.is_event())); // prevent errors being logged (those are sent to console)
     tracing_subscriber::registry()
         .with(file_subscriber)
         .with(tracing_error::ErrorLayer::default())
