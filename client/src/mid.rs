@@ -470,8 +470,8 @@ impl State {
     pub fn view_tasks(&self, view_key: ViewKey) -> Option<impl DoubleEndedIterator<Item = (TaskKey, &Task)> + Clone> {
         self.view_task_keys(view_key)
             .map(|tks|tks.iter()
-                .map(|key|
-                    (*key, self.task_get(*key).expect("fatal: tasks keys in a view should correspond to valid task")) // note, should never be invalid since a view's task list must contain valid task keys
+                .flat_map(|key|
+                    self.task_get(*key).map(|t|(*key, t))
                     ))
     }
     /// modify a view

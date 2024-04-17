@@ -255,7 +255,7 @@ mod tests {
     use futures::SinkExt;
     use ratatui::backend::TestBackend;
 
-    use crate::{mid::init_test, ui::{self, UIEvent::UserEvent}};
+    use crate::{mid::init_test, ui::UIEvent::UserEvent};
 
     use super::*;
 
