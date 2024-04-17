@@ -277,7 +277,7 @@ mod tests {
     }
     fn reset_buffer_style(term: &mut term::Tui<TestBackend>) {
         let mut buffer_copy = term.backend().buffer().clone();
-        buffer_copy.set_style(buffer_copy.area().clone(), Style::reset());
+        buffer_copy.set_style(*buffer_copy.area(), Style::reset());
         let iter = buffer_copy
             .content()
             .iter()
@@ -388,7 +388,7 @@ mod tests {
 
         // test enter key
         app.handle_key_event(KeyCode::Enter.into());
-        assert_eq!(
+        assert!(
             app.state
                 .task_get(
                     app.state
@@ -396,8 +396,7 @@ mod tests {
                         .unwrap()[1]
                 )
                 .unwrap()
-                .completed,
-            true
+                .completed
         ); // second task in example view is marked as completed, so the Enter key should uncomplete it
 
         // test up and down in regular state
@@ -410,15 +409,15 @@ mod tests {
 
         let mut app = App::new(State::default());
         app.handle_key_event(KeyCode::Char('q').into());
-        assert_eq!(app.should_exit, true);
+        assert!(app.should_exit);
 
         let mut app = App::new(State::default());
         app.handle_key_event(KeyCode::Char('.').into());
-        assert_eq!(app.should_exit, false);
+        assert!(!app.should_exit);
 
         let mut app = App::new(State::default());
-        app.handle_event(Event::FocusLost.into());
-        assert_eq!(app.should_exit, false);
+        app.handle_event(Event::FocusLost);
+        assert!(!app.should_exit);
 
         // Test Edit
         let mut app = App::new(State::default());
