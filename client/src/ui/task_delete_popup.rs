@@ -59,9 +59,3 @@ impl TaskDeletePopup {
     }
 }
 
-/* #[cfg(test)]
-mod tests {
-    async fn mock_popup() {
-
-    }
-} */

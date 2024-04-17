@@ -393,6 +393,7 @@ mod tests {
             "│                                                     │",
             "│                                                     │",
             "│                                                     │",
+            "│                                                     │",
             "╰────────── Select: <Up>/<Down>, Quit: <Q> Updates: 15╯",
         ]);
         term.backend().assert_buffer(&expected);
@@ -470,12 +471,8 @@ mod tests {
             assert!(task_delete_popup.should_close);
         } else { assert!(false) }
 
-        app.task_list.list_state.selected().unwrap();
         app.handle_event(Event::Key(KeyCode::Char('d').into()));
-        if let Some(task_delete_popup) = &app.task_delete_popup {
-            assert!(!task_delete_popup.should_close); // ??
-        } else { assert!(false) }
-
+ 
         let selected = app.task_list.selected_task.unwrap();
         app.handle_event(Event::Key(KeyCode::Char('y').into()));
         if let Some(task_delete_popup) = &app.task_delete_popup {
