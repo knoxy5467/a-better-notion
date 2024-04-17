@@ -223,7 +223,7 @@ impl ServerResponse for FilterResponse {
         let view = state.views.get_mut(view_key).with_context(||format!("request id corresponding to view key: {:?} sent back was invalid", view_key))?; // TODO add context
         view.tasks = Some(tasks);
 
-        let view_tasks = state.view_tasks(view_key).unwrap();
+        let view_tasks = state.view_task_keys(view_key).unwrap();
         let tasks_to_fetch = view_tasks.iter()
             .filter_map(|tkey|state.tasks.get(*tkey)
             .map(|t|if !t.is_syncronized {t.db_id} else {None}).flatten())
@@ -461,7 +461,7 @@ impl State {
         self.views.keys().next()
     }
     /// shorthand function to get the list of tasks associated with a view
-    pub fn view_tasks(&self, view_key: ViewKey) -> Option<&[TaskKey]> {
+    pub fn view_task_keys(&self, view_key: ViewKey) -> Option<&[TaskKey]> {
         self.view_get(view_key)
             .and_then(|v| v.tasks.as_ref())
             .map(|v| v.as_slice())
