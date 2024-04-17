@@ -2,7 +2,7 @@
 #![allow(unused)] // for my sanity developing (TODO: remove this later)
 use color_eyre::eyre::{Context, ContextCompat};
 use common::{
-    backend::{CreateTaskRequest, CreateTaskResponse, DeleteTaskResponse, FilterRequest, FilterResponse, ReadTaskShortRequest, ReadTaskShortResponse, ReadTasksShortRequest, ReadTasksShortResponse, UpdateTaskResponse},
+    backend::{CreateTaskRequest, CreateTaskResponse, DeleteTaskRequest, DeleteTaskResponse, FilterRequest, FilterResponse, ReadTaskShortRequest, ReadTaskShortResponse, ReadTasksShortRequest, ReadTasksShortResponse, UpdateTaskRequest, UpdateTaskResponse},
     *,
 };
 use futures::{channel::mpsc::{self, Receiver, Sender}, SinkExt, Stream, StreamExt};
@@ -19,7 +19,7 @@ new_key_type! { pub struct PropKey; }
 new_key_type! { pub struct TaskKey; }
 
 /// All data associated with tasks, except for properties
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Task {
     /// Short name of the task (description is a property)
     pub name: String,
@@ -32,7 +32,16 @@ pub struct Task {
     /// if it is stored in the database, it will have a unique task_id.
     pub db_id: Option<TaskID>,
     /// latest should be set to true if this value matches server (if false and needed, it should be fetched and updated as soon as possible)
-    pub is_syncronized: bool,
+    is_syncronized: bool,
+    /// if task is pending deletion request
+    pending_deletion: bool,
+}
+impl Task {
+    pub fn new(name: String, completed: bool) -> Task {
+        Task {
+            name, completed, ..Default::default()
+        }
+    } 
 }
 
 /// Middleware stored View
@@ -88,12 +97,18 @@ pub struct State {
 /// Events to be handled by the middleware
 pub enum MidEvent {
     ServerResponse(Result<Box<dyn ServerResponse>, reqwest_middleware::Error>),
+    StateEvent(StateEvent), // events to be handled by the ui
 }
 impl State {
+    // handles MidEvents, so long as MidEvent is not of variant StateEvent
     pub fn handle_mid_event(&mut self, event: MidEvent) -> color_eyre::Result<()> {
         match event {
-            MidEvent::ServerResponse(Ok(resp)) => resp.update_state(self)?,
+            MidEvent::ServerResponse(Ok(resp)) => {
+                resp.update_state(self)?;
+                self.mid_event_sender.try_send(MidEvent::StateEvent(StateEvent::MultiState))?;
+            },
             MidEvent::ServerResponse(Err(err)) => {Err(err)?},
+            MidEvent::StateEvent(_) => panic!("middleware does not handle state events"),
         }
         Ok(())
     }
@@ -120,7 +135,8 @@ enum ScriptEvent {
 }
 
 /// Event sent to UI via channel to notify UI that some data has changed and the render should be updated.
-enum StateEvent {
+#[derive(Debug)]
+pub enum StateEvent {
     /// A task's core data was updated (not triggered for property updates)
     TaskUpdate(TaskKey),
     /// A property was updated
@@ -149,6 +165,7 @@ impl ServerResponse for ReadTaskShortResponse {
             scripts: self.scripts,
             db_id: Some(self.task_id),
             is_syncronized: true,
+            pending_deletion: false,
         };
         // create/update existing task with read task
         *state.new_server_task(self.task_id).1 = task;
@@ -161,6 +178,7 @@ impl ServerResponse for UpdateTaskResponse {
         let task_key = state.task_map.get(&self.task_id).with_context(||format!("cannot find locally stored task associated with DB id: {:?}", self.task_id))?;
         if let Some(task) = state.tasks.get_mut(*task_key) {
             task.db_id = Some(self.task_id);
+            task.is_syncronized = true;
         } else {
             panic!("fatal: DB id {:?} was associated with task key {:?} but task didn't exist", self.task_id, task_key);
         }
@@ -205,11 +223,13 @@ impl ServerResponse for FilterResponse {
         let view = state.views.get_mut(view_key).with_context(||format!("request id corresponding to view key: {:?} sent back was invalid", view_key))?; // TODO add context
         view.tasks = Some(tasks);
 
-        let tasks_to_fetch = state.view_tasks(view_key).unwrap()
-            .iter().filter_map(|tkey|state.tasks.get(*tkey)
+        let view_tasks = state.view_tasks(view_key).unwrap();
+        let tasks_to_fetch = view_tasks.iter()
+            .filter_map(|tkey|state.tasks.get(*tkey)
             .map(|t|if !t.is_syncronized {t.db_id} else {None}).flatten())
             .map(|task_id|ReadTaskShortRequest { task_id, req_id: 0 }).collect::<Vec<ReadTaskShortRequest>>();
-        if tasks_to_fetch.is_empty() {
+        tracing::debug!("fetching tasks: {:?}", tasks_to_fetch);
+        if !tasks_to_fetch.is_empty() {
             state.spawn_request::<ReadTasksShortRequest, ReadTasksShortResponse>(state.client.get(format!("{}/tasks", state.url)), tasks_to_fetch);
         }
         Ok(())
@@ -245,7 +265,9 @@ impl State {
         } else {
             let key = self.tasks.insert(Task::default());
             self.task_map.insert(task_id, key);
-            (key, self.tasks.get_mut(key).unwrap())
+            let task = self.tasks.get_mut(key).unwrap();
+            task.db_id = Some(task_id);
+            (key, task)
         }
 
     }
@@ -272,7 +294,7 @@ impl State {
         // TODO: register definition to queue so that we can sync to server
         let key = self.tasks.insert(task);
         let task = &self.tasks[key]; // safety: we just inserted key
-        self.spawn_request::<CreateTaskRequest, CreateTaskResponse>(self.client.put(format!("{}/task", self.url)), CreateTaskRequest {
+        self.spawn_request::<CreateTaskRequest, CreateTaskResponse>(self.client.post(format!("{}/task", self.url)), CreateTaskRequest {
             name: task.name.clone(),
             completed: task.completed,
             properties: vec![], // TODO: send props
@@ -286,16 +308,46 @@ impl State {
         self.tasks.get(key)
     }
     /// modify a task
-    pub fn task_mod(&mut self, key: TaskKey, edit_fn: impl FnOnce(&mut Task)) {
+    pub fn task_mod(&mut self, key: TaskKey, edit_fn: impl FnOnce(&mut Task)) -> bool {
         if let Some(task) = self.tasks.get_mut(key) {
-            edit_fn(task)
+            if task.is_syncronized {
+                let bef = task.clone();
+                edit_fn(task);
+                let name = (bef.name != task.name).then_some(task.name.clone());
+                let completed = (bef.completed != task.completed).then_some(task.completed);
+                if let Some(db_id) = task.db_id {
+                    self.spawn_request::<UpdateTaskRequest, UpdateTaskResponse>(self.client.put(format!("{}/task", self.url)), UpdateTaskRequest {
+                        task_id: db_id,
+                        name: name,
+                        checked: completed,
+                        props_to_add: vec![],
+                        props_to_remove: vec![],
+                        deps_to_add: vec![],
+                        deps_to_remove: vec![],
+                        scripts_to_add: vec![],
+                        scripts_to_remove: vec![],
+                        req_id: key.0.as_ffi(),
+                    });
+                }
+                return true;
+            }
         }
+        false
     }
     /// delete a task
     pub fn task_rm(&mut self, key: TaskKey) {
-        if let Some(db_id) = self.tasks.remove(key).and_then(|t| t.db_id) {
-            self.task_map.remove(&db_id);
+        if let Some(task) = self.tasks.get_mut(key) {
+            if let Some(db_id) = task.db_id {
+                // mark pending deletion if in database
+                task.pending_deletion = true;
+                self.spawn_request::<DeleteTaskRequest, DeleteTaskResponse>(self.client.delete(format!("{}/task", self.url)), DeleteTaskRequest { task_id: db_id, req_id: key.0.as_ffi() 
+                });
+            } else {
+                // if not in database, remove immediately
+                self.tasks.remove(key);
+            }
         }
+        
     }
     /// define a property of a certain type on an associated task
     pub fn prop_def(
