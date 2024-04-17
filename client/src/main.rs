@@ -9,7 +9,7 @@ use std::{
 };
 
 use color_eyre::eyre;
-
+use actix_settings::{NoSettings, Settings};
 use crossterm::event::EventStream;
 use ratatui::backend::CrosstermBackend;
 use tracing_error::ErrorLayer;
@@ -17,6 +17,10 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 mod mid;
 mod term;
 mod ui;
+
+fn load_settings() -> Result<actix_settings::BasicSettings<NoSettings>, actix_settings::Error> {
+    Settings::parse_toml("Server.toml")
+}
 
 #[coverage(off)]
 fn main() -> color_eyre::Result<()> {
@@ -28,7 +32,8 @@ fn main() -> color_eyre::Result<()> {
             initialize_logging()?;
             install_hooks()?;
             term::enable()?;
-            let state = mid::init("http://localhost:8080").await?;
+            let settings = load_settings().expect("could not load settings");
+            let state = mid::init(&format!("http://{}:{}", settings.actix.hosts[0].host, settings.actix.hosts[0].port)).await?;
             let res = ui::run(CrosstermBackend::new(stdout()), state, EventStream::new()).await;
             term::restore()?;
             res?;
@@ -82,4 +87,13 @@ pub fn install_hooks() -> color_eyre::Result<()> {
     ))?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod test_main {
+    use super::*;
+    #[test]
+    fn test_load_settings () {
+        load_settings().expect("failed to load settings");
+    }
 }
