@@ -6,6 +6,7 @@
 mod api;
 mod database;
 use actix_web::{dev::Server, web::Data, App, HttpServer};
+use actix_settings::{ApplySettings as _, Mode, NoSettings, Settings};
 use api::*;
 use log::{info, warn};
 use sea_orm::{Database, DatabaseConnection};
@@ -22,6 +23,11 @@ async fn main() -> () {
     let server = start_server().await;
     server.await.unwrap();
 }
+
+fn load_settings() -> Result<actix_settings::BasicSettings<NoSettings>, actix_settings::Error> {
+    return Settings::parse_toml("Server.toml")
+}
+
 #[allow(clippy::needless_return)]
 async fn start_server() -> Server {
     initialize_logger();
@@ -30,6 +36,9 @@ async fn start_server() -> Server {
             .await
             .unwrap();
     let db_data: Data<DatabaseConnection> = Data::new(db);
+    let settings = load_settings().expect("could not load settings");
+    println!("loaded settings");
+    println!("{:?}", settings);
     let server = HttpServer::new(move || {
         let db_data = db_data.clone();
         App::new()
@@ -39,9 +48,7 @@ async fn start_server() -> Server {
             .service(get_filter_request)
             .service(create_task_request)
     })
-    .bind(("127.0.0.1", 8080))
-    .unwrap()
-    .system_exit();
+    .apply_settings(&settings).system_exit();
     info!("server starting");
     let server_obj = server.run();
     info!("server handle created returning");
@@ -70,6 +77,10 @@ mod test_main {
             std::process::exit(0)
         });
         main();
+    }
+    #[test]
+    fn test_load_settings () {
+        load_settings().expect("failed to load settings");
     }
 }
 #[cfg(test)]
