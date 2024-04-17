@@ -123,6 +123,9 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
     if req.checked.is_some() {
         task.completed = Set(req.checked.unwrap());
     }
+    task.update(db)
+        .await
+        .map_err(|e| ErrorInternalServerError(format!("couldn't update task {}", e)))?;
     for prop in req.props_to_add.iter() {
         let model = task_property::Entity::find()
             .filter(
@@ -414,9 +417,10 @@ async fn get_filter_request(
         .await
         .map_err(|e| ErrorInternalServerError(format!("couldn't filter tasks: {}", e)))?;
 
-    Ok(web::Json(
-        FilterResponse { tasks: tasks.iter().map(|a| a.id).collect::<Vec<i32>>(), req_id: req.req_id},
-    ))
+    Ok(web::Json(FilterResponse {
+        tasks: tasks.iter().map(|a| a.id).collect::<Vec<i32>>(),
+        req_id: req.req_id,
+    }))
 }
 
 async fn get_property_or_err(
