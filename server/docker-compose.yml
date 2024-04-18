@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres
+    environment:
+      POSTGRES_USER: abn
+      POSTGRES_PASSWORD: abn
+      POSTGRES_DB: abn
+    volumes:
+      - ./database/createTable.sql:/docker-entrypoint-initdb.d/createTable.sql
+    ports:
+      - "5432:5432"
+  server:
+    build: .
+    ports:
+      - "8080:8000"
+    command: [ "/usr/local/bin/server" ]
