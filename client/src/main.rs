@@ -3,7 +3,7 @@
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
-use std::panic;
+use std::{io::stdout, panic};
 
 use color_eyre::eyre;
 use actix_settings::{NoSettings, Settings};
@@ -15,7 +15,6 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 mod mid;
 mod term;
 mod ui;
-
 fn load_settings() -> Result<actix_settings::BasicSettings<NoSettings>, actix_settings::Error> {
     Settings::parse_toml("Server.toml")
 }
