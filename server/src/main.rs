@@ -114,7 +114,18 @@ mod test_main {
         load_settings().expect("failed to load settings");
     }
 }
-
+#[cfg(test)]
+mod server_unit_tests {
+    use super::*;
+    #[tokio::test]
+    async fn test_connect_to_database_exponential_backoff_should_fail_after_31_seconds() {
+        let db_url = "postgres://bleh:abn@localhost:5432/abn";
+        let start_time = std::time::Instant::now();
+        let db_connection = connect_to_database_exponential_backoff(4, db_url.to_string()).await;
+        assert!(db_connection.is_err());
+        assert!(start_time.elapsed().as_secs() > 31);
+    }
+}
 #[cfg(test)]
 mod integration_tests {
     use std::{env, net::TcpStream, time::Duration};
