@@ -5,17 +5,25 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 mod api;
 mod database;
+use actix_settings::{ApplySettings as _, BasicSettings, NoSettings, Settings};
 use actix_web::{dev::Server, web::Data, App, HttpServer};
-use actix_settings::{ApplySettings as _, NoSettings, Settings};
 use api::*;
 use log::{info, warn};
-use sea_orm::{Database, DatabaseConnection};
+use sea_orm::{Database, DatabaseConnection, DbErr};
+use serde::Deserialize;
+use tokio::time::Duration;
 static INIT: std::sync::Once = std::sync::Once::new();
 fn initialize_logger() {
     INIT.call_once(|| {
         env_logger::init();
     });
 }
+
+#[derive(Debug, Deserialize)]
+struct DatabaseSettings {
+    database_url: String,
+}
+type AbnSettings = BasicSettings<DatabaseSettings>;
 
 #[coverage(off)]
 #[actix_web::main]
@@ -24,19 +32,35 @@ async fn main() -> () {
     server.await.unwrap();
 }
 
-fn load_settings() -> Result<actix_settings::BasicSettings<NoSettings>, actix_settings::Error> {
-    Settings::parse_toml("Server.toml")
+fn load_settings() -> Result<AbnSettings, actix_settings::Error> {
+    AbnSettings::parse_toml("Server.toml")
 }
-
+// watch for overflows with attempts
+async fn connect_to_database_exponential_backoff(
+    attempts: u64,
+    db_url: String,
+) -> Result<DatabaseConnection, DbErr> {
+    let mut delay = Duraction::from_sec(1);
+    let mut attempt: u64 = 1;
+    while attempt < (2 * *attempts) {
+        tokio::time::sleep(Duration::from_secs(attempt)).await;
+        match Database::connect(db_url).await {
+            Ok(db) => return Ok(db),
+            Err(e) => {
+                warn!("Failed to connect to database: {}", e);
+                attempt *= 2;
+            }
+        }
+    }
+    return Err(DbErr::ConnectionError);
+}
 #[allow(clippy::needless_return)]
 async fn start_server() -> Server {
     initialize_logger();
-    let db =
-        Database::connect("postgres://abn:abn@localhost:5432/abn?options=-c%20search_path%3Dtask")
-            .await
-            .unwrap();
-    let db_data: Data<DatabaseConnection> = Data::new(db);
     let settings = load_settings().expect("could not load settings");
+    let db_url = settings.application.database_url.clone();
+    let db = Database::connect(db_url).await.unwrap();
+    let db_data: Data<DatabaseConnection> = Data::new(db);
     println!("loaded settings");
     println!("{:?}", settings);
     let server = HttpServer::new(move || {
@@ -48,7 +72,8 @@ async fn start_server() -> Server {
             .service(get_filter_request)
             .service(create_task_request)
     })
-    .apply_settings(&settings).system_exit();
+    .apply_settings(&settings)
+    .system_exit();
     info!("server starting");
     let server_obj = server.run();
     info!("server handle created returning");
@@ -79,7 +104,7 @@ mod test_main {
         main();
     }
     #[test]
-    fn test_load_settings () {
+    fn test_load_settings() {
         load_settings().expect("failed to load settings");
     }
 }
