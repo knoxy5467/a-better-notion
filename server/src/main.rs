@@ -5,7 +5,7 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 mod api;
 mod database;
-use actix_settings::{ApplySettings as _, BasicSettings, NoSettings, Settings};
+use actix_settings::{ApplySettings as _, BasicSettings};
 use actix_web::{dev::Server, web::Data, App, HttpServer};
 use api::*;
 use log::{info, warn};
