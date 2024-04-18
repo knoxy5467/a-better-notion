@@ -53,17 +53,17 @@ async fn connect_to_database_exponential_backoff(
             }
         }
     }
-    return Err(DbErr::Conn(RuntimeErr::Internal(format!(
+    Err(DbErr::Conn(RuntimeErr::Internal(format!(
         "Failed to connect to database after {} attempts",
         attempts
-    ))));
+    ))))
 }
 #[allow(clippy::needless_return)]
 async fn start_server() -> Server {
     initialize_logger();
     let settings = load_settings().expect("could not load settings");
     let db_url = settings.application.database_url.clone();
-    let db_connection = connect_to_database_exponential_backoff(4 as u32, db_url.clone())
+    let db_connection = connect_to_database_exponential_backoff(4_u32, db_url.clone())
         .await
         .unwrap();
     let db_data: Data<DatabaseConnection> = Data::new(db_connection);
@@ -121,7 +121,8 @@ mod server_unit_tests {
     async fn test_connect_to_database_exponential_backoff_should_fail_after_31_seconds() {
         let db_url = "postgres://bleh:abn@localhost:5432/abn";
         let start_time = std::time::Instant::now();
-        let db_connection = connect_to_database_exponential_backoff(4, db_url.to_string()).await;
+        let db_connection =
+            connect_to_database_exponential_backoff(4_u32, db_url.to_string()).await;
         assert!(db_connection.is_err());
         assert!(start_time.elapsed().as_secs() > 31);
     }
