@@ -120,6 +120,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "actix-settings"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9cfe9e9fc31f072c11d0eecc8de8d769fe0f328df7663c56df12a0df71f82d6"
+dependencies = [
+ "actix-http",
+ "actix-service",
+ "actix-web",
+ "derive_more",
+ "once_cell",
+ "regex",
+ "serde",
+ "toml",
+]
+
+[[package]]
 name = "actix-utils"
 version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -687,6 +703,7 @@ dependencies = [
 name = "client"
 version = "0.1.0"
 dependencies = [
+ "actix-settings",
  "color-eyre",
  "common",
  "crossterm",
@@ -702,6 +719,7 @@ dependencies = [
  "reqwest-tracing",
  "serde",
  "serde_json",
+ "server",
  "slotmap",
  "thiserror",
  "tokio",
@@ -2973,6 +2991,7 @@ dependencies = [
 name = "server"
 version = "0.1.0"
 dependencies = [
+ "actix-settings",
  "actix-web",
  "cargo-llvm-cov",
  "chrono",
@@ -3709,6 +3728,18 @@ dependencies = [
  "pin-project-lite",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "toml"
+version = "0.8.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9dd1545e8208b4a5af1aa9bbd0b4cf7e9ea08fabc5d0a5c67fcaafa17433aa3"
+dependencies = [
+ "serde",
+ "serde_spanned",
+ "toml_datetime",
+ "toml_edit 0.22.9",
 ]
 
 [[package]]

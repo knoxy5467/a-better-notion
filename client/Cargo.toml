@@ -34,6 +34,8 @@ fern = "0.6.2"
 humantime = "2.1.0"
 tracing-appender = "0.2.3"
 tracing-log = "0.2.0"
+actix-settings = "0.7.1"
+server = { version = "0.1.0", path = "../server" }
 
 [profile.dev.package.backtrace]
 opt-level = 3
