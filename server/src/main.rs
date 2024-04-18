@@ -9,7 +9,7 @@ use actix_settings::{ApplySettings as _, BasicSettings, NoSettings, Settings};
 use actix_web::{dev::Server, web::Data, App, HttpServer};
 use api::*;
 use log::{info, warn};
-use sea_orm::{Database, DatabaseConnection, DbErr};
+use sea_orm::{Database, DatabaseConnection, DbErr, RuntimeErr};
 use serde::Deserialize;
 use tokio::time::Duration;
 static INIT: std::sync::Once = std::sync::Once::new();
@@ -37,14 +37,15 @@ fn load_settings() -> Result<AbnSettings, actix_settings::Error> {
 }
 // watch for overflows with attempts
 async fn connect_to_database_exponential_backoff(
-    attempts: u64,
+    attempts: u32,
     db_url: String,
 ) -> Result<DatabaseConnection, DbErr> {
-    let mut delay = Duraction::from_sec(1);
     let mut attempt: u64 = 1;
-    while attempt < (2 * *attempts) {
+    let base: u64 = 2;
+    let total_attempts = base.pow(attempts);
+    while attempt < total_attempts {
         tokio::time::sleep(Duration::from_secs(attempt)).await;
-        match Database::connect(db_url).await {
+        match Database::connect(db_url.clone()).await {
             Ok(db) => return Ok(db),
             Err(e) => {
                 warn!("Failed to connect to database: {}", e);
@@ -52,15 +53,20 @@ async fn connect_to_database_exponential_backoff(
             }
         }
     }
-    return Err(DbErr::ConnectionError);
+    return Err(DbErr::Conn(RuntimeErr::Internal(format!(
+        "Failed to connect to database after {} attempts",
+        attempts
+    ))));
 }
 #[allow(clippy::needless_return)]
 async fn start_server() -> Server {
     initialize_logger();
     let settings = load_settings().expect("could not load settings");
     let db_url = settings.application.database_url.clone();
-    let db = Database::connect(db_url).await.unwrap();
-    let db_data: Data<DatabaseConnection> = Data::new(db);
+    let db_connection = connect_to_database_exponential_backoff(4 as u32, db_url.clone())
+        .await
+        .unwrap();
+    let db_data: Data<DatabaseConnection> = Data::new(db_connection);
     println!("loaded settings");
     println!("{:?}", settings);
     let server = HttpServer::new(move || {
