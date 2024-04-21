@@ -1,4 +1,3 @@
-use num_modular::ModularCoreOps;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -7,7 +6,7 @@ use ratatui::{
     widgets::{Block, HighlightSpacing, List, ListState, Paragraph, StatefulWidget, Widget},
 };
 
-use crate::mid::{State, ViewKey};
+use crate::mid::{State, TaskKey, ViewKey};
 
 use super::{COMPLETED_TEXT_COLOR, SELECTED_STYLE_FG, TEXT_COLOR};
 
@@ -15,34 +14,38 @@ use super::{COMPLETED_TEXT_COLOR, SELECTED_STYLE_FG, TEXT_COLOR};
 /// Task list widget
 pub struct TaskList {
     pub current_view: Option<ViewKey>,
+    pub selected_task: Option<TaskKey>,
     pub list_state: ListState,
 }
 impl TaskList {
     // move current selection of task up 1 item.
-    pub fn up(&mut self, state: &State) {
+    pub fn shift(&mut self, state: &State, amt: isize, wrap: bool) {
+        // get tasks list (if any)
         let Some(tasks) = self.current_view.and_then(|vk| state.view_tasks(vk)) else {
             self.list_state.select(None);
             return;
         };
-
-        self.list_state.select(Some(
-            self.list_state
-                .selected()
-                .as_mut()
-                .map_or(0, |v| v.subm(1, &tasks.len())),
-        ));
-    }
-    // move current selection of task down 1 item
-    pub fn down(&mut self, state: &State) {
-        let Some(tasks) = self.current_view.and_then(|vk| state.view_tasks(vk)) else {
-            self.list_state.select(None);
+        // get current selected task (if any)
+        let Some(selected_task) = self.selected_task.or(match amt.cmp(&0) {
+            std::cmp::Ordering::Less => tasks.last().cloned(),
+            std::cmp::Ordering::Greater => tasks.first().cloned(),
+            _ => None,
+        }) else {
             return;
         };
-        self.list_state.select(Some(
-            self.list_state
-                .selected()
-                .map_or(1, |v| v.addm(1, &tasks.len())),
-        ));
+        // get index in tasks list of selected_task
+        let Some(cur_index) = tasks.iter().position(|key| *key == selected_task) else {
+            return;
+        };
+        // add the index
+        let new_index = (cur_index as isize) + amt;
+        let new_index = if wrap {
+            (tasks.len().saturating_add_signed(new_index)) % tasks.len()
+        } else {
+            new_index.clamp(0, tasks.len().saturating_sub(1) as isize) as usize
+        };
+        self.list_state.select(Some(new_index));
+        self.selected_task = Some(tasks[new_index]);
     }
     // render task list to buffer
     pub fn render(&mut self, state: &State, block: Block<'_>, area: Rect, buf: &mut Buffer) {

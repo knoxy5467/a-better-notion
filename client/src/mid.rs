@@ -1,6 +1,6 @@
 //! Middleware Logic
 #![allow(unused)] // for my sanity developing (TODO: remove this later)
-use color_eyre::eyre::Context;
+use color_eyre::eyre::{Context, ContextCompat};
 use common::{
     backend::{FilterRequest, ReadTaskShortRequest, ReadTasksShortRequest, ReadTasksShortResponse},
     *,
@@ -14,7 +14,9 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 new_key_type! { pub struct PropKey; }
-new_key_type! { pub struct TaskKey; }
+new_key_type! {
+    pub struct TaskKey;
+}
 
 /// All data associated with tasks, except for properties
 #[derive(Debug, Default)]
@@ -111,6 +113,24 @@ enum StateEvent {
     MultiState,
     /// The connection has either connected or disconnected.
     ServerStatus(bool),
+}
+
+/* // data events from server to be applied to middleware
+enum ServerResponse {
+
+} */
+trait ServerResponse {
+    fn update_state(self, state: &mut State) -> color_eyre::Result<()>;
+}
+impl ServerResponse for ReadTaskShortRequest {
+    fn update_state(self, state: &mut State) -> color_eyre::Result<()> {
+        let key = state
+            .task_map
+            .get(&self.task_id)
+            .wrap_err_with(|| format!("unknown task id: {}", self.task_id))?;
+        // state.task.get(key);
+        Ok(())
+    }
 }
 
 impl State {
@@ -511,7 +531,7 @@ mod tests {
 
         let tasks = view.tasks.as_ref().unwrap().clone();
         // test task_mod
-        state.task_mod(tasks[0], |t| t.name = "Eat Dinner".to_owned());
+        state.task_mod(tasks[0], |t| "Eat Dinner".clone_into(&mut t.name));
         assert_eq!(state.task_get(tasks[0]).unwrap().name, "Eat Dinner");
 
         // test task_rm (& db key removal)
@@ -573,7 +593,9 @@ mod tests {
 
         // script testing
         let script_id = state.script_create();
-        state.script_mod(script_id, |s| s.content = "function do_lua()".to_owned());
+        state.script_mod(script_id, |s| {
+            "function do_lua()".clone_into(&mut s.content)
+        });
         assert_eq!(
             state.script_get(script_id).unwrap().content,
             "function do_lua()"
