@@ -1,5 +1,6 @@
 //! Client
 #![feature(coverage_attribute)]
+#![feature(if_let_guard)]
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]

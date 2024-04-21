@@ -11,14 +11,10 @@ use ratatui::{
 
 use crate::{mid::{MidEvent, State, StateEvent}, term};
 
-use self::task_create_popup::TaskCreatePopup;
-use self::task_delete_popup::TaskDeletePopup;
-use self::task_edit_popup::TaskEditPopup;
-
-mod task_create_popup;
-mod task_delete_popup;
-mod task_edit_popup;
+mod task_popup;
 mod task_list;
+
+use task_popup::TaskPopup;
 
 const BACKGROUND: Color = Color::Reset;
 const TEXT_COLOR: Color = Color::White;
@@ -48,9 +44,7 @@ pub struct App {
     task_list: task_list::TaskList,
     /// number of frame updates (used for debug purposes)
     updates: usize,
-    task_create_popup: Option<TaskCreatePopup>,
-    task_delete_popup: Option<TaskDeletePopup>,
-    task_edit_popup: Option<TaskEditPopup>,
+    task_popup: Option<TaskPopup>,
     help_box_shown: bool,
 }
 
@@ -67,9 +61,7 @@ impl App {
             state,
             task_list: task_list::TaskList::default(),
             updates: 0,
-            task_create_popup: None,
-            task_delete_popup: None,
-            task_edit_popup: None,
+            task_popup: None,
             help_box_shown: false,
         }
     }
@@ -136,36 +128,42 @@ impl App {
         }
         
     }
+    fn report_error(&mut self, error: impl std::error::Error + std::fmt::Debug) {
+        tracing::error!("{error}");
+    }
     fn handle_key_event(&mut self, key_event: KeyEvent) -> bool {
         use KeyCode::*;
         // handle if in popup state
-        if let Some(task_create_popup) = &mut self.task_create_popup {
-            return task_create_popup.handle_key_event(&mut self.state, key_event.code);
-        }
-        if let Some(task_delete_popup) = &mut self.task_delete_popup {
-            return task_delete_popup.handle_key_event(&mut self.state, key_event.code);
-        }
-
-        if let Some(task_edit_popup) = &mut self.task_edit_popup {
-            return task_edit_popup.handle_key_event(&mut self.state, key_event.code);
+        if let Some(task_popup) = &mut self.task_popup {
+            match task_popup.handle_key_event(&mut self.state, key_event.code) {
+                Ok(do_render) => return do_render,
+                Err(err) => {
+                    self.task_popup = None;
+                    err.map(|err|self.report_error(err));
+                }
+            }
         }
         if let Char('h') = key_event.code {} else { self.help_box_shown = false; }
         match key_event.code {
+            Esc => if self.help_box_shown { self.help_box_shown = false; }
             Char('q') => self.should_exit = true,
             Char('h') => self.help_box_shown = !self.help_box_shown,
-            Char('c') => self.task_create_popup = Some(TaskCreatePopup::new()),
+            Char('c') => self.task_popup = Some(TaskPopup::Create(Default::default())), // create task
+            Char('d') => { // delete task
+                if let Some(key) = self.task_list.selected_task {
+                    match self.state.task_get(key) {
+                        Ok(task) => self.task_popup = Some(TaskPopup::Delete(key, task.name.clone())),
+                        Err(err) => self.report_error(err),
+                    }
+                }
+            },
+            /* Char('e') => {
+                if let Some(selection) = self.task_list.selected_task {
+                    self.taks = Some(TaskEditPopup::new(Some(selection)));
+                }
+            } */
             Up => self.task_list.shift(&self.state, -1, false),
             Down => self.task_list.shift(&self.state, 1, false),
-            Char('d') => {
-                if let Some(selection) = self.task_list.selected_task {
-                    self.task_delete_popup = Some(TaskDeletePopup::new(selection));
-                }
-            }
-            Char('e') => {
-                if let Some(selection) = self.task_list.selected_task {
-                    self.task_edit_popup = Some(TaskEditPopup::new(Some(selection)));
-                }
-            }
             Enter => {
                 if let Some(selection) = self.task_list.list_state.selected() {
                     if let Some(tasks) = self
@@ -173,8 +171,10 @@ impl App {
                         .current_view
                         .and_then(|vk| self.state.view_task_keys(vk))
                     {
-                        self.state
-                            .task_mod(tasks[selection], |t| t.completed = !t.completed);
+                        if let Err(err) = self.state
+                            .task_mod(tasks[selection], |t| t.completed = !t.completed) {
+                                self.report_error(err);
+                            }
                     }
                 }
             }
@@ -230,7 +230,7 @@ impl Widget for &mut App {
             let popup_area = Layout::horizontal([Constraint::Percentage(50)])
                 .flex(layout::Flex::Center)
                 .split(vertical_center[0])[0];
-
+            
             Clear.render(popup_area, buf); // clear background of popup area
 
             // create task popup block with rounded corners
@@ -262,33 +262,13 @@ impl Widget for &mut App {
             ];
             // create paragraph containing current string state inside `block` & render
             Paragraph::new(text)
+                .alignment(Alignment::Center)
                 .block(block)
                 .render(popup_area, buf);
         }
 
-        if let Some(task_create_popup) = &mut self.task_create_popup {
-            if task_create_popup.should_close {
-                self.task_create_popup = None;
-            } else {
-                task_create_popup.render(area, buf);
-            }
-        }
-
-        if let Some(task_delete_popup) = &mut self.task_delete_popup {
-            if task_delete_popup.should_close {
-                self.task_delete_popup = None;
-            } else {
-                task_delete_popup.render(area, buf);
-            }
-        }
-
-        if let Some(task_edit_popup) = &mut self.task_edit_popup {
-            if task_edit_popup.should_close {
-                self.task_edit_popup = None;
-            } else {
-                task_edit_popup.render(area, buf);
-            }
-        }
+        // popup rendering
+        self.task_popup.as_ref().inspect(|t|t.render(area, buf));
     }
 }
 
@@ -501,20 +481,21 @@ mod tests {
         app.state = state;
         app.task_list.current_view = Some(app.state.view_get_default().unwrap());
 
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('x').into())));
-        assert!(app.task_edit_popup.is_none());
+        /* app.handle_event(UserEvent(Event::Key(KeyCode::Char('x').into())));
+        assert!(app.task_popup.is_none());
         app.handle_event(UserEvent(Event::Key(KeyCode::Up.into())));
         app.handle_event(UserEvent(Event::Key(KeyCode::Char('x').into())));
-        assert!(app.task_edit_popup.is_some());
+        assert!(app.task_popup.is_some());
 
         // Initial task name from popup is empty
-        if let Some(task_edit_popup) = &app.task_edit_popup {
-            assert!(task_edit_popup.selection.is_some());
-            assert!(!task_edit_popup.should_close);
-            assert_eq!(task_edit_popup.name, "");
-        }
+        if let Some(task_popup) = &app.task_popup {
+            if let TaskPopup::Create(name)
+            assert!(task_popup.selection.is_some());
+            assert!(!task_popup.should_close);
+            assert_eq!(task_popup.name, "");
+        } */
 
-        // Cancel Editing
+        /* // Cancel Editing
         let mut app = App::new(State::new().0);
         let state = init_test().0;
         app.state = state;
@@ -522,9 +503,9 @@ mod tests {
 
         app.handle_event(UserEvent(Event::Key(KeyCode::Up.into())));
         app.handle_event(UserEvent(Event::Key(KeyCode::Char('x').into())));
-        assert!(app.task_edit_popup.is_some());
+        assert!(app.task_popup.is_some());
         app.handle_event(UserEvent(Event::Key(KeyCode::Char('n').into())));
-        assert!(app.task_edit_popup.unwrap().should_close);
+        assert!(app.task_popup.unwrap().should_close);
 
         // Confirm Editing
         let mut app = App::new(State::new().0);
@@ -534,9 +515,9 @@ mod tests {
 
         app.handle_event(UserEvent(Event::Key(KeyCode::Up.into())));
         app.handle_event(UserEvent(Event::Key(KeyCode::Char('x').into())));
-        assert!(app.task_edit_popup.is_some());
+        assert!(app.task_popup.is_some());
         app.handle_event(UserEvent(Event::Key(KeyCode::Char('y').into())));
-        assert!(!app.task_edit_popup.unwrap().should_close);
+        assert!(!app.task_popup.unwrap().should_close);
 
         // Edit current task name
         let mut app = App::new(State::new().0);
@@ -570,7 +551,7 @@ mod tests {
         app.handle_event(UserEvent(Event::Key(KeyCode::Char('h').into())));
         app.handle_event(UserEvent(Event::Key(KeyCode::Char('i').into())));
         app.handle_event(UserEvent(Event::Key(KeyCode::Esc.into())));
-        assert!(app.task_edit_popup.unwrap().should_close);
+        assert!(app.task_popup.unwrap().should_close);
 
         // 'n' does not close popup
         let mut app = App::new(State::new().0);
@@ -582,7 +563,7 @@ mod tests {
         app.handle_event(UserEvent(Event::Key(KeyCode::Char('x').into())));
         app.handle_event(UserEvent(Event::Key(KeyCode::Char('y').into())));
         app.handle_event(UserEvent(Event::Key(KeyCode::Char('n').into())));
-        assert!(!app.task_edit_popup.unwrap().should_close);
+        assert!(!app.task_popup.unwrap().should_close);
 
         //
         let mut app = App::new(State::new().0);
@@ -602,9 +583,9 @@ mod tests {
             .unwrap();
         let updated_task_key = task_keys[0];
         let updated_task = app.state.task_get(updated_task_key).unwrap();
-        assert!(app.task_edit_popup.is_some());
+        assert!(app.task_popup.is_some());
         assert_eq!(updated_task.name, "no");
-        assert!(app.task_edit_popup.unwrap().should_close);
+        assert!(app.task_popup.unwrap().should_close); */
 
         Ok(())
     }

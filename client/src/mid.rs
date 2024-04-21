@@ -288,6 +288,26 @@ impl State {
     }
 }
 
+#[derive(Debug, Error, Clone)]
+#[error("task: task associated with key {0:?} does not exist")]
+pub struct NoTaskError(TaskKey);
+
+#[derive(Debug, Error, Clone)]
+#[error("task: task associated with key {0:?} was not syncronized with server")]
+pub struct UnsyncronizedTaskError(TaskKey);
+
+#[derive(Debug, Error, Clone)]
+pub enum ModifyTaskError {
+    #[error(transparent)]
+    NoTask(#[from] NoTaskError),
+    #[error(transparent)]
+    UnsyncronizedTask(#[from] UnsyncronizedTaskError),
+}
+
+#[derive(Debug, Error, Clone)]
+#[error("view: view associated with key {0:?} does not exist")]
+pub struct NoViewError(ViewKey);
+
 impl State {
     /// define a task, get a key that uniquely identifies it
     pub fn task_def(&mut self, task: Task) -> TaskKey {
@@ -303,12 +323,13 @@ impl State {
         });
         key
     }
+
     /// get task using a key, if it exists
-    pub fn task_get(&self, key: TaskKey) -> Option<&Task> {
-        self.tasks.get(key)
+    pub fn task_get(&self, key: TaskKey) -> Result<&Task, NoTaskError> {
+        self.tasks.get(key).ok_or(NoTaskError(key))
     }
     /// modify a task
-    pub fn task_mod(&mut self, key: TaskKey, edit_fn: impl FnOnce(&mut Task)) -> bool {
+    pub fn task_mod(&mut self, key: TaskKey, edit_fn: impl FnOnce(&mut Task)) -> Result<(), ModifyTaskError> {
         if let Some(task) = self.tasks.get_mut(key) {
             if task.is_syncronized {
                 let bef = task.clone();
@@ -329,13 +350,13 @@ impl State {
                         req_id: key.0.as_ffi(),
                     });
                 }
-                return true;
-            }
-        }
-        false
+                return Ok(());
+            } else { Err(UnsyncronizedTaskError(key).into()) }
+        } else { Err(NoTaskError(key).into()) }
+        
     }
     /// delete a task
-    pub fn task_rm(&mut self, key: TaskKey) {
+    pub fn task_rm(&mut self, key: TaskKey) -> Result<(), NoTaskError> {
         if let Some(task) = self.tasks.get_mut(key) {
             if let Some(db_id) = task.db_id {
                 // mark pending deletion if in database
@@ -346,7 +367,10 @@ impl State {
                 // if not in database, remove immediately
                 self.tasks.remove(key);
             }
+        } else {
+            return Err(NoTaskError(key))
         }
+        Ok(())
     }
     /// define a property of a certain type on an associated task
     pub fn prop_def(
@@ -453,8 +477,8 @@ impl State {
         self.views.insert(view)
     }
     /// get a view
-    pub fn view_get(&self, view_key: ViewKey) -> Option<&View> {
-        self.views.get(view_key)
+    pub fn view_get(&self, view_key: ViewKey) -> Result<&View, NoViewError> {
+        self.views.get(view_key).ok_or(NoViewError(view_key))
     }
     /// get the default view
     pub fn view_get_default(&self) -> Option<ViewKey> {
@@ -462,7 +486,7 @@ impl State {
     }
     /// shorthand function to get the list of tasks associated with a view (some keys may be invalid)
     pub fn view_task_keys(&self, view_key: ViewKey) -> Option<&[TaskKey]> {
-        self.view_get(view_key)
+        self.view_get(view_key).ok()
             .and_then(|v| v.tasks.as_ref())
             .map(|v| v.as_slice())
     }
@@ -471,7 +495,7 @@ impl State {
         self.view_task_keys(view_key)
             .map(|tks|tks.iter()
                 .flat_map(|key|
-                    self.task_get(*key).map(|t|(*key, t))
+                    self.task_get(*key).ok().map(|t|(*key, t))
                     ))
     }
     /// modify a view
@@ -700,7 +724,7 @@ mod tests {
         state.tasks[tasks[1]].db_id = Some(0);
         state.task_rm(tasks[1]);
         // test get function fail
-        assert!(state.task_get(tasks[1]).is_none());
+        assert!(state.task_get(tasks[1]).is_err());
         // test mod function fail
         let mut test = 0;
         state.task_mod(tasks[1], |_| test = 1);
@@ -764,7 +788,7 @@ mod tests {
 
         // test remove view
         state.view_rm(view_key);
-        assert!(state.view_get(view_key).is_none());
+        assert!(state.view_get(view_key).is_err());
 
         // prop errors
         dbg!(PropDataError::Prop(tasks[0], name_key));

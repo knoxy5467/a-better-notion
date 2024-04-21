@@ -24,15 +24,21 @@ impl TaskList {
     }
     // move current selection of task up 1 item.
     pub fn shift(&mut self, state: &State, amt: isize, wrap: bool) {
+        tracing::debug!("called shift on TaskList: {self:?} with {amt:?}, wrap: {wrap:?}");
         // get tasks list (if any)
         let Some(tasks) = self.current_view.and_then(|vk| state.view_task_keys(vk)) else {
             self.reset_selection();
+            tracing::debug!("called shift() on tasklist but no view exists");
             return;
         };
-        let tasks_iter = tasks.iter().filter(|key|state.task_get(**key).is_some());
+        let tasks_iter = tasks.iter().filter(|key|state.task_get(**key).is_ok());
         let len = tasks_iter.clone().count();
         // if empty, reset selection
-        if len == 0 { self.reset_selection(); return; }
+        if len == 0 {
+            tracing::debug!("called shift() on tasklist but no tasks in view");
+            self.reset_selection();
+            return;
+        }
         
         let selected_task = self.selected_task.or_else(|| {
             let mut loc_tasks_iter = tasks_iter.clone();
@@ -42,19 +48,24 @@ impl TaskList {
                 _ => None, // return if amt is zero
             }
         });
-        let Some(selected_task) = selected_task else { self.reset_selection(); return };
+        let Some(selected_task) = selected_task else {
+            self.reset_selection();
+            tracing::debug!("no selected task");
+            return
+        };
 
         // find first task before selected_task
         let mut cur_true_index = None;
         let mut cur_index = 0;
         for key in tasks {
-            if let Some(_) = state.task_get(*key) {
+            if let Ok(_) = state.task_get(*key) {
                 cur_true_index = Some(cur_index);
                 cur_index += 1;
             }
             if *key == selected_task { break; }
         }
         let Some(cur_index) = cur_true_index else {
+            tracing::debug!("no valid index");
             return;
         };
 
@@ -67,6 +78,8 @@ impl TaskList {
         };
         self.list_state.select(Some(new_index));
         self.selected_task = tasks_iter.clone().nth(new_index).cloned();
+
+        tracing::debug!("shift completed: {self:?}");
     }
     // render task list to buffer
     pub fn render(&mut self, state: &State, block: Block<'_>, area: Rect, buf: &mut Buffer) {
