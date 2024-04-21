@@ -26,6 +26,7 @@ async fn test_empty_filter() {
     let app = test::init_service(App::new().app_data(db_data).service(get_filter_request)).await;
     let req = test::TestRequest::default()
         .set_json(FilterRequest {
+            req_id: 1,
             filter: Filter::None,
         })
         .uri("/filter")
