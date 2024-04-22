@@ -17,7 +17,12 @@ use thiserror::Error;
 
 new_key_type! { pub struct PropKey; }
 new_key_type! { pub struct TaskKey; }
-
+static REQCOUNTER: AtomicUsize = AtomicUsize::new(0);
+pub fn get_next_req_id() -> usize{
+    let value = REQCOUNTER.load(Ordering::SeqCst);
+    REQCOUNTER.fetch_add(1, Ordering::SeqCst);
+    value
+}
 /// All data associated with tasks, except for properties
 #[derive(Debug, Default, Clone)]
 pub struct Task {
@@ -41,7 +46,7 @@ impl Task {
         Task {
             name, completed, ..Default::default()
         }
-    } 
+    }
 }
 
 /// Middleware stored View
@@ -211,7 +216,7 @@ impl ServerResponse for ReadTasksShortResponse {
         for res in *self {
             if let Ok(res) = res {
                 Box::new(res).update_state(state);
-            }   
+            }
         }
         Ok(())
     }
@@ -340,7 +345,7 @@ impl State {
             if let Some(db_id) = task.db_id {
                 // mark pending deletion if in database
                 task.pending_deletion = true;
-                self.spawn_request::<DeleteTaskRequest, DeleteTaskResponse>(self.client.delete(format!("{}/task", self.url)), DeleteTaskRequest { task_id: db_id, req_id: key.0.as_ffi() 
+                self.spawn_request::<DeleteTaskRequest, DeleteTaskResponse>(self.client.delete(format!("{}/task", self.url)), DeleteTaskRequest { task_id: db_id, req_id: get_next_req_id()
                 });
             } else {
                 // if not in database, remove immediately

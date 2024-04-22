@@ -1,4 +1,4 @@
-use std::io;
+use std::{default, io};
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind};
 use futures::{channel::mpsc::Receiver, Stream, StreamExt};
@@ -7,9 +7,13 @@ use ratatui::{
     symbols::border,
     widgets::{block::*, *},
 };
+use slotmap::SlotMap;
 // use tokio::runtime::Handle;
 
-use crate::{mid::{MidEvent, State, StateEvent}, term};
+use crate::{
+    mid::{MidEvent, State, StateEvent},
+    term,
+};
 
 use self::task_create_popup::TaskCreatePopup;
 use self::task_delete_popup::TaskDeletePopup;
@@ -36,7 +40,12 @@ pub async fn run<B: Backend>(
     app.run(&mut term, events, state.1).await?;
     Ok(app)
 }
-
+#[derive(Copy, Clone, Eq, PartialEq, Hash, EnumIter)]
+pub enum UiEvents {
+    DeleteTask,
+    EditTask,
+    CreateTask,
+}
 /// UI App State
 #[derive(Debug)]
 pub struct App {
@@ -52,6 +61,7 @@ pub struct App {
     task_delete_popup: Option<TaskDeletePopup>,
     task_edit_popup: Option<TaskEditPopup>,
     help_box_shown: bool,
+    callback_hashmap: HashMap<UiEvents, Vec<Box<dyn FnMut()>>>,
 }
 
 pub enum UIEvent {
@@ -71,6 +81,7 @@ impl App {
             task_delete_popup: None,
             task_edit_popup: None,
             help_box_shown: false,
+            callback_hashmap: HashMap::new(),
         }
     }
     /// run app with some terminal output and event stream input
@@ -80,10 +91,17 @@ impl App {
         mut events: impl Stream<Item = io::Result<Event>> + Unpin,
         mut state_events: impl Stream<Item = MidEvent> + Unpin,
     ) -> color_eyre::Result<()> {
+        for e in UiEvents {
+            self.callback_hashmap.insert(e, Vec::new())
+        }
         self.task_list.current_view = self.state.view_get_default();
         // render initial frame
         term.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
         // wait for events
+        self.callback_hashmap
+            .getmut(UiEvents::DeleteTask)
+            .unwrap()
+            .push(Box::new(|args| self.state.task_rm(args)));
         loop {
             tokio::select! {
                 Some(event) = events.next() => self.step(term, UIEvent::UserEvent(event?))?,
@@ -134,7 +152,6 @@ impl App {
                 StateEvent::ServerStatus(_) => todo!(),
             },
         }
-        
     }
     fn handle_key_event(&mut self, key_event: KeyEvent) -> bool {
         use KeyCode::*;
@@ -149,7 +166,10 @@ impl App {
         if let Some(task_edit_popup) = &mut self.task_edit_popup {
             return task_edit_popup.handle_key_event(&mut self.state, key_event.code);
         }
-        if let Char('h') = key_event.code {} else { self.help_box_shown = false; }
+        if let Char('h') = key_event.code {
+        } else {
+            self.help_box_shown = false;
+        }
         match key_event.code {
             Char('q') => self.should_exit = true,
             Char('h') => self.help_box_shown = !self.help_box_shown,
@@ -158,7 +178,10 @@ impl App {
             Down => self.task_list.shift(&self.state, 1, false),
             Char('d') => {
                 if let Some(selection) = self.task_list.selected_task {
-                    self.task_delete_popup = Some(TaskDeletePopup::new(selection));
+                    self.task_delete_popup = Some(TaskDeletePopup::new(
+                        selection,
+                        self.callback_hashmap.get(UiEvents::DeleteTask),
+                    ));
                 }
             }
             Char('e') => {
@@ -224,8 +247,8 @@ impl Widget for &mut App {
         if self.help_box_shown {
             // create a centered rect of fixed vertical size that takes up 50% of the vertical area.
             let vertical_center = Layout::vertical([Constraint::Length(7)])
-            .flex(layout::Flex::Center)
-            .split(area);
+                .flex(layout::Flex::Center)
+                .split(area);
 
             let popup_area = Layout::horizontal([Constraint::Percentage(50)])
                 .flex(layout::Flex::Center)
@@ -261,9 +284,7 @@ impl Widget for &mut App {
                 ]),
             ];
             // create paragraph containing current string state inside `block` & render
-            Paragraph::new(text)
-                .block(block)
-                .render(popup_area, buf);
+            Paragraph::new(text).block(block).render(popup_area, buf);
         }
 
         if let Some(task_create_popup) = &mut self.task_create_popup {

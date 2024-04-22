@@ -8,16 +8,20 @@ use ratatui::{
 
 use crate::mid::{State, TaskKey};
 
+use super::App;
+
 #[derive(Debug)]
 pub struct TaskDeletePopup {
     key: TaskKey,
     pub should_close: bool,
+    on_delete_callbacks: Vec<Box<dyn FnMut()>>,
 }
 impl TaskDeletePopup {
-    pub fn new(task_key: TaskKey) -> TaskDeletePopup {
+    pub fn new(task_key: TaskKey, callbacks: Vec<Box<dyn FnMut()>>) -> TaskDeletePopup {
         Self {
             key: task_key,
             should_close: false,
+            on_delete_callbacks: callbacks,
         }
     }
     pub fn render(&mut self, area: Rect, buf: &mut Buffer) {
@@ -45,12 +49,12 @@ impl TaskDeletePopup {
     }
     pub fn handle_key_event(&mut self, state: &mut State, key_code: KeyCode) -> bool {
         match key_code {
-            KeyCode::Esc       => self.should_close = true,
+            KeyCode::Esc => self.should_close = true,
             KeyCode::Char('n') => self.should_close = true,
             KeyCode::Char('y') => {
-                
-                state.task_rm(self.key);
-
+                for mut c in self.on_delete_callbacks {
+                    c(self.key)
+                }
                 self.should_close = true;
             }
             _ => return false,
