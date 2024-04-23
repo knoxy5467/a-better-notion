@@ -58,7 +58,7 @@ impl TaskList {
                 tasks
                     .iter()
                     .flat_map(|task_id| {
-                        let task = state.get_task(*task_id).await.unwrap();
+                        let task = state.get_task(*task_id).unwrap();
                         // render task line
                         Some(match task.completed {
                             false => Line::styled(format!(" ☐ {}", task.name), TEXT_COLOR),
