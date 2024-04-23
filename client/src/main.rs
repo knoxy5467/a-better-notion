@@ -37,7 +37,7 @@ fn main() -> color_eyre::Result<()> {
                 "http://{}:{}",
                 settings.actix.hosts[0].host, settings.actix.hosts[0].port
             ))
-            .await?;
+            .unwrap();
             let res = ui::run(CrosstermBackend::new(stdout()), state, EventStream::new()).await;
             term::restore()?;
             res?;
