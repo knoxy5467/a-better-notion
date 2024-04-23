@@ -120,7 +120,7 @@ impl State {
             .unwrap();
     }
     /// get a task by its id
-    pub async fn get_task(&self, task_id: TaskID) -> Option<&Task> {
+    pub fn get_task(&self, task_id: TaskID) -> Option<&Task> {
         if (self.task_map.contains_key(&task_id)) {
             return Some(self.task_map.get(&task_id));
         } else {
@@ -158,7 +158,8 @@ impl State {
             .json::<ReadTasksShortResponse>()
             .await
             .unwrap();
-        for task in tasks {
+        for task_result in tasks {
+            let task = task_result.unwrap();
             let new_task = Task::new(task.task_id, task.name, task.completed);
             self.task_map.insert(task.id, task);
         }
