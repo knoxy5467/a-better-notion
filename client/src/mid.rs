@@ -184,7 +184,7 @@ impl State {
         edit_fn(self.view_map.get_mut(&view_id)?);
         None
     }
-    pub fn get_default_view(&self) -> View {
+    pub fn get_default_view(&self) -> Option<&View> {
         return self.view_map.get(&-1); //the default view should always be with id -1
     }
     /// creates a task in the server, adds that task to the state task list and returns the ID in a result, or an error if the server could not perform the action.
@@ -209,7 +209,7 @@ impl State {
         return created_task_response.task_id;
     }
 }
-pub fn init(url: &str) -> Result<State, Error> {
+pub fn init(url: &str) -> Result<State, std::error::Error> {
     let mut state = State::new(url.to_string());
     state.get_beginning_tasks();
     let default_view = View {
