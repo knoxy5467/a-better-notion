@@ -53,12 +53,12 @@ impl TaskList {
         // take items from the current view and render them into a list
         if let Some(items) = self
             .current_view
-            .and_then(|vk| state.view_tasks(vk))
+            .and_then(|view_id| state.view_tasks(view_id))
             .map(|tasks| {
                 tasks
                     .iter()
-                    .flat_map(|key| {
-                        let task = state.task_get(*key)?;
+                    .flat_map(|task_id| {
+                        let task = state.get_task(*task_id);
                         // render task line
                         Some(match task.completed {
                             false => Line::styled(format!(" ☐ {}", task.name), TEXT_COLOR),

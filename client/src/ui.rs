@@ -147,7 +147,7 @@ impl App {
                         .and_then(|vk| self.state.view_tasks(vk))
                     {
                         self.state
-                            .task_mod(tasks[selection], |t| t.completed = !t.completed);
+                            .modify_task(tasks[selection], |t| t.completed = !t.completed);
                     }
                 }
             }

@@ -120,13 +120,12 @@ impl State {
             .unwrap();
     }
     /// get a task by its id
-    pub async fn get_task(task_id: TaskID) -> Option<&Task> {
-        if (self.task_map.contains_key(task_id)) {
-            return Some(self.task_map.get(task_id));
+    pub async fn get_task(&self, task_id: TaskID) -> Option<&Task> {
+        if (self.task_map.contains_key(&task_id)) {
+            return Some(self.task_map.get(&task_id));
         } else {
             return None; // TODO 23APR2024: change this to try to get it from the server
         }
-        self.task_map.get(task_id)
     }
     /// populate task map with tasks from the server, generally should be used for init
     pub async fn get_beginning_tasks(&mut self) {
@@ -175,16 +174,40 @@ impl State {
             .map(|view| view.tasks.as_slice());
     }
     /// modify a task using a given function
-    pub fn task_mod(&mut self, task_id: TaskID, edit_fn: impl FnOnce(&mut Task)) {
+    pub fn modify_task(&mut self, task_id: TaskID, edit_fn: impl FnOnce(&mut Task)) {
         if let Some(task) = self.task_mapk.get_mut(task_id) {
             edit_fn(task)
         }
     }
-
+    ///modify view by passing in a function and running the given function
+    pub fn modify_view(&mut self, view_id: ViewID, edit_fn: impl FnOnce(&mut View)) -> Option<()> {
+        edit_fn(self.view_map.get_mut(&view_id)?);
+        None
+    }
     pub fn get_default_view(&self) -> View {
         return self.view_map.get(&-1); //the default view should always be with id -1
     }
-    pub fn create_task(&self, task_to_be_created: Task) -> Result<TaskID, Error> {}
+    /// creates a task in the server, adds that task to the state task list and returns the ID in a result, or an error if the server could not perform the action.
+    pub async fn create_task(&self, task_to_be_created: Task) -> Result<CreateTaskResponse, Error> {
+        let create_task_request = CreateTaskRequest {
+            name: task_to_be_created.name,
+            completed: task_to_be_created.completed,
+            properties: vec![],
+            dependencies: task_to_be_created.dependencies,
+            req_id: self.increment_and_get_request_count(),
+        };
+        let created_task_response = self
+            .client
+            .post(format!("{}/task", self.url))
+            .json(&create_task_request)
+            .send()
+            .await
+            .unwrap()
+            .json::<CreateTaskResponse>()
+            .await
+            .unwrap();
+        return created_task_response.task_id;
+    }
 }
 pub fn init(url: &str) -> Result<State, Error> {
     let mut state = State::new(url.to_string());

@@ -90,7 +90,7 @@ impl TaskEditPopup {
             KeyCode::Enter => {
                 if self.editing_mode {
                     if let Some(selection) = self.selection {
-                        state.task_mod(selection, |task| {
+                        state.modify_task(selection, |task| {
                             // task.name = self.name.clone();
                             task.name.clone_from(&self.name)
                         });
