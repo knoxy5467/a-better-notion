@@ -53,7 +53,7 @@ impl Task {
 }
 
 /// Middleware stored View
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct View {
     /// Database ID of the view
     pub db_id: ViewID,
@@ -62,9 +62,9 @@ pub struct View {
     /// Filter for view
     pub filter: Filter,
     /// Properties shown in view
-    pub props: Vec<PropNameKey>,
+    pub props: Vec<String>,
     /// Tasks that are apart of the view, calculated on the backend via calls to /filterids
-    pub tasks: Option<Vec<TaskKey>>,
+    pub tasks: Option<Vec<TaskID>>,
 }
 
 /// Middleware State structure.
@@ -73,9 +73,9 @@ pub struct State {
     /// maps between database ID and middleware ID for task
     /// If task is only stored locally, may not contain entry for task key
     /// TaskIDs here must have corresponding Task in hashmap
-    task_map: HashMap<TaskID, TaskKey>,
+    task_map: HashMap<TaskID, Task>,
     /// store prop names with unique keys
-    prop_map: HashMap<(TaskID, PropNameKey), TaskPropVariant>,
+    prop_map: HashMap<(TaskID, String), TaskPropVariant>,
     /// properties stored in the middleware can be uniquely identified by the task they are stored upon and the string of the property
     /// connected url
     url: String,
