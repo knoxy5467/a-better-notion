@@ -112,9 +112,11 @@ impl App {
     }
     fn handle_key_event(&mut self, key_event: KeyEvent) -> bool {
         use KeyCode::*;
+        let mut rt = tokio::runtime::Runtime::new();
         // handle if in popup state
         if let Some(task_create_popup) = &mut self.task_create_popup {
-            return task_create_popup.handle_key_event(&mut self.state, key_event.code);
+            return rt
+                .block_on(task_create_popup.handle_key_event(&mut self.state, key_event.code));
         }
         if let Some(task_delete_popup) = &mut self.task_delete_popup {
             return task_delete_popup.handle_key_event(&mut self.state, key_event.code);
