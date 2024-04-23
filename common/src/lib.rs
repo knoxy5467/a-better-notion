@@ -123,7 +123,7 @@ pub struct TaskProp {
 }
 
 /// Represents a filter on tasks using their properties that the database computes.
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 pub enum Filter {
     /// Filter leaf, represents a comparator that filters properties
     Leaf {

@@ -122,7 +122,7 @@ impl State {
     /// get a task by its id
     pub fn get_task(&self, task_id: TaskID) -> Option<&Task> {
         if (self.task_map.contains_key(&task_id)) {
-            return Some(self.task_map.get(&task_id));
+            return self.task_map.get(&task_id);
         } else {
             return None; // TODO 23APR2024: change this to try to get it from the server
         }
@@ -176,7 +176,7 @@ impl State {
     }
     /// modify a task using a given function
     pub fn modify_task(&mut self, task_id: TaskID, edit_fn: impl FnOnce(&mut Task)) {
-        if let Some(task) = self.task_mapk.get_mut(task_id) {
+        if let Some(task) = self.task_map.get_mut(&task_id) {
             edit_fn(task)
         }
     }
