@@ -209,7 +209,7 @@ impl State {
         return created_task_response.task_id;
     }
 }
-pub fn init(url: &str) -> Result<State, std::error::Error> {
+pub fn init(url: &str) -> color_eyre::Result<State> {
     let mut state = State::new(url.to_string());
     state.get_beginning_tasks();
     let default_view = View {
