@@ -72,7 +72,7 @@ impl App {
         term: &mut term::Tui<B>,
         mut events: impl Stream<Item = io::Result<Event>> + Unpin,
     ) -> color_eyre::Result<()> {
-        self.task_list.current_view = self.state.get_default_view().unwrap().db_id;
+        self.task_list.current_view = Some(self.state.get_default_view().unwrap().db_id);
         // render initial frame
         term.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
         // wait for events
