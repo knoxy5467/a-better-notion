@@ -108,8 +108,8 @@ impl State {
             task_id: key,
             req_id: self.increment_and_get_request_count(),
         };
-        let url = self.url;
-        let response = self
+        let url = self.url.clone();
+        let deleted_task_id = self
             .client
             .delete(url + "/task/")
             .json(&delete_task_request)
@@ -119,6 +119,10 @@ impl State {
             .json::<DeleteTaskResponse>()
             .await
             .unwrap();
+        if deleted_task_id.task_id != key {
+            panic!("Task ID mismatch, we just deleted the wrong task!");
+        }
+        self.task_map.remove(&key);
     }
     /// get a task by its id
     pub fn get_task(&self, task_id: TaskID) -> Option<&Task> {
@@ -170,7 +174,7 @@ impl State {
     }
     /// get a list of task IDs associated with a viewID
     pub fn view_tasks(&self, view_id: ViewID) -> Option<&[TaskID]> {
-        return self.view_map.get(&view_id).unwrap().tasks.as_slice();
+        return Some(self.view_map.get(&view_id).unwrap().tasks.as_slice());
     }
     /// modify a task using a given function
     pub fn modify_task(&mut self, task_id: TaskID, edit_fn: impl FnOnce(&mut Task)) {
@@ -198,7 +202,7 @@ impl State {
             dependencies: task_to_be_created.dependencies,
             req_id: self.increment_and_get_request_count(),
         };
-        let created_task_response = self
+        let created_task_response: Result<CreateTaskResponse, reqwest::Error> = self
             .client
             .post(format!("{}/task", self.url))
             .json(&create_task_request)
@@ -206,8 +210,7 @@ impl State {
             .await
             .unwrap()
             .json::<CreateTaskResponse>()
-            .await
-            .unwrap();
+            .await;
         return created_task_response;
     }
 }
@@ -219,7 +222,7 @@ pub fn init(url: &str) -> color_eyre::Result<State> {
         name: "Default".to_string(),
         filter: Filter::None,
         props: vec![],
-        tasks: state.task_map.keys().cloned().collect(),
+        tasks: Some(state.task_map.keys().cloned().collect()),
     };
     state.add_view(default_view);
     Ok(state)
