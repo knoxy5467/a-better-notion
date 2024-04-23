@@ -6,15 +6,16 @@ use ratatui::{
     widgets::{Block, HighlightSpacing, List, ListState, Paragraph, StatefulWidget, Widget},
 };
 
-use crate::mid::{State, TaskKey, ViewKey};
+use crate::mid::State;
+use common::{TaskID, ViewID};
 
 use super::{COMPLETED_TEXT_COLOR, SELECTED_STYLE_FG, TEXT_COLOR};
 
 #[derive(Default, Debug)]
 /// Task list widget
 pub struct TaskList {
-    pub current_view: Option<ViewKey>,
-    pub selected_task: Option<TaskKey>,
+    pub current_view: Option<ViewID>,
+    pub selected_task: Option<TaskID>,
     pub list_state: ListState,
 }
 impl TaskList {

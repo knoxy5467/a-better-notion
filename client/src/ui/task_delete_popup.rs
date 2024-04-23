@@ -6,15 +6,15 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph, Widget},
 };
 
-use crate::mid::{State, TaskKey};
+use common::TaskID;
 
 #[derive(Debug)]
 pub struct TaskDeletePopup {
-    key: TaskKey,
+    key: TaskID,
     pub should_close: bool,
 }
 impl TaskDeletePopup {
-    pub fn new(task_key: TaskKey) -> TaskDeletePopup {
+    pub fn new(task_key: TaskID) -> TaskDeletePopup {
         Self {
             key: task_key,
             should_close: false,
