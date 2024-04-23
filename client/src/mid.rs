@@ -103,7 +103,7 @@ impl State {
             view_map: HashMap::new(),
         }
     }
-    pub async fn task_rm(&mut self, key: TaskId) {
+    pub async fn task_rm(&mut self, key: TaskID) {
         let delete_task_request = DeleteTaskRequest {
             task_id: key,
             req_id: self.increment_and_get_request_count(),
@@ -161,14 +161,14 @@ impl State {
         for task_result in tasks {
             let task = task_result.unwrap();
             let new_task = Task::new(task.task_id, task.name, task.completed);
-            self.task_map.insert(task.id, task);
+            self.task_map.insert(task.task_id, task);
         }
     }
     pub fn add_view(&mut self, view: View) {
         self.view_map.insert(view.db_id, view);
     }
     /// get a list of task IDs associated with a viewID
-    pub fn view_tasks(&self, view_id: ViewID) -> Option<&[TaskId]> {
+    pub fn view_tasks(&self, view_id: ViewID) -> Option<&[TaskID]> {
         return self
             .view_map
             .get(&view_id)
@@ -189,7 +189,10 @@ impl State {
         return self.view_map.get(&-1); //the default view should always be with id -1
     }
     /// creates a task in the server, adds that task to the state task list and returns the ID in a result, or an error if the server could not perform the action.
-    pub async fn create_task(&self, task_to_be_created: Task) -> Result<CreateTaskResponse, Error> {
+    pub async fn create_task(
+        &self,
+        task_to_be_created: Task,
+    ) -> Result<CreateTaskResponse, reqwest::Error> {
         let create_task_request = CreateTaskRequest {
             name: task_to_be_created.name,
             completed: task_to_be_created.completed,
