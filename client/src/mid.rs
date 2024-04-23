@@ -169,7 +169,7 @@ impl State {
     }
     /// get a list of task IDs associated with a viewID
     pub fn view_tasks(&self, view_id: ViewID) -> Option<&[TaskID]> {
-        return self.view_map.get(&view_id).tasks.as_slice();
+        return self.view_map.get(&view_id).unwrap().tasks.as_slice();
     }
     /// modify a task using a given function
     pub fn modify_task(&mut self, task_id: TaskID, edit_fn: impl FnOnce(&mut Task)) {
