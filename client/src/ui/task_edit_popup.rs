@@ -6,18 +6,19 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph, Widget},
 };
 
-use crate::mid::{State, TaskKey};
+use crate::mid::State;
+use common::TaskID;
 
 #[derive(Debug)]
 pub struct TaskEditPopup {
     pub name: String,
     pub should_close: bool,
-    pub selection: Option<TaskKey>,
+    pub selection: Option<TaskID>,
     editing_mode: bool,
 }
 
 impl TaskEditPopup {
-    pub fn new(selection: Option<TaskKey>) -> TaskEditPopup {
+    pub fn new(selection: Option<TaskID>) -> TaskEditPopup {
         Self {
             name: Default::default(),
             should_close: false,

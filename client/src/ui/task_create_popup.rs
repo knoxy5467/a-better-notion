@@ -53,11 +53,11 @@ impl TaskCreatePopup {
                 self.name.pop();
             }
             KeyCode::Enter => {
-                let task_key = state.task_def(Task {
+                let task_id = state.task_create(Task {
                     name: self.name.clone(),
                     ..Default::default()
                 });
-                state.view_mod(state.view_get_default().unwrap(), |v| {
+                state.view_mod(state.get_default_view().unwrap(), |v| {
                     v.tasks.as_mut().unwrap().push(task_key)
                 });
                 self.should_close = true;

@@ -32,7 +32,7 @@ pub struct Task {
     /// Whether the task is completed or not
     pub completed: bool,
     /// Dependencies of this task
-    pub dependencies: Vec<TaskKey>,
+    pub dependencies: Vec<TaskID>,
     /// Associated scripts
     pub scripts: Vec<ScriptID>,
     pub view_map: HashMap<u64, View>,
@@ -53,7 +53,7 @@ impl Task {
 }
 
 /// Middleware stored View
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct View {
     /// Database ID of the view
     pub db_id: ViewID,
@@ -103,7 +103,7 @@ impl State {
             view_map: HashMap::new(),
         }
     }
-    pub fn task_rm(&mut self, key: TaskId) {
+    pub async fn task_rm(&mut self, key: TaskId) {
         let delete_task_request = DeleteTaskRequest {
             task_id: key,
             req_id: self.increment_and_get_request_count(),
@@ -111,7 +111,7 @@ impl State {
         let response = self
             .client
             .delete(self.url + "/task/")
-            .json(DeleteTaskRequest)
+            .json(&delete_task_request)
             .send()
             .await
             .unwrap()
@@ -120,16 +120,16 @@ impl State {
             .unwrap();
     }
     /// get a task by its id
-    pub fn get_task(task_id: TaskID) -> Option<&Task> {
-        if(self.task_map.contains_key(task_id)) {
+    pub async fn get_task(task_id: TaskID) -> Option<&Task> {
+        if (self.task_map.contains_key(task_id)) {
             return Some(self.task_map.get(task_id));
-        }
-        else{
+        } else {
             return None; // TODO 23APR2024: change this to try to get it from the server
         }
         self.task_map.get(task_id)
     }
-    pub fn get_beginning_tasks(&mut self) {
+    /// populate task map with tasks from the server, generally should be used for init
+    pub async fn get_beginning_tasks(&mut self) {
         // request all tasks using a "None" filter
         let filter_request = FilterRequest {
             filter: Filter::None,
@@ -164,13 +164,6 @@ impl State {
             self.task_map.insert(task.id, task);
         }
     }
-    /// shorthand function to get the list of tasks associated with a view
-    pub fn view_tasks(&self, view_key: ViewKey) -> Option<&[TaskId]> {
-        return self
-            .view_map
-            .get(view_key)
-            .map(|view| view.tasks.as_slice());
-    }
     pub fn add_view(&mut self, view: View) {
         self.view_map.insert(view.db_id, view);
     }
@@ -178,7 +171,7 @@ impl State {
     pub fn view_tasks(&self, view_id: ViewID) -> Option<&[TaskId]> {
         return self
             .view_map
-            .get(view_key)
+            .get(&view_id)
             .map(|view| view.tasks.as_slice());
     }
     /// modify a task using a given function
@@ -186,13 +179,18 @@ impl State {
         if let Some(task) = self.task_mapk.get_mut(task_id) {
             edit_fn(task)
         }
-}
+    }
 
-fn init(url: &str) -> Result<State, Error> {
+    pub fn get_default_view(&self) -> View {
+        return self.view_map.get(&-1); //the default view should always be with id -1
+    }
+    pub fn create_task(&self, task_to_be_created: Task) -> Result<TaskID, Error> {}
+}
+pub fn init(url: &str) -> Result<State, Error> {
     let mut state = State::new(url.to_string());
     state.get_beginning_tasks();
     let default_view = View {
-        db_id: 0,
+        db_id: -1,
         name: "Default".to_string(),
         filter: Filter::None,
         props: vec![],
