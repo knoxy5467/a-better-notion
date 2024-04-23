@@ -43,7 +43,7 @@ impl TaskCreatePopup {
             .block(block)
             .render(popup_area, buf);
     }
-    pub fn handle_key_event(&mut self, state: &mut State, key_code: KeyCode) -> bool {
+    pub async fn handle_key_event(&mut self, state: &mut State, key_code: KeyCode) -> bool {
         match key_code {
             KeyCode::Esc => self.should_close = true,
             KeyCode::Char(c) => {
@@ -53,10 +53,13 @@ impl TaskCreatePopup {
                 self.name.pop();
             }
             KeyCode::Enter => {
-                let task_id = state.create_task(Task {
-                    name: self.name.clone(),
-                    ..Default::default()
-                });
+                let task_id = state
+                    .create_task(Task {
+                        name: self.name.clone(),
+                        ..Default::default()
+                    })
+                    .await
+                    .unwrap();
                 state.modify_view(state.get_default_view().unwrap().db_id, |v| {
                     v.tasks.as_mut().unwrap().push(task_id)
                 });
