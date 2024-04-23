@@ -88,6 +88,7 @@ impl TaskEditPopup {
             }
 
             KeyCode::Enter => {
+                //TODO 23apr2024 we need to make this also edit the task on the back end.
                 if self.editing_mode {
                     if let Some(selection) = self.selection {
                         state.modify_task(selection, |task| {

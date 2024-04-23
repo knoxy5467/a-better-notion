@@ -122,7 +122,9 @@ impl App {
                 .await;
         }
         if let Some(task_delete_popup) = &mut self.task_delete_popup {
-            return task_delete_popup.handle_key_event(&mut self.state, key_event.code);
+            return task_delete_popup
+                .handle_key_event(&mut self.state, key_event.code)
+                .await;
         }
 
         if let Some(task_edit_popup) = &mut self.task_edit_popup {
