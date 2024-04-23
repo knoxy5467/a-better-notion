@@ -61,7 +61,7 @@ impl TaskCreatePopup {
                     .await
                     .unwrap();
                 state.modify_view(state.get_default_view().unwrap().db_id, |v| {
-                    v.tasks.as_mut().unwrap().push(task_id)
+                    v.tasks.as_mut().unwrap().push(task_id.task_id)
                 });
                 self.should_close = true;
             }
