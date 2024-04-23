@@ -58,7 +58,7 @@ pub struct Script {
 }
 
 /// Types of Comparators for filters
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum Comparator {
     /// Less than
     LT,
@@ -81,7 +81,7 @@ pub enum Comparator {
 }
 
 /// Operator that combines multiple Filters
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum Operator {
     /// AND operator, takes the intersection of the results of a set of filters.
     AND,
@@ -91,7 +91,7 @@ pub enum Operator {
 
 /// The variants of Task Properties
 /// Note: serialization with serde(tag = "...") doesn't work for tuple enums.
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum TaskPropVariant {
     /// Local-time-zone representation of postgresql's timestamp
     Date(chrono::NaiveDateTime),
