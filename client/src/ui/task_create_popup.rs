@@ -57,7 +57,7 @@ impl TaskCreatePopup {
                     name: self.name.clone(),
                     ..Default::default()
                 });
-                state.modify_view(state.get_default_view(), |v| {
+                state.modify_view(state.get_default_view().db_id, |v| {
                     v.tasks.as_mut().unwrap().push(task_id)
                 });
                 self.should_close = true;
