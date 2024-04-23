@@ -108,9 +108,10 @@ impl State {
             task_id: key,
             req_id: self.increment_and_get_request_count(),
         };
+        let url = self.url;
         let response = self
             .client
-            .delete(self.url + "/task/")
+            .delete(url + "/task/")
             .json(&delete_task_request)
             .send()
             .await
@@ -161,7 +162,7 @@ impl State {
         for task_result in tasks {
             let task = task_result.unwrap();
             let new_task = Task::new(task.task_id, task.name, task.completed);
-            self.task_map.insert(task.task_id, task);
+            self.task_map.insert(task.task_id, new_task);
         }
     }
     pub fn add_view(&mut self, view: View) {
@@ -207,7 +208,7 @@ impl State {
             .json::<CreateTaskResponse>()
             .await
             .unwrap();
-        return created_task_response.task_id;
+        return created_task_response;
     }
 }
 pub fn init(url: &str) -> color_eyre::Result<State> {
