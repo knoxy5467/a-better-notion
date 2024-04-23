@@ -72,7 +72,8 @@ impl App {
         term: &mut term::Tui<B>,
         mut events: impl Stream<Item = io::Result<Event>> + Unpin,
     ) -> color_eyre::Result<()> {
-        self.task_list.current_view = Some(self.state.get_default_view().unwrap().db_id);
+        let default_view_id = self.state.get_default_view().unwrap().db_id;
+        self.task_list.current_view = Some(default_view_id);
         // render initial frame
         term.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
         // wait for events
@@ -112,7 +113,7 @@ impl App {
     }
     fn handle_key_event(&mut self, key_event: KeyEvent) -> bool {
         use KeyCode::*;
-        let mut rt = tokio::runtime::Runtime::new();
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
         // handle if in popup state
         if let Some(task_create_popup) = &mut self.task_create_popup {
             return rt

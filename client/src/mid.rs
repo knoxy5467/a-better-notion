@@ -1,5 +1,6 @@
 //! Middleware Logic
-#![allow(unused)] // for my sanity developing (TODO: remove this later)
+#![allow(unused)]
+// for my sanity developing (TODO: remove this later)
 use color_eyre::eyre::{Context, ContextCompat};
 use common::{
     backend::{
@@ -47,6 +48,14 @@ impl Task {
             id: task_id,
             name,
             completed,
+            ..Default::default()
+        }
+    }
+    pub fn create_with_just_name(name: String) -> Task {
+        Task {
+            id: -1,           //-1 is a placeholder for a task that is not in the database
+            completed: false, // all tasks start with completed as false
+            name,
             ..Default::default()
         }
     }
@@ -119,7 +128,7 @@ impl State {
             .json::<DeleteTaskResponse>()
             .await
             .unwrap();
-        if deleted_task_id.task_id != key {
+        if deleted_task_id != key {
             panic!("Task ID mismatch, we just deleted the wrong task!");
         }
         self.task_map.remove(&key);
@@ -138,7 +147,7 @@ impl State {
         let filter_request = FilterRequest {
             filter: Filter::None,
         };
-        let url = self.url;
+        let url = &self.url;
         let task_ids: Vec<TaskID> = self
             .client
             .get(format!("{url}/filter"))
@@ -173,8 +182,8 @@ impl State {
         self.view_map.insert(view.db_id, view);
     }
     /// get a list of task IDs associated with a viewID
-    pub fn view_tasks(&self, view_id: ViewID) -> Option<&[TaskID]> {
-        return Some(self.view_map.get(&view_id).unwrap().tasks.as_slice());
+    pub fn view_tasks(&self, view_id: ViewID) -> Option<Vec<TaskID>> {
+        return self.view_map.get(&view_id).unwrap().tasks.clone();
     }
     /// modify a task using a given function
     pub fn modify_task(&mut self, task_id: TaskID, edit_fn: impl FnOnce(&mut Task)) {
@@ -192,7 +201,7 @@ impl State {
     }
     /// creates a task in the server, adds that task to the state task list and returns the ID in a result, or an error if the server could not perform the action.
     pub async fn create_task(
-        &self,
+        &mut self,
         task_to_be_created: Task,
     ) -> Result<CreateTaskResponse, reqwest::Error> {
         let create_task_request = CreateTaskRequest {
@@ -211,6 +220,14 @@ impl State {
             .unwrap()
             .json::<CreateTaskResponse>()
             .await;
+        let created_task_id = created_task_response.as_ref().unwrap().task_id;
+        let mut created_task = Task::new(
+            created_task_id,
+            create_task_request.name,
+            create_task_request.completed,
+        );
+        created_task.dependencies = create_task_request.dependencies;
+        self.task_map.insert(created_task.id, created_task);
         return created_task_response;
     }
 }

@@ -111,7 +111,7 @@ pub struct DeleteTaskRequest {
     pub req_id: u64,
 }
 /// response is empty
-pub type DeleteTaskResponse = u64;
+pub type DeleteTaskResponse = TaskID;
 /// reawest::delete("/tasks")
 pub type DeleteTasksRequest = Vec<DeleteTaskRequest>;
 /// response is empty
