@@ -78,7 +78,7 @@ impl App {
         term.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
         // wait for events
         while let Some(event) = events.next().await {
-            self.step(term, event?).await.unwrap()?;
+            self.step(term, event?).await?;
             // if we should exit, break loop
             if self.should_exit {
                 break;

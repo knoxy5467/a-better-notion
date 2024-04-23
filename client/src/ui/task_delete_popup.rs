@@ -44,12 +44,12 @@ impl TaskDeletePopup {
             .block(block)
             .render(popup_area, buf);
     }
-    pub fn handle_key_event(&mut self, state: &mut State, key_code: KeyCode) -> bool {
+    pub async fn handle_key_event(&mut self, state: &mut State, key_code: KeyCode) -> bool {
         match key_code {
             KeyCode::Esc => self.should_close = true,
             KeyCode::Char('n') => self.should_close = true,
             KeyCode::Char('y') => {
-                state.task_rm(self.task_id);
+                state.task_rm(self.task_id).await;
 
                 self.should_close = true;
             }
