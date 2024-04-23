@@ -78,7 +78,7 @@ impl App {
         term.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
         // wait for events
         while let Some(event) = events.next().await {
-            self.step(term, event?)?;
+            self.step(term, event?).await.unwrap()?;
             // if we should exit, break loop
             if self.should_exit {
                 break;
@@ -86,13 +86,13 @@ impl App {
         }
         Ok(())
     }
-    pub fn step<B: Backend>(
+    pub async fn step<B: Backend>(
         &mut self,
         term: &mut term::Tui<B>,
         event: Event,
     ) -> color_eyre::Result<()> {
         // if we determined that event should trigger redraw:
-        if self.handle_event(event) {
+        if self.handle_event(event).await {
             // draw frame
             term.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
         }
@@ -100,26 +100,26 @@ impl App {
     }
 
     /// updates the application's state based on user input
-    fn handle_event(&mut self, event: Event) -> bool {
+    async fn handle_event(&mut self, event: Event) -> bool {
         match event {
             // it's important to check that the event is a key press event as
             // crossterm also emits key release and repeat events on Windows.
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                self.handle_key_event(key_event)
+                self.handle_key_event(key_event).await
             }
             Event::Resize(_, _) => true,
             _ => false,
         }
     }
-    fn handle_key_event(&mut self, key_event: KeyEvent) -> bool {
+    async fn handle_key_event(&mut self, key_event: KeyEvent) -> bool {
         use KeyCode::*;
         // handle if in popup state
         if let Some(task_create_popup) = &mut self.task_create_popup {
             //TODO 23apr2024: this is a hacky way to handle async events in a sync function
             // this is some really janky async management that absolutly should be solved in another way
-            return tokio::task::block_in_place(|| {
-                task_create_popup.handle_key_event(&mut self.state, key_event.code)
-            });
+            return task_create_popup
+                .handle_key_event(&mut self.state, key_event.code)
+                .await;
         }
         if let Some(task_delete_popup) = &mut self.task_delete_popup {
             return task_delete_popup.handle_key_event(&mut self.state, key_event.code);
