@@ -72,7 +72,7 @@ impl App {
         mut events: impl Stream<Item = io::Result<Event>> + Unpin,
         mut state_events: impl Stream<Item = MidEvent> + Unpin,
     ) -> color_eyre::Result<()> {
-        self.task_list.current_view = self.state.view_get_default();
+        self.task_list.source_views_mod(&self.state, |s|s.extend(self.state.view_get_default()));
         // render initial frame
         term.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
         // wait for events
@@ -118,11 +118,13 @@ impl App {
                 _ => false,
             },
             UIEvent::StateEvent(state_event) => match state_event {
-                StateEvent::TaskUpdate(_) => todo!(),
-                StateEvent::PropUpdate(_) => todo!(),
-                StateEvent::ViewUpdate(_) => todo!(),
+                StateEvent::TasksUpdate => todo!(),
+                StateEvent::PropsUpdate => todo!(),
+                StateEvent::ViewsUpdate => {
+                    self.task_list.rebuild_list(&self.state); // rebuild list state when views update
+                    true
+                },
                 StateEvent::ScriptUpdate(_) => todo!(),
-                StateEvent::MultiState => true,
                 StateEvent::ServerStatus(_) => todo!(),
             },
         }
@@ -150,11 +152,8 @@ impl App {
             Char('h') => self.help_box_shown = !self.help_box_shown,
             Char('c') => self.task_popup = Some(TaskPopup::Create(Default::default())), // create task
             Char('d') => { // delete task
-                if let Some(key) = self.task_list.selected_task {
-                    match self.state.task_get(key) {
-                        Ok(task) => self.task_popup = Some(TaskPopup::Delete(key, task.name.clone())),
-                        Err(err) => self.report_error(err),
-                    }
+                if let Some((key, task)) = self.task_list.selected_task(&self.state) {
+                    self.task_popup = Some(TaskPopup::Delete(key, task.name.clone()));
                 }
             },
             /* Char('e') => {
@@ -162,19 +161,13 @@ impl App {
                     self.taks = Some(TaskEditPopup::new(Some(selection)));
                 }
             } */
-            Up => self.task_list.shift(&self.state, -1, false),
-            Down => self.task_list.shift(&self.state, 1, false),
+            Up => self.task_list.shift(-1, false),
+            Down => self.task_list.shift(1, false),
             Enter => {
-                if let Some(selection) = self.task_list.list_state.selected() {
-                    if let Some(tasks) = self
-                        .task_list
-                        .current_view
-                        .and_then(|vk| self.state.view_task_keys(vk))
-                    {
-                        if let Err(err) = self.state
-                            .task_mod(tasks[selection], |t| t.completed = !t.completed) {
-                                self.report_error(err);
-                            }
+                if let Some((selected_key, _)) = self.task_list.selected_task(&self.state) {
+                    let res = self.state.task_mod(selected_key, |t| t.completed = !t.completed);
+                    if let Err(err) = res {
+                        self.report_error(err);
                     }
                 }
             }
@@ -360,7 +353,7 @@ mod tests {
         // test task state
         let (state, _) = init_test();
         let (mut app, mut term) = create_render_test(state, 55, 5);
-        app.task_list.current_view = app.state.view_get_default(); // set the view key as is currently done in run()
+        app.task_list.source_views_mod(&app.state, |s|s.extend(app.state.view_get_default())); // set the view key as is currently done in run()
         println!("{:?}", app);
 
         app.step(&mut term, UserEvent(Event::Key(KeyCode::Down.into())))?;
@@ -434,7 +427,7 @@ mod tests {
         // test up and down in example mid state
         let (state, _) = init_test();
         app.state = state;
-        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
+        app.task_list.source_views_mod(&app.state, |s|s.push(app.state.view_get_default().unwrap()));
         app.handle_event(UserEvent(Event::Key(KeyCode::Up.into())));
 
         assert_eq!(app.task_list.list_state.selected(), Some(0));
@@ -479,7 +472,7 @@ mod tests {
         let mut app = App::new(State::new().0);
         let state = init_test().0;
         app.state = state;
-        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
+        app.task_list.source_views_mod(&app.state, |s|s.push(app.state.view_get_default().unwrap()));
 
         /* app.handle_event(UserEvent(Event::Key(KeyCode::Char('x').into())));
         assert!(app.task_popup.is_none());

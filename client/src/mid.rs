@@ -12,7 +12,7 @@ use reqwest_tracing::{SpanBackendWithUrl, TracingMiddleware};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use slotmap::{new_key_type, KeyData, SlotMap};
 use tokio::task::JoinHandle;
-use std::{collections::HashMap, fmt};
+use std::{collections::{HashMap, HashSet}, fmt};
 use thiserror::Error;
 
 new_key_type! { pub struct PropKey; }
@@ -54,7 +54,7 @@ pub struct View {
     /// Properties shown in view
     pub props: Vec<PropNameKey>,
     /// Tasks that are apart of the view, calculated on the backend via calls to /filterids
-    pub tasks: Option<Vec<TaskKey>>,
+    pub tasks: Option<HashSet<TaskKey>>,
     /// Computed task list for view
     pub db_id: Option<ViewID>,
 }
@@ -104,8 +104,9 @@ impl State {
     pub fn handle_mid_event(&mut self, event: MidEvent) -> color_eyre::Result<()> {
         match event {
             MidEvent::ServerResponse(Ok(resp)) => {
-                resp.update_state(self)?;
-                self.mid_event_sender.try_send(MidEvent::StateEvent(StateEvent::MultiState))?;
+                if let Some(event) = resp.update_state(self)? {
+                    self.mid_event_sender.try_send(MidEvent::StateEvent(event))?;
+                }
             },
             MidEvent::ServerResponse(Err(err)) => {Err(err)?},
             MidEvent::StateEvent(_) => panic!("middleware does not handle state events"),
@@ -134,29 +135,27 @@ enum ScriptEvent {
     RegisteredEvent(String),
 }
 
-/// Event sent to UI via channel to notify UI that some data has changed and the render should be updated.
+/// Event sent to UI via channel to notify UI that some data has changed and the render should be updated. (Note: These can and should be made more granular for better performance)
 #[derive(Debug)]
 pub enum StateEvent {
-    /// A task's core data was updated (not triggered for property updates)
-    TaskUpdate(TaskKey),
-    /// A property was updated
-    PropUpdate(PropKey),
-    /// A view configuration
-    ViewUpdate(ViewID),
+    /// A bunch of tasks were updated
+    TasksUpdate,
+    /// One or more properties were updated
+    PropsUpdate,
+    /// One or more views updated
+    ViewsUpdate,
     /// A script was updated
     ScriptUpdate(ScriptID),
-    /// Too much state has changed, UI should re-render everything.
-    MultiState,
     /// The connection has either connected or disconnected.
     ServerStatus(bool),
 }
 
 // data events received from server must implement this trait to be applied to middleware
 pub trait ServerResponse: fmt::Debug + Send + Sync + 'static {
-    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<()>;
+    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<Option<StateEvent>>;
 }
 impl ServerResponse for ReadTaskShortResponse {
-    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<()> {
+    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<Option<StateEvent>> {
         // create task from received info
         let mut task = Task {
             name: self.name,
@@ -169,12 +168,12 @@ impl ServerResponse for ReadTaskShortResponse {
         };
         // create/update existing task with read task
         *state.new_server_task(self.task_id).1 = task;
-        Ok(())
+        Ok(Some(StateEvent::TasksUpdate))
     }
 }
 // should only receive this if we already know the server has the task (i.e. sent CreateTaskResponse)
 impl ServerResponse for UpdateTaskResponse {
-    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<()> {
+    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<Option<StateEvent>> {
         let task_key = state.task_map.get(&self.task_id).with_context(||format!("cannot find locally stored task associated with DB id: {:?}", self.task_id))?;
         if let Some(task) = state.tasks.get_mut(*task_key) {
             task.db_id = Some(self.task_id);
@@ -182,19 +181,19 @@ impl ServerResponse for UpdateTaskResponse {
         } else {
             panic!("fatal: DB id {:?} was associated with task key {:?} but task didn't exist", self.task_id, task_key);
         }
-        Ok(())
+        Ok(Some(StateEvent::TasksUpdate))
     }
 }
 impl ServerResponse for CreateTaskResponse {
-    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<()> {
+    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<Option<StateEvent>> {
         let task_key = TaskKey(slotmap::KeyData::from_ffi(self.req_id));
         let task = state.tasks.get_mut(task_key).with_context(||format!("req_id received from CreateTaskResponse does not match a local task key: {task_key:?}"))?;
         task.db_id = Some(self.task_id);
-        Ok(())
+        Ok(Some(StateEvent::TasksUpdate))
     }
 }
 impl ServerResponse for DeleteTaskResponse {
-    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<()> {
+    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<Option<StateEvent>> {
         // get task key from response (should have been sent with request)
         let task_key = TaskKey(slotmap::KeyData::from_ffi(*self));
         // remove task key
@@ -202,37 +201,37 @@ impl ServerResponse for DeleteTaskResponse {
         if let Some(db_id) = task.db_id { // if we have a local db_id, remove it from the map
             state.task_map.remove(&db_id);
         }
-        Ok(())
+        Ok(Some(StateEvent::TasksUpdate))
     }
 }
 
 impl ServerResponse for ReadTasksShortResponse {
-    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<()> {
+    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<Option<StateEvent>> {
         for res in *self {
             if let Ok(res) = res {
                 Box::new(res).update_state(state);
             }   
         }
-        Ok(())
+        Ok(Some(StateEvent::TasksUpdate))
     }
 }
 impl ServerResponse for FilterResponse {
-    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<()> {
+    fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<Option<StateEvent>> {
         let tasks = self.tasks.into_iter().map(|tid|state.new_server_task(tid).0).collect::<Vec<TaskKey>>();
         let view_key = ViewKey(KeyData::from_ffi(self.req_id));
         let view = state.views.get_mut(view_key).with_context(||format!("request id corresponding to view key: {:?} sent back was invalid", view_key))?; // TODO add context
-        view.tasks = Some(tasks);
+        view.tasks = Some(HashSet::from_iter(tasks.into_iter()));
 
         let view_tasks = state.view_task_keys(view_key).unwrap();
-        let tasks_to_fetch = view_tasks.iter()
-            .filter_map(|tkey|state.tasks.get(*tkey)
+        let tasks_to_fetch = view_tasks
+            .filter_map(|tkey|state.tasks.get(tkey)
             .map(|t|if !t.is_syncronized {t.db_id} else {None}).flatten())
             .map(|task_id|ReadTaskShortRequest { task_id, req_id: 0 }).collect::<Vec<ReadTaskShortRequest>>();
         tracing::debug!("fetching tasks: {:?}", tasks_to_fetch);
         if !tasks_to_fetch.is_empty() {
             state.spawn_request::<ReadTasksShortRequest, ReadTasksShortResponse>(state.client.get(format!("{}/tasks", state.url)), tasks_to_fetch);
         }
-        Ok(())
+        Ok(Some(StateEvent::TasksUpdate))
     }
 }
 
@@ -485,17 +484,17 @@ impl State {
         self.views.keys().next()
     }
     /// shorthand function to get the list of tasks associated with a view (some keys may be invalid)
-    pub fn view_task_keys(&self, view_key: ViewKey) -> Option<&[TaskKey]> {
+    pub fn view_task_keys<'a>(&'a self, view_key: ViewKey) -> Option<impl Iterator<Item = TaskKey> + Clone + 'a> {
         self.view_get(view_key).ok()
             .and_then(|v| v.tasks.as_ref())
-            .map(|v| v.as_slice())
+            .map(|v| v.iter().cloned())
     }
     /// get an iterator of only valid tasks and their keys
-    pub fn view_tasks(&self, view_key: ViewKey) -> Option<impl DoubleEndedIterator<Item = (TaskKey, &Task)> + Clone> {
+    pub fn view_tasks(&self, view_key: ViewKey) -> Option<impl Iterator<Item = (TaskKey, &Task)> + Clone> {
         self.view_task_keys(view_key)
-            .map(|tks|tks.iter()
+            .map(|tks|tks
                 .flat_map(|key|
-                    self.task_get(*key).ok().map(|t|(*key, t))
+                    self.task_get(key).ok().map(|t|(key, t))
                     ))
     }
     /// modify a view
@@ -558,7 +557,7 @@ pub async fn init(url: &str) -> color_eyre::Result<(State, Receiver<MidEvent>)> 
 
     let view_key = state.view_def(View {
         name: "Main View".to_string(),
-        tasks: Some(state.tasks.keys().collect::<Vec<TaskKey>>()),
+        tasks: Some(state.tasks.keys().collect::<HashSet<TaskKey>>()),
         ..View::default()
     });
     // request all tasks using a "None" filter into the default "Main View"
@@ -585,7 +584,7 @@ pub fn init_test() -> (State, Receiver<MidEvent>) {
         name: "Main View".to_string(),
         ..View::default()
     });
-    state.view_mod(view_key, |v| v.tasks = Some(vec![task1, task2]));
+    state.view_mod(view_key, |v| v.tasks = Some([task1, task2].into_iter().collect::<HashSet<TaskKey>>()));
     (state, receiver)
 }
 
@@ -714,7 +713,8 @@ mod tests {
         assert_eq!(view.name, "Main View");
         assert_eq!(view_key, state.view_get_default().unwrap());
 
-        let tasks = view.tasks.as_ref().unwrap().clone();
+        let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
+        tasks.sort(); // make keys are in sorted order
         // test task_mod
         state.task_mod(tasks[0], |t| "Eat Dinner".clone_into(&mut t.name));
         assert_eq!(state.task_get(tasks[0]).unwrap().name, "Eat Dinner");

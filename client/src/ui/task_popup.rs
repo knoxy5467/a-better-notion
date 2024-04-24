@@ -79,9 +79,9 @@ impl TaskPopup {
                 KeyCode::Backspace => {name.pop();},
                 KeyCode::Enter => {
                     let task_key = state.task_def(Task::new(name.clone(), false));
-                    state.view_mod(state.view_get_default().unwrap(), |v| {
-                        v.tasks.as_mut().unwrap().push(task_key)
-                    });
+                    /* state.view_mod(state.view_get_default().unwrap(), |v| {
+                        v.tasks.as_mut().unwrap().insert(task_key);
+                    }); */
                     return Err(None);
                 }
                 _ => return Ok(false),
