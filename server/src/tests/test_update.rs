@@ -218,7 +218,9 @@ async fn update_prop_num() {
             checked: None,
             props_to_add: vec![TaskProp {
                 name: "dog".to_string(),
-                value: TaskPropVariant::Number(2.0),
+                value: TaskPropVariant::Number(
+                    rust_decimal::Decimal::from_f64_retain(2.0).unwrap(),
+                ),
             }],
             props_to_remove: vec![],
             deps_to_add: vec![],
@@ -256,7 +258,9 @@ async fn create_prop_num() {
             checked: None,
             props_to_add: vec![TaskProp {
                 name: "dog".to_string(),
-                value: TaskPropVariant::Number(1.0),
+                value: TaskPropVariant::Number(
+                    rust_decimal::Decimal::from_f64_retain(1.0).unwrap(),
+                ),
             }],
             props_to_remove: vec![],
             deps_to_add: vec![],

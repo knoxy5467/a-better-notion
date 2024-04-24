@@ -51,7 +51,7 @@ async fn get_number() {
 
     let res = get_property_or_err(&db, &"name".to_string(), 1).await;
     assert!(res.is_ok());
-    assert_eq!(res.unwrap(), Some(TaskPropVariant::Number(1.0)));
+    assert_eq!(res.unwrap(), Some(TaskPropVariant::Number(rust_decimal::Decimal::from_f64(1.0).unwrap()));
 }
 #[actix_web::test]
 async fn get_date() {
