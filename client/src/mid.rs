@@ -231,7 +231,7 @@ impl ServerResponse for FilterResponse {
         if !tasks_to_fetch.is_empty() {
             state.spawn_request::<ReadTasksShortRequest, ReadTasksShortResponse>(state.client.get(format!("{}/tasks", state.url)), tasks_to_fetch);
         }
-        Ok(Some(StateEvent::TasksUpdate))
+        Ok(Some(StateEvent::ViewsUpdate))
     }
 }
 

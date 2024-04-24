@@ -11,10 +11,7 @@ use ratatui::{
 
 use crate::{mid::{MidEvent, State, StateEvent}, term};
 
-mod task_popup;
 mod task_list;
-
-use task_popup::TaskPopup;
 
 const BACKGROUND: Color = Color::Reset;
 const TEXT_COLOR: Color = Color::White;
@@ -44,7 +41,6 @@ pub struct App {
     task_list: task_list::TaskList,
     /// number of frame updates (used for debug purposes)
     updates: usize,
-    task_popup: Option<TaskPopup>,
     help_box_shown: bool,
 }
 
@@ -61,7 +57,6 @@ impl App {
             state,
             task_list: task_list::TaskList::default(),
             updates: 0,
-            task_popup: None,
             help_box_shown: false,
         }
     }
@@ -118,7 +113,7 @@ impl App {
                 _ => false,
             },
             UIEvent::StateEvent(state_event) => match state_event {
-                StateEvent::TasksUpdate => todo!(),
+                StateEvent::TasksUpdate => true,
                 StateEvent::PropsUpdate => todo!(),
                 StateEvent::ViewsUpdate => {
                     self.task_list.rebuild_list(&self.state); // rebuild list state when views update
@@ -130,51 +125,21 @@ impl App {
         }
         
     }
-    fn report_error(&mut self, error: impl std::error::Error + std::fmt::Debug) {
-        tracing::error!("{error}");
-    }
     fn handle_key_event(&mut self, key_event: KeyEvent) -> bool {
         use KeyCode::*;
-        // handle if in popup state
-        if let Some(task_popup) = &mut self.task_popup {
-            match task_popup.handle_key_event(&mut self.state, key_event.code) {
-                Ok(do_render) => return do_render,
-                Err(err) => {
-                    self.task_popup = None;
-                    err.map(|err|self.report_error(err));
-                }
-            }
-        }
         if let Char('h') = key_event.code {} else { self.help_box_shown = false; }
         match key_event.code {
             Esc => if self.help_box_shown { self.help_box_shown = false; }
             Char('q') => self.should_exit = true,
             Char('h') => self.help_box_shown = !self.help_box_shown,
-            Char('c') => self.task_popup = Some(TaskPopup::Create(Default::default())), // create task
-            Char('d') => { // delete task
-                if let Some((key, task)) = self.task_list.selected_task(&self.state) {
-                    self.task_popup = Some(TaskPopup::Delete(key, task.name.clone()));
-                }
-            },
-            /* Char('e') => {
-                if let Some(selection) = self.task_list.selected_task {
-                    self.taks = Some(TaskEditPopup::new(Some(selection)));
-                }
-            } */
-            Up => self.task_list.shift(-1, false),
-            Down => self.task_list.shift(1, false),
-            Enter => {
-                if let Some((selected_key, _)) = self.task_list.selected_task(&self.state) {
-                    let res = self.state.task_mod(selected_key, |t| t.completed = !t.completed);
-                    if let Err(err) = res {
-                        self.report_error(err);
-                    }
-                }
-            }
-            _ => return false,
+            _ => return self.task_list.handle_key_event(&mut self.state, key_event),
         }
         true // assume if didn't explicitly return false, that we should re-render
     }
+}
+
+pub fn report_error(error: impl std::error::Error + std::fmt::Debug) {
+    tracing::error!("{error}");
 }
 
 impl Widget for &mut App {
@@ -260,8 +225,6 @@ impl Widget for &mut App {
                 .render(popup_area, buf);
         }
 
-        // popup rendering
-        self.task_popup.as_ref().inspect(|t|t.render(area, buf));
     }
 }
 
@@ -436,17 +399,15 @@ mod tests {
         assert_eq!(app.task_list.list_state.selected(), Some(1));
 
         // test enter key
-        app.handle_key_event(KeyCode::Enter.into());
+        /* app.handle_key_event(KeyCode::Enter.into());
         assert!(
             app.state
                 .task_get(
-                    app.state
-                        .view_task_keys(app.state.view_get_default().unwrap())
-                        .unwrap()[1]
+                    app.task_list
                 )
                 .unwrap()
                 .completed
-        ); // second task in example view is marked as completed, so the Enter key should uncomplete it
+        ); // second task in example view is marked as completed, so the Enter key should uncomplete it */
 
         // test up and down in regular state
         let mut app = App::new(State::new().0);

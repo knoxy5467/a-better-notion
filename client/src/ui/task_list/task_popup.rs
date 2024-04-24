@@ -4,7 +4,7 @@ use ratatui::{
 };
 use thiserror::Error;
 
-use crate::mid::{NoTaskError, NoViewError, State, Task, TaskKey};
+use crate::mid::{NoTaskError, State, Task, TaskKey};
 
 #[derive(Debug)]
 pub enum TaskPopup {
@@ -16,8 +16,8 @@ pub enum TaskPopup {
 pub enum CloseError {
     #[error(transparent)]
     NoTask(#[from] NoTaskError),
-    #[error(transparent)]
-    NoView(#[from] NoViewError),
+    #[error("should handle to make sure task exists in shown tasks")]
+    AddTask(TaskKey),
 }
 
 impl TaskPopup {
@@ -69,9 +69,10 @@ impl TaskPopup {
         // create paragraph containing current string state inside `block` & render
         
     }
+    
     /// returns Ok with boolean notifying calling event handler whether to trigger re-render.
     /// returns Err with optional error if popup should be closed
-    pub fn handle_key_event(&mut self, state: &mut State, key_code: KeyCode) -> Result<bool, Option<NoTaskError>> {
+    pub fn handle_key_event(&mut self, state: &mut State, key_code: KeyCode) -> Result<bool, Option<CloseError>> {
         if let KeyCode::Esc = key_code { return Err(None) }
         match self {
             Self::Create(name) => match key_code {
@@ -79,17 +80,14 @@ impl TaskPopup {
                 KeyCode::Backspace => {name.pop();},
                 KeyCode::Enter => {
                     let task_key = state.task_def(Task::new(name.clone(), false));
-                    /* state.view_mod(state.view_get_default().unwrap(), |v| {
-                        v.tasks.as_mut().unwrap().insert(task_key);
-                    }); */
-                    return Err(None);
+                    return Err(Some(CloseError::AddTask(task_key)));
                 }
                 _ => return Ok(false),
             },
             Self::Delete(key, _) => match key_code {
                 KeyCode::Char('n') => return Err(None),
                 KeyCode::Char('y') => {
-                    return Err(state.task_rm(*key).err())
+                    return Err(state.task_rm(*key).err().map(Into::into))
                 }
                 _ => return Ok(false),
             },
