@@ -96,7 +96,7 @@ pub struct UpdateTaskResponse {
     /// id of task
     pub task_id: TaskID,
     /// id of request
-    pub req_id: u64,
+    pub req_id: i32,
 }
 /// reqwest::put("/tasks")
 pub type UpdateTasksRequest = Vec<UpdateTaskRequest>;
