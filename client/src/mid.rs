@@ -347,15 +347,21 @@ pub async fn init(url: &str) -> color_eyre::Result<State> {
 }
 pub fn init_test() -> State {
     let mut state = State::default();
-    let task1 = state.create_task(Task {
-        name: "Eat Lunch".to_owned(),
-        completed: true,
-        ..Default::default()
-    });
-    let task2 = state.create_task(Task {
-        name: "Finish ABN".to_owned(),
-        ..Default::default()
-    });
+    let task1 = state
+        .create_task(Task {
+            name: "Eat Lunch".to_owned(),
+            completed: true,
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+    let task2 = state
+        .create_task(Task {
+            name: "Finish ABN".to_owned(),
+            ..Default::default()
+        })
+        .await
+        .unwrap();
     let view_key = state.add_view(View {
         db_id: -1, // default view should always be -1 id
         name: "Main View".to_string(),
