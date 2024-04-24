@@ -392,7 +392,7 @@ async fn delete_tasks_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<DeleteTasksRequest>,
 ) -> Result<web::Json<DeleteTasksResponse>> {
-    let mut res: Vec<u64> = vec![];
+    let mut res: Vec<i32> = vec![];
     for task in req.iter() {
         delete_task(&data, task).await?;
         res.push(task.req_id);

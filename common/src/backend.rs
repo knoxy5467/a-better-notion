@@ -50,7 +50,7 @@ pub struct CreateTaskRequest {
     /// [name, date, value]
     pub dependencies: Vec<TaskID>,
     /// id of request
-    pub req_id: u64,
+    pub req_id: i32,
 }
 /// response to POST /task contains the ID of the created task.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -115,7 +115,7 @@ pub type DeleteTaskResponse = TaskID;
 /// reawest::delete("/tasks")
 pub type DeleteTasksRequest = Vec<DeleteTaskRequest>;
 /// response is empty
-pub type DeleteTasksResponse = Vec<u64>;
+pub type DeleteTasksResponse = Vec<i32>;
 
 /// # PROPERTIES API
 
