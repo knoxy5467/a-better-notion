@@ -362,11 +362,12 @@ pub fn init_test() -> State {
         })
         .await
         .unwrap();
-    let view_key = state.add_view(View {
+    state.add_view(View {
         db_id: -1, // default view should always be -1 id
         name: "Main View".to_string(),
         ..View::default()
     });
+    let view_key = -1;
     state.modify_view(view_key, |v| v.tasks = Some(vec![task1, task2]));
     state
 }
