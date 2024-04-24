@@ -241,7 +241,7 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
                 task_num_property::Entity::insert(task_num_property::ActiveModel {
                     task_id: Set(req.task_id),
                     name: Set(prop.name.to_owned()),
-                    value: Set(Decimal::from_f64(*val).unwrap()),
+                    value: Set(val.clone()),
                 })
                 .exec(db)
                 .await
@@ -465,7 +465,8 @@ async fn get_property_or_err(
                 .await
                 .map_err(|_| ())?
                 .ok_or(())?
-                .value,
+                .value
+                .clone(),
         ),
         "date" => TaskPropVariant::Date(
             task_date_property::Entity::find()
