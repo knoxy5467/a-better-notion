@@ -91,10 +91,12 @@ impl TaskEditPopup {
                 //TODO 23apr2024 we need to make this also edit the task on the back end.
                 if self.editing_mode {
                     if let Some(selection) = self.selection {
-                        state.modify_task(selection, |task| {
-                            // task.name = self.name.clone();
-                            task.name.clone_from(&self.name).await;
-                        });
+                        state
+                            .modify_task(selection, |task| {
+                                // task.name = self.name.clone();
+                                task.name.clone_from(&self.name);
+                            })
+                            .await;
                         self.should_close = true;
                     }
                 }

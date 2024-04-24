@@ -78,7 +78,7 @@ pub struct UpdateTaskRequest {
     /// props to add
     pub props_to_add: Vec<TaskProp>,
     /// props to remove
-    pub props_to_remove: Vec<String>,
+    pub props_to_remove: Vec<TaskProp>,
     /// deps to add
     pub deps_to_add: Vec<TaskID>,
     /// deps to remove

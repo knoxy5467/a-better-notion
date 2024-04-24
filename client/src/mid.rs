@@ -24,7 +24,7 @@ use thiserror::Error;
 use tokio::task::JoinHandle;
 
 /// All data associated with tasks, except for properties
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Task {
     /// if it is stored in the database, it will have a unique task_id.
     pub id: TaskID,
@@ -63,7 +63,7 @@ impl Task {
 }
 
 /// Middleware stored View
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct View {
     /// Database ID of the view
     pub db_id: ViewID,
@@ -201,8 +201,9 @@ impl State {
         if let Some(task) = self.task_map.get_mut(&task_id) {
             edit_fn(task)
         }
+        let req_id = self.increment_and_get_request_count();
         let after_task = self.task_map.get_mut(&task_id).unwrap();
-        if before_task != after_task {
+        if before_task != *after_task {
             let url = &self.url;
             let before_deps_set = before_task
                 .dependencies
@@ -215,10 +216,12 @@ impl State {
             let deps_to_add = after_deps_set
                 .difference(&before_deps_set)
                 .cloned()
+                .map(|dep| dep.clone())
                 .collect::<Vec<_>>();
             let deps_to_remove = before_deps_set
                 .difference(&after_deps_set)
                 .cloned()
+                .map(|dep| dep.clone())
                 .collect::<Vec<_>>();
             let before_props_set = before_task
                 .properties
@@ -231,10 +234,12 @@ impl State {
             let props_to_add = after_props_set
                 .difference(&before_props_set)
                 .cloned()
+                .map(|prop| prop.clone())
                 .collect::<Vec<_>>();
             let props_to_remove = before_props_set
                 .difference(&after_props_set)
                 .cloned()
+                .map(|prop| prop.clone())
                 .collect::<Vec<_>>();
             let before_scripts_set = before_task
                 .scripts
@@ -247,16 +252,18 @@ impl State {
             let scripts_to_add = after_scripts_set
                 .difference(&before_scripts_set)
                 .cloned()
+                .map(|script| script.clone())
                 .collect::<Vec<_>>();
             let scripts_to_remove = before_scripts_set
                 .difference(&after_scripts_set)
                 .cloned()
+                .map(|script| script.clone())
                 .collect::<Vec<_>>();
             let update_task_request = UpdateTaskRequest {
                 task_id: task_id,
                 checked: Some(after_task.completed.clone().to_owned()),
                 name: Some(after_task.name.clone().to_owned()),
-                req_id: self.increment_and_get_request_count(),
+                req_id: req_id,
                 props_to_add: props_to_add,
                 props_to_remove: props_to_remove,
                 deps_to_add: deps_to_add,

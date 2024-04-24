@@ -59,7 +59,7 @@ pub struct Script {
 }
 
 /// Types of Comparators for filters
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub enum Comparator {
     /// Less than
     LT,
@@ -82,7 +82,7 @@ pub enum Comparator {
 }
 
 /// Operator that combines multiple Filters
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub enum Operator {
     /// AND operator, takes the intersection of the results of a set of filters.
     AND,
@@ -124,7 +124,7 @@ pub struct TaskProp {
 }
 
 /// Represents a filter on tasks using their properties that the database computes.
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub enum Filter {
     /// Filter leaf, represents a comparator that filters properties
     Leaf {
