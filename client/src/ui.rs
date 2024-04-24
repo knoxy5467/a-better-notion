@@ -391,8 +391,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn handle_key_event() -> color_eyre::Result<()> {
+    #[tokio::test]
+    async fn handle_key_event() -> color_eyre::Result<()> {
         let mut app = App::new(State::default());
         // test up and down in example mid state
         let state = init_test();
