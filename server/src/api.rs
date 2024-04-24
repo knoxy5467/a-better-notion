@@ -4,8 +4,7 @@ use actix_web::error::{ErrorInternalServerError, ErrorNotFound};
 use actix_web::{delete, get, post, put, web, Responder, Result};
 use common::{backend::*, TaskID, TaskPropVariant};
 use log::info;
-use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
-use sea_orm::Unset;
+use rust_decimal::prelude::FromPrimitive;
 use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Condition, IntoActiveModel, Set};
 // get /task endpoint for retrieving a single TaskShort
 #[get("/task")]
