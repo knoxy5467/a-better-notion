@@ -37,3 +37,4 @@ opt-level = 3
 
 [dev-dependencies]
 mockito = "1.4.0"
+httpmock = "0.7.0"
