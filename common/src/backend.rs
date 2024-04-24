@@ -103,7 +103,7 @@ pub type UpdateTasksRequest = Vec<UpdateTaskRequest>;
 /// response is just taskids
 pub type UpdateTasksResponse = Vec<UpdateTaskResponse>;
 /// reqwest::delete("/task")
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize,Debug)]
 pub struct DeleteTaskRequest {
     /// id to delete
     pub task_id: TaskID,

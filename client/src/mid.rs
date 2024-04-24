@@ -233,7 +233,7 @@ impl State {
 }
 pub fn init(url: &str) -> color_eyre::Result<State> {
     let mut state = State::new(url.to_string());
-    state.get_beginning_tasks();
+    state.get_beginning_tasks().await;
     let default_view = View {
         db_id: -1,
         name: "Default".to_string(),

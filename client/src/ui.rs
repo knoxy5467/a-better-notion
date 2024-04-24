@@ -163,7 +163,7 @@ impl App {
         true // assume if didn't explicitly return false, that we should re-render
     }
 }
-
+///TODO 23apr2024: need an error frame, should modify the updates frame so that error messages can be written to it for the user
 impl Widget for &mut App {
     fn render(self, area: Rect, buf: &mut Buffer) {
         self.updates += 1; // record render count

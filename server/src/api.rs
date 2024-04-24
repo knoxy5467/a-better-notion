@@ -5,6 +5,7 @@ use actix_web::{delete, get, post, put, web, Responder, Result};
 use common::{backend::*, TaskID, TaskPropVariant};
 use log::info;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
+use sea_orm::Unset;
 use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Condition, IntoActiveModel, Set};
 // get /task endpoint for retrieving a single TaskShort
 #[get("/task")]
@@ -71,11 +72,11 @@ async fn create_task(db: &DatabaseConnection, req: &CreateTaskRequest) -> Result
         completed: Set(req.completed),
         last_edited: Set(chrono::Local::now().naive_local()),
     };
-    let result_task = task::Entity::insert(task_model)
-        .exec(db)
+    let result_task = task_model
+        .insert(db)
         .await
         .map_err(|e| ErrorInternalServerError(format!("task not inserted: {}", e)))?; //TODO handle this error better, for example for unique constraint violation
-    Ok(result_task.last_insert_id)
+    Ok(result_task.id)
 }
 
 #[post("/task")]
@@ -385,6 +386,7 @@ async fn delete_task_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<DeleteTaskRequest>,
 ) -> Result<web::Json<DeleteTaskResponse>> {
+    info!("delete_task_request: {:?}", req);
     delete_task(&data, &req).await
 }
 #[delete("/tasks")]
@@ -409,11 +411,13 @@ async fn get_filter_request(
 ) -> Result<impl Responder> {
     //TODO: construct filter
 
+    info!("req: {:?}", req);
     let tasks: Vec<task::Model> = task::Entity::find()
         .all(data.as_ref())
         .await
         .map_err(|e| ErrorInternalServerError(format!("couldn't filter tasks: {}", e)))?;
 
+    info!("returning tasks: {:?}", tasks);
     Ok(web::Json(
         tasks.iter().map(|a| a.id).collect::<FilterResponse>(),
     ))
