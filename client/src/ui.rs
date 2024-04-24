@@ -487,17 +487,17 @@ mod tests {
         app.handle_event(Event::Key(KeyCode::Enter.into()));
         let task_keys = app
             .state
-            .view_tasks(app.state.view_get_default().unwrap())
+            .view_tasks(app.state.get_default_view().unwrap())
             .unwrap();
         let updated_task_key = task_keys[0];
-        let updated_task = app.state.task_get(updated_task_key).unwrap();
+        let updated_task = app.state.get_task(updated_task_key).unwrap();
         assert_eq!(updated_task.name, "hi");
 
         // Press esc to cancel editing
         let mut app = App::new(State::default());
         let state = init_test();
         app.state = state;
-        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
+        app.task_list.current_view = Some(app.state.get_default_view().unwrap());
 
         app.handle_event(Event::Key(KeyCode::Up.into()));
         app.handle_event(Event::Key(KeyCode::Char('x').into()));
@@ -511,7 +511,7 @@ mod tests {
         let mut app = App::new(State::default());
         let state = init_test();
         app.state = state;
-        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
+        app.task_list.current_view = Some(app.state.get_default_view().unwrap());
 
         app.handle_event(Event::Key(KeyCode::Up.into()));
         app.handle_event(Event::Key(KeyCode::Char('x').into()));
@@ -520,10 +520,11 @@ mod tests {
         assert!(!app.task_edit_popup.unwrap().should_close);
 
         //
-        let mut app = App::new(State::default());
         let state = init_test();
+        let app_state = init_test();
+        let mut app = App::new(app_state);
         app.state = state;
-        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
+        app.task_list.current_view = Some(app.state.get_default_view().unwrap());
 
         app.handle_event(Event::Key(KeyCode::Up.into()));
         app.handle_event(Event::Key(KeyCode::Char('x').into()));
@@ -533,10 +534,10 @@ mod tests {
         app.handle_event(Event::Key(KeyCode::Enter.into()));
         let task_keys = app
             .state
-            .view_tasks(app.state.view_get_default().unwrap())
+            .view_tasks(app.state.get_default_view().unwrap())
             .unwrap();
         let updated_task_key = task_keys[0];
-        let updated_task = app.state.task_get(updated_task_key).unwrap();
+        let updated_task = app.state.get_task(updated_task_key).unwrap();
         assert!(app.task_edit_popup.is_some());
         assert_eq!(updated_task.name, "no");
         assert!(app.task_edit_popup.unwrap().should_close);
