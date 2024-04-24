@@ -519,7 +519,7 @@ mod tests {
         app.state = state;
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
-        app.handle_event(Event::Key(KeyCode::Up.into()));
+        app.handle_event(Event::Key(KeyCode::Up.into())).await;
         app.handle_event(Event::Key(KeyCode::Char('x').into()))
             .await;
         app.handle_event(Event::Key(KeyCode::Char('y').into()))
