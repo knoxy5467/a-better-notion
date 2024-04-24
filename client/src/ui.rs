@@ -394,12 +394,16 @@ mod tests {
     ///TODO 24apr2024: need to split this test to smaller tests
     #[tokio::test]
     async fn handle_key_event() -> color_eyre::Result<()> {
+        todo!("need to split this test to smaller tests")
+        todo!("need to use http mock to properly test that the calls are being made as expected")
         let mut app = App::new(State::default());
         // test up and down in example mid state
         let state = init_test().await;
         app.state = state;
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
         app.handle_event(Event::Key(KeyCode::Up.into())).await;
+
+
 
         assert_eq!(app.task_list.list_state.selected(), Some(0));
 
