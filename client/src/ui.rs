@@ -318,7 +318,8 @@ mod tests {
         app.task_list.current_view = app.state.view_get_default(); // set the view key as is currently done in run()
         println!("{:?}", app);
 
-        app.step(&mut term, Event::Key(KeyCode::Down.into()))?;
+        app.step(&mut term, Event::Key(KeyCode::Down.into()))
+            .await?;
         println!("{:#?}", app);
         reset_buffer_style(&mut term);
         let expected = Buffer::with_lines(vec![
@@ -332,7 +333,7 @@ mod tests {
 
         // resize
         term.backend_mut().resize(55, 8);
-        app.step(&mut term, Event::Resize(55, 88))?;
+        app.step(&mut term, Event::Resize(55, 88)).await?;
         reset_buffer_style(&mut term);
         let expected = Buffer::with_lines(vec![
             "╭────────────────── Task Management ──────────────────╮",
@@ -347,11 +348,16 @@ mod tests {
         term.backend().assert_buffer(&expected);
 
         // test task creation
-        app.step(&mut term, Event::Key(KeyCode::Char('e').into()))?;
-        app.step(&mut term, Event::Key(KeyCode::Char('h').into()))?;
-        app.step(&mut term, Event::Key(KeyCode::Char('i').into()))?;
-        app.step(&mut term, Event::Key(KeyCode::Char('!').into()))?;
-        app.step(&mut term, Event::Key(KeyCode::Backspace.into()))?;
+        app.step(&mut term, Event::Key(KeyCode::Char('e').into()))
+            .await?;
+        app.step(&mut term, Event::Key(KeyCode::Char('h').into()))
+            .await?;
+        app.step(&mut term, Event::Key(KeyCode::Char('i').into()))
+            .await?;
+        app.step(&mut term, Event::Key(KeyCode::Char('!').into()))
+            .await?;
+        app.step(&mut term, Event::Key(KeyCode::Backspace.into()))
+            .await?;
         reset_buffer_style(&mut term);
         let expected = Buffer::with_lines(vec![
             "╭────────────────── Task Management ──────────────────╮",
@@ -365,9 +371,11 @@ mod tests {
         ]);
         term.backend().assert_buffer(&expected);
 
-        app.step(&mut term, Event::Key(KeyCode::Enter.into()))?;
-        app.step(&mut term, Event::Key(KeyCode::Char('e').into()))?;
-        app.step(&mut term, Event::Key(KeyCode::Esc.into()))?;
+        app.step(&mut term, Event::Key(KeyCode::Enter.into()))
+            .await?;
+        app.step(&mut term, Event::Key(KeyCode::Char('e').into()))
+            .await?;
+        app.step(&mut term, Event::Key(KeyCode::Esc.into())).await?;
         reset_buffer_style(&mut term);
         let expected = Buffer::with_lines(vec![
             "╭────────────────── Task Management ──────────────────╮",
