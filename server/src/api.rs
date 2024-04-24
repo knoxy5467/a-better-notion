@@ -455,20 +455,17 @@ async fn get_property_or_err(
                 .value,
         ),
         "number" => TaskPropVariant::Number(
-            Decimal::to_f64(
-                &task_num_property::Entity::find()
-                    .filter(
-                        Condition::all()
-                            .add(task_num_property::Column::TaskId.eq(task_id))
-                            .add(task_num_property::Column::Name.eq(prop)),
-                    )
-                    .one(db)
-                    .await
-                    .map_err(|_| ())?
-                    .ok_or(())?
-                    .value,
-            )
-            .unwrap(),
+            &task_num_property::Entity::find()
+                .filter(
+                    Condition::all()
+                        .add(task_num_property::Column::TaskId.eq(task_id))
+                        .add(task_num_property::Column::Name.eq(prop)),
+                )
+                .one(db)
+                .await
+                .map_err(|_| ())?
+                .ok_or(())?
+                .value,
         ),
         "date" => TaskPropVariant::Date(
             task_date_property::Entity::find()
