@@ -315,7 +315,7 @@ mod tests {
 
         // test task state
         let (mut app, mut term) = create_render_test(init_test(), 55, 5);
-        app.task_list.current_view = app.state.view_get_default(); // set the view key as is currently done in run()
+        app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id); // set the view key as is currently done in run()
         println!("{:?}", app);
 
         app.step(&mut term, Event::Key(KeyCode::Down.into()))
