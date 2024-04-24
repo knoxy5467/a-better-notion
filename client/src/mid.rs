@@ -345,7 +345,7 @@ pub async fn init(url: &str) -> color_eyre::Result<State> {
     state.add_view(default_view);
     Ok(state)
 }
-pub fn init_test() -> State {
+pub async fn init_test() -> State {
     let mut state = State::default();
     let task1 = state
         .create_task(Task {

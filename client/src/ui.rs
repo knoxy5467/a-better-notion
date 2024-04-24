@@ -244,7 +244,7 @@ mod tests {
         let backend = TestBackend::new(55, 5);
         let (mut sender, events) = futures::channel::mpsc::channel(10);
 
-        let join = tokio::spawn(run(backend, init_test(), events));
+        let join = tokio::spawn(run(backend, init_test().await, events));
 
         // test regular event
         sender
@@ -267,7 +267,7 @@ mod tests {
 
         let backend = TestBackend::new(55, 5);
         let (mut sender, events) = futures::channel::mpsc::channel(10);
-        let join = tokio::spawn(run(backend, init_test(), events));
+        let join = tokio::spawn(run(backend, init_test().await, events));
         // test resize app
         sender.send(Ok(Event::Resize(0, 0))).await.unwrap();
         tokio::time::sleep(Duration::from_millis(50)).await;
@@ -314,7 +314,7 @@ mod tests {
         term.backend_mut().assert_buffer(&expected);
 
         // test task state
-        let (mut app, mut term) = create_render_test(init_test(), 55, 5);
+        let (mut app, mut term) = create_render_test(init_test().await, 55, 5);
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id); // set the view key as is currently done in run()
         println!("{:?}", app);
 
@@ -396,7 +396,7 @@ mod tests {
     async fn handle_key_event() -> color_eyre::Result<()> {
         let mut app = App::new(State::default());
         // test up and down in example mid state
-        let state = init_test();
+        let state = init_test().await;
         app.state = state;
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
         app.handle_event(Event::Key(KeyCode::Up.into())).await;
@@ -442,7 +442,7 @@ mod tests {
 
         // Test Edit
         let mut app = App::new(State::default());
-        let state = init_test();
+        let state = init_test().await;
         app.state = state;
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
@@ -463,7 +463,7 @@ mod tests {
 
         // Cancel Editing
         let mut app = App::new(State::default());
-        let state = init_test();
+        let state = init_test().await;
         app.state = state;
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
@@ -477,7 +477,7 @@ mod tests {
 
         // Confirm Editing
         let mut app = App::new(State::default());
-        let state = init_test();
+        let state = init_test().await;
         app.state = state;
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
@@ -491,7 +491,7 @@ mod tests {
 
         // Edit current task name
         let mut app = App::new(State::default());
-        let state = init_test();
+        let state = init_test().await;
         app.state = state;
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
@@ -515,7 +515,7 @@ mod tests {
 
         // Press esc to cancel editing
         let mut app = App::new(State::default());
-        let state = init_test();
+        let state = init_test().await;
         app.state = state;
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
@@ -533,7 +533,7 @@ mod tests {
 
         // 'n' does not close popup
         let mut app = App::new(State::default());
-        let state = init_test();
+        let state = init_test().await;
         app.state = state;
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
@@ -548,7 +548,7 @@ mod tests {
 
         //
         let mut app = App::new(State::default());
-        let state = init_test();
+        let state = init_test().await;
         app.state = state;
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
