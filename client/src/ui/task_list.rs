@@ -57,13 +57,18 @@ impl TaskList {
             .map(|tasks| {
                 tasks
                     .iter()
-                    .flat_map(|task_id| {
-                        let task = state.get_task(*task_id).unwrap();
+                    .filter_map(|task_id| {
+                        let task = state.get_task(*task_id);
                         // render task line
-                        Some(match task.completed {
-                            false => Line::styled(format!(" ☐ {}", task.name), TEXT_COLOR),
-                            true => Line::styled(format!(" ✓ {}", task.name), COMPLETED_TEXT_COLOR),
-                        })
+                        match task {
+                            None => None,
+                            Some(task) => Some(match task.completed {
+                                false => Line::styled(format!(" ☐ {}", task.name), TEXT_COLOR),
+                                true => {
+                                    Line::styled(format!(" ✓ {}", task.name), COMPLETED_TEXT_COLOR)
+                                }
+                            }),
+                        }
                     })
                     .collect::<Vec<Line>>()
             })

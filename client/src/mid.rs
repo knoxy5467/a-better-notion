@@ -118,18 +118,22 @@ impl State {
             req_id: self.increment_and_get_request_count(),
         };
         let url = self.url.clone();
-        let deleted_task_id = self
+        let deleted_task_response = self
             .client
-            .delete(url + "/task/")
+            .delete(url + "/task")
             .json(&delete_task_request)
             .send()
             .await
-            .unwrap()
+            .unwrap();
+        let deleted_task_id = deleted_task_response
             .json::<DeleteTaskResponse>()
             .await
             .unwrap();
-        if deleted_task_id != key {
-            panic!("Task ID mismatch, we just deleted the wrong task!");
+        if deleted_task_id != delete_task_request.req_id {
+            panic!(
+                "Task ID mismatch, we just deleted the wrong task! deleted_id: {:?}, key: {:?}",
+                deleted_task_id, key
+            );
         }
         self.task_map.remove(&key);
     }
