@@ -714,6 +714,7 @@ dependencies = [
  "reqwest 0.11.27",
  "reqwest-middleware",
  "reqwest-tracing",
+ "rust_decimal",
  "serde",
  "serde_json",
  "server",
@@ -773,6 +774,7 @@ name = "common"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "rust_decimal",
  "serde",
  "serde_json",
  "slotmap",

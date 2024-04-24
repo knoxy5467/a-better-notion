@@ -78,7 +78,7 @@ pub struct View {
 }
 
 /// Middleware State structure.
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct State {
     /// maps between database ID and middleware ID for task
     /// If task is only stored locally, may not contain entry for task key
@@ -344,4 +344,22 @@ pub async fn init(url: &str) -> color_eyre::Result<State> {
     };
     state.add_view(default_view);
     Ok(state)
+}
+pub fn init_test() -> State {
+    let mut state = State::default();
+    let task1 = state.create_task(Task {
+        name: "Eat Lunch".to_owned(),
+        completed: true,
+        ..Default::default()
+    });
+    let task2 = state.create_task(Task {
+        name: "Finish ABN".to_owned(),
+        ..Default::default()
+    });
+    let view_key = state.view_def(View {
+        name: "Main View".to_string(),
+        ..View::default()
+    });
+    state.view_mod(view_key, |v| v.tasks = Some(vec![task1, task2]));
+    state
 }

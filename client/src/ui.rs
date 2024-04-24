@@ -520,9 +520,8 @@ mod tests {
         assert!(!app.task_edit_popup.unwrap().should_close);
 
         //
+        let mut app = App::new(State::default());
         let state = init_test();
-        let app_state = init_test();
-        let mut app = App::new(app_state);
         app.state = state;
         app.task_list.current_view = Some(app.state.get_default_view().unwrap());
 
