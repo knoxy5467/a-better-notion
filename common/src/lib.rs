@@ -7,6 +7,7 @@
 
 pub mod backend;
 
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 /// Database Primary key for tasks
@@ -91,14 +92,14 @@ pub enum Operator {
 
 /// The variants of Task Properties
 /// Note: serialization with serde(tag = "...") doesn't work for tuple enums.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Eq, Hash)]
 pub enum TaskPropVariant {
     /// Local-time-zone representation of postgresql's timestamp
     Date(chrono::NaiveDateTime),
     /// String variant
     String(String),
     /// Decimal variant (NOTE: should we have an integer variant?)
-    Number(f64),
+    Number(Decimal),
     /// Boolean variant
     Boolean(bool),
 }
@@ -114,7 +115,7 @@ impl TaskPropVariant {
     }
 }
 /// A task property and its corresponding name.
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Hash, Eq, Clone)]
 pub struct TaskProp {
     /// name
     pub name: String,

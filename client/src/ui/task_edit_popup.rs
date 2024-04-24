@@ -58,7 +58,7 @@ impl TaskEditPopup {
         }
     }
 
-    pub fn handle_key_event(&mut self, state: &mut State, key_code: KeyCode) -> bool {
+    pub async fn handle_key_event(&mut self, state: &mut State, key_code: KeyCode) -> bool {
         match key_code {
             KeyCode::Esc => self.should_close = true,
             KeyCode::Char('n') => {
@@ -93,7 +93,7 @@ impl TaskEditPopup {
                     if let Some(selection) = self.selection {
                         state.modify_task(selection, |task| {
                             // task.name = self.name.clone();
-                            task.name.clone_from(&self.name)
+                            task.name.clone_from(&self.name).await;
                         });
                         self.should_close = true;
                     }

@@ -128,7 +128,9 @@ impl App {
         }
 
         if let Some(task_edit_popup) = &mut self.task_edit_popup {
-            return task_edit_popup.handle_key_event(&mut self.state, key_event.code);
+            return task_edit_popup
+                .handle_key_event(&mut self.state, key_event.code)
+                .await;
         }
 
         match key_event.code {
@@ -155,7 +157,8 @@ impl App {
                         .and_then(|vk| self.state.view_tasks(vk))
                     {
                         self.state
-                            .modify_task(tasks[selection], |t| t.completed = !t.completed);
+                            .modify_task(tasks[selection], |t| t.completed = !t.completed)
+                            .await;
                     }
                 }
             }

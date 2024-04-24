@@ -196,7 +196,7 @@ impl State {
         return self.view_map.get(&view_id).unwrap().tasks.clone();
     }
     /// modify a task using a given function
-    pub fn modify_task(&mut self, task_id: TaskID, edit_fn: impl FnOnce(&mut Task)) {
+    pub async fn modify_task(&mut self, task_id: TaskID, edit_fn: impl FnOnce(&mut Task)) {
         let before_task = self.task_map.get(&task_id).unwrap().clone();
         if let Some(task) = self.task_map.get_mut(&task_id) {
             edit_fn(task)
