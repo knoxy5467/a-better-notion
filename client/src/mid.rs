@@ -92,12 +92,12 @@ pub struct State {
     client: reqwest::Client,
     /// Connection status
     status: bool,
-    request_count: u64,
+    request_count: i32,
     ///map of views
     view_map: HashMap<ViewID, View>,
 }
 impl State {
-    fn increment_and_get_request_count(&mut self) -> u64 {
+    fn increment_and_get_request_count(&mut self) -> i32 {
         self.request_count += 1;
         self.request_count
     }

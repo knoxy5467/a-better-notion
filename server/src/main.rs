@@ -11,9 +11,10 @@ use api::*;
 use log::{info, warn};
 use sea_orm::{Database, DatabaseConnection, DbErr, RuntimeErr};
 use serde::Deserialize;
+use std::env;
 use tokio::time::Duration;
 static INIT: std::sync::Once = std::sync::Once::new();
-fn initialize_logger() {
+pub fn initialize_logger() {
     INIT.call_once(|| {
         env_logger::init();
     });
@@ -60,6 +61,7 @@ async fn connect_to_database_exponential_backoff(
 }
 #[allow(clippy::needless_return)]
 async fn start_server() -> Server {
+    env::set_var("RUST_LOG", "info");
     initialize_logger();
     let settings = load_settings().expect("could not load settings");
     let db_url = settings.application.database_url.clone();

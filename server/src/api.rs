@@ -3,10 +3,10 @@ use actix_web::error::{ErrorInternalServerError, ErrorNotFound};
 #[allow(unused)]
 use actix_web::{delete, get, post, put, web, Responder, Result};
 use common::{backend::*, TaskID, TaskPropVariant};
+use log::info;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Condition, IntoActiveModel, Set};
-
-/// get /task endpoint for retrieving a single TaskShort
+// get /task endpoint for retrieving a single TaskShort
 #[get("/task")]
 async fn get_task_request(
     data: web::Data<DatabaseConnection>,
@@ -83,6 +83,7 @@ async fn create_task_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<CreateTaskRequest>,
 ) -> Result<web::Json<CreateTaskResponse>> {
+    info!("create_task_request: {:?}", req);
     let id = create_task(&data, &req).await?;
     Ok(web::Json(CreateTaskResponse {
         task_id: id,

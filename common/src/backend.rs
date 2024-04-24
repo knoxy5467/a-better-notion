@@ -108,7 +108,7 @@ pub struct DeleteTaskRequest {
     /// id to delete
     pub task_id: TaskID,
     /// id of request
-    pub req_id: u64,
+    pub req_id: i32,
 }
 /// response is empty
 pub type DeleteTaskResponse = TaskID;
