@@ -389,7 +389,7 @@ mod tests {
         // test up and down in example mid state
         let state = init_test();
         app.state = state;
-        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
+        app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
         app.handle_event(Event::Key(KeyCode::Up.into()));
 
         assert_eq!(app.task_list.list_state.selected(), Some(0));
@@ -401,9 +401,9 @@ mod tests {
         app.handle_key_event(KeyCode::Enter.into());
         assert!(
             app.state
-                .task_get(
+                .get_task(
                     app.state
-                        .view_tasks(app.state.view_get_default().unwrap())
+                        .view_tasks(app.state.get_default_view().unwrap().db_id)
                         .unwrap()[1]
                 )
                 .unwrap()
@@ -434,7 +434,7 @@ mod tests {
         let mut app = App::new(State::default());
         let state = init_test();
         app.state = state;
-        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
+        app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
         app.handle_event(Event::Key(KeyCode::Char('x').into()));
         assert!(app.task_edit_popup.is_none());
@@ -453,7 +453,7 @@ mod tests {
         let mut app = App::new(State::default());
         let state = init_test();
         app.state = state;
-        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
+        app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
         app.handle_event(Event::Key(KeyCode::Up.into()));
         app.handle_event(Event::Key(KeyCode::Char('x').into()));
@@ -465,7 +465,7 @@ mod tests {
         let mut app = App::new(State::default());
         let state = init_test();
         app.state = state;
-        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
+        app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
         app.handle_event(Event::Key(KeyCode::Up.into()));
         app.handle_event(Event::Key(KeyCode::Char('x').into()));
@@ -477,7 +477,7 @@ mod tests {
         let mut app = App::new(State::default());
         let state = init_test();
         app.state = state;
-        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
+        app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
         app.handle_event(Event::Key(KeyCode::Up.into()));
         app.handle_event(Event::Key(KeyCode::Char('x').into()));
@@ -487,7 +487,7 @@ mod tests {
         app.handle_event(Event::Key(KeyCode::Enter.into()));
         let task_keys = app
             .state
-            .view_tasks(app.state.get_default_view().unwrap())
+            .view_tasks(app.state.get_default_view().unwrap().db_id)
             .unwrap();
         let updated_task_key = task_keys[0];
         let updated_task = app.state.get_task(updated_task_key).unwrap();
@@ -497,7 +497,7 @@ mod tests {
         let mut app = App::new(State::default());
         let state = init_test();
         app.state = state;
-        app.task_list.current_view = Some(app.state.get_default_view().unwrap());
+        app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
         app.handle_event(Event::Key(KeyCode::Up.into()));
         app.handle_event(Event::Key(KeyCode::Char('x').into()));
@@ -511,7 +511,7 @@ mod tests {
         let mut app = App::new(State::default());
         let state = init_test();
         app.state = state;
-        app.task_list.current_view = Some(app.state.get_default_view().unwrap());
+        app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
         app.handle_event(Event::Key(KeyCode::Up.into()));
         app.handle_event(Event::Key(KeyCode::Char('x').into()));
@@ -523,7 +523,7 @@ mod tests {
         let mut app = App::new(State::default());
         let state = init_test();
         app.state = state;
-        app.task_list.current_view = Some(app.state.get_default_view().unwrap());
+        app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
         app.handle_event(Event::Key(KeyCode::Up.into()));
         app.handle_event(Event::Key(KeyCode::Char('x').into()));
@@ -533,7 +533,7 @@ mod tests {
         app.handle_event(Event::Key(KeyCode::Enter.into()));
         let task_keys = app
             .state
-            .view_tasks(app.state.get_default_view().unwrap())
+            .view_tasks(app.state.get_default_view().unwrap().db_id)
             .unwrap();
         let updated_task_key = task_keys[0];
         let updated_task = app.state.get_task(updated_task_key).unwrap();
