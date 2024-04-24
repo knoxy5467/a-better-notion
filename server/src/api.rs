@@ -199,7 +199,7 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
                         .ok_or("couldn't find property by name")
                         .map_err(ErrorInternalServerError)?;
                     let mut p = p.into_active_model();
-                    p.value = Set(Decimal::from_f64(*val).unwrap());
+                    p.value = Set(val.clone());
                 }
                 TaskPropVariant::Boolean(val) => {
                     let p = task_bool_property::Entity::find()
