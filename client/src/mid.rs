@@ -354,14 +354,16 @@ pub async fn init_test() -> State {
             ..Default::default()
         })
         .await
-        .unwrap();
+        .unwrap()
+        .task_id;
     let task2 = state
         .create_task(Task {
             name: "Finish ABN".to_owned(),
             ..Default::default()
         })
         .await
-        .unwrap();
+        .unwrap()
+        .task_id;
     state.add_view(View {
         db_id: -1, // default view should always be -1 id
         name: "Main View".to_string(),
