@@ -391,6 +391,7 @@ mod tests {
         Ok(())
     }
 
+    ///TODO 24apr2024: need to split this test to smaller tests
     #[tokio::test]
     async fn handle_key_event() -> color_eyre::Result<()> {
         let mut app = App::new(State::default());
@@ -435,8 +436,8 @@ mod tests {
         app.handle_key_event(KeyCode::Char('.').into()).await;
         assert!(!app.should_exit);
 
-        let mut app = App::new(State::default()).await;
-        app.handle_event(Event::FocusLost);
+        let mut app = App::new(State::default());
+        app.handle_event(Event::FocusLost).await;
         assert!(!app.should_exit);
 
         // Test Edit
