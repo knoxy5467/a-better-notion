@@ -88,7 +88,7 @@ pub struct UpdateTaskRequest {
     /// scripts to remove
     pub scripts_to_remove: Vec<ScriptID>,
     /// id of request
-    pub req_id: u64,
+    pub req_id: i32,
 }
 /// respone is just taskid
 #[derive(Serialize, Deserialize)]
@@ -103,7 +103,7 @@ pub type UpdateTasksRequest = Vec<UpdateTaskRequest>;
 /// response is just taskids
 pub type UpdateTasksResponse = Vec<UpdateTaskResponse>;
 /// reqwest::delete("/task")
-#[derive(Serialize, Deserialize,Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct DeleteTaskRequest {
     /// id to delete
     pub task_id: TaskID,

@@ -36,6 +36,7 @@ pub struct Task {
     pub dependencies: Vec<TaskID>,
     /// Associated scripts
     pub scripts: Vec<ScriptID>,
+    pub properties: Vec<TaskProp>,
     pub view_map: HashMap<u64, View>,
     /// latest should be set to true if this value matches server (if false and needed, it should be fetched and updated as soon as possible)
     is_syncronized: bool,
@@ -196,8 +197,92 @@ impl State {
     }
     /// modify a task using a given function
     pub fn modify_task(&mut self, task_id: TaskID, edit_fn: impl FnOnce(&mut Task)) {
+        let before_task = self.task_map.get(&task_id).unwrap().clone();
         if let Some(task) = self.task_map.get_mut(&task_id) {
             edit_fn(task)
+        }
+        let after_task = self.task_map.get_mut(&task_id).unwrap();
+        if before_task != after_task {
+            let url = &self.url;
+            let before_deps_set = before_task
+                .dependencies
+                .iter()
+                .collect::<std::collections::HashSet<_>>();
+            let after_deps_set = after_task
+                .dependencies
+                .iter()
+                .collect::<std::collections::HashSet<_>>();
+            let deps_to_add = after_deps_set
+                .difference(&before_deps_set)
+                .cloned()
+                .collect::<Vec<_>>();
+            let deps_to_remove = before_deps_set
+                .difference(&after_deps_set)
+                .cloned()
+                .collect::<Vec<_>>();
+            let before_props_set = before_task
+                .properties
+                .iter()
+                .collect::<std::collections::HashSet<_>>();
+            let after_props_set = after_task
+                .properties
+                .iter()
+                .collect::<std::collections::HashSet<_>>();
+            let props_to_add = after_props_set
+                .difference(&before_props_set)
+                .cloned()
+                .collect::<Vec<_>>();
+            let props_to_remove = before_props_set
+                .difference(&after_props_set)
+                .cloned()
+                .collect::<Vec<_>>();
+            let before_scripts_set = before_task
+                .scripts
+                .iter()
+                .collect::<std::collections::HashSet<_>>();
+            let after_scripts_set = after_task
+                .scripts
+                .iter()
+                .collect::<std::collections::HashSet<_>>();
+            let scripts_to_add = after_scripts_set
+                .difference(&before_scripts_set)
+                .cloned()
+                .collect::<Vec<_>>();
+            let scripts_to_remove = before_scripts_set
+                .difference(&after_scripts_set)
+                .cloned()
+                .collect::<Vec<_>>();
+            let update_task_request = UpdateTaskRequest {
+                task_id: task_id,
+                checked: Some(after_task.completed.clone().to_owned()),
+                name: Some(after_task.name.clone().to_owned()),
+                req_id: self.increment_and_get_request_count(),
+                props_to_add: props_to_add,
+                props_to_remove: props_to_remove,
+                deps_to_add: deps_to_add,
+                deps_to_remove: deps_to_remove,
+                scripts_to_add: scripts_to_add,
+                scripts_to_remove: scripts_to_remove,
+            };
+            let response = self
+                .client
+                .put(format!("{url}/task"))
+                .json(&update_task_request)
+                .send()
+                .await
+                .unwrap()
+                .json::<UpdateTaskResponse>()
+                .await;
+            match response {
+                Ok(response) => {
+                    if response.task_id != task_id {
+                        panic!("Task ID mismatch, we just updated the wrong task! updated_id: {:?}, key: {:?}", response.task_id, task_id);
+                    }
+                }
+                Err(e) => {
+                    self.task_map.insert(task_id, before_task); //maybe they tried to do something funky and we couldnt update the dependencies
+                }
+            }
         }
     }
     ///modify view by passing in a function and running the given function
