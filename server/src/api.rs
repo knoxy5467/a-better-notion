@@ -280,7 +280,7 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
             .filter(
                 Condition::all()
                     .add(task_property::Column::TaskId.eq(req.task_id))
-                    .add(task_property::Column::Name.eq(prop)),
+                    .add(task_property::Column::Name.eq(prop.name)),
             )
             .one(db)
             .await
