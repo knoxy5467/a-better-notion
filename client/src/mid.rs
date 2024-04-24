@@ -136,6 +136,11 @@ impl State {
             );
         }
         self.task_map.remove(&key);
+        for view in self.view_map.values_mut() {
+            if let Some(tasks) = view.tasks.as_mut() {
+                tasks.retain(|&x| x != key);
+            }
+        }
     }
     /// get a task by its id
     pub fn get_task(&self, task_id: TaskID) -> Option<&Task> {

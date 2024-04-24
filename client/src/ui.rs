@@ -139,6 +139,7 @@ impl App {
             Char('d') => {
                 if let Some(selection) = self.task_list.selected_task {
                     self.task_delete_popup = Some(TaskDeletePopup::new(selection));
+                    self.task_list.shift(&self.state, -1, true)
                 }
             }
             Char('x') => {
