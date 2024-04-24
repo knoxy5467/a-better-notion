@@ -298,8 +298,8 @@ mod tests {
         term.backend_mut().draw(iter).unwrap();
     }
 
-    #[test]
-    fn render_test() -> color_eyre::Result<()> {
+    #[tokio::test]
+    async fn render_test() -> color_eyre::Result<()> {
         // test default state
         let (_, mut term) = create_render_test(State::default(), 55, 5);
 
@@ -398,18 +398,19 @@ mod tests {
         let state = init_test();
         app.state = state;
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
-        app.handle_event(Event::Key(KeyCode::Up.into()));
+        app.handle_event(Event::Key(KeyCode::Up.into())).await;
 
         assert_eq!(app.task_list.list_state.selected(), Some(0));
 
-        app.handle_event(Event::Key(KeyCode::Down.into()));
+        app.handle_event(Event::Key(KeyCode::Down.into())).await;
         assert_eq!(app.task_list.list_state.selected(), Some(1));
 
         // test enter key
-        app.handle_key_event(KeyCode::Enter.into());
+        app.handle_key_event(KeyCode::Enter.into()).await;
         assert!(
             app.state
                 .get_task(
+                    //TODO this will need to be converted to async
                     app.state
                         .view_tasks(app.state.get_default_view().unwrap().db_id)
                         .unwrap()[1]
@@ -420,21 +421,21 @@ mod tests {
 
         // test up and down in regular state
         let mut app = App::new(State::default());
-        app.handle_event(Event::Key(KeyCode::Up.into()));
+        app.handle_event(Event::Key(KeyCode::Up.into())).await;
         assert_eq!(app.task_list.list_state.selected(), None);
-        app.handle_event(Event::Key(KeyCode::Down.into()));
+        app.handle_event(Event::Key(KeyCode::Down.into())).await;
         assert_eq!(app.task_list.list_state.selected(), None);
-        app.handle_key_event(KeyCode::Enter.into());
+        app.handle_key_event(KeyCode::Enter.into()).await;
 
         let mut app = App::new(State::default());
-        app.handle_key_event(KeyCode::Char('q').into());
+        app.handle_key_event(KeyCode::Char('q').into()).await;
         assert!(app.should_exit);
 
         let mut app = App::new(State::default());
-        app.handle_key_event(KeyCode::Char('.').into());
+        app.handle_key_event(KeyCode::Char('.').into()).await;
         assert!(!app.should_exit);
 
-        let mut app = App::new(State::default());
+        let mut app = App::new(State::default()).await;
         app.handle_event(Event::FocusLost);
         assert!(!app.should_exit);
 
@@ -444,10 +445,12 @@ mod tests {
         app.state = state;
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
-        app.handle_event(Event::Key(KeyCode::Char('x').into()));
+        app.handle_event(Event::Key(KeyCode::Char('x').into()))
+            .await;
         assert!(app.task_edit_popup.is_none());
-        app.handle_event(Event::Key(KeyCode::Up.into()));
-        app.handle_event(Event::Key(KeyCode::Char('x').into()));
+        app.handle_event(Event::Key(KeyCode::Up.into())).await;
+        app.handle_event(Event::Key(KeyCode::Char('x').into()))
+            .await;
         assert!(app.task_edit_popup.is_some());
 
         // Initial task name from popup is empty
@@ -463,10 +466,12 @@ mod tests {
         app.state = state;
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
-        app.handle_event(Event::Key(KeyCode::Up.into()));
-        app.handle_event(Event::Key(KeyCode::Char('x').into()));
+        app.handle_event(Event::Key(KeyCode::Up.into())).await;
+        app.handle_event(Event::Key(KeyCode::Char('x').into()))
+            .await;
         assert!(app.task_edit_popup.is_some());
-        app.handle_event(Event::Key(KeyCode::Char('n').into()));
+        app.handle_event(Event::Key(KeyCode::Char('n').into()))
+            .await;
         assert!(app.task_edit_popup.unwrap().should_close);
 
         // Confirm Editing
@@ -475,10 +480,12 @@ mod tests {
         app.state = state;
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
-        app.handle_event(Event::Key(KeyCode::Up.into()));
-        app.handle_event(Event::Key(KeyCode::Char('x').into()));
+        app.handle_event(Event::Key(KeyCode::Up.into())).await;
+        app.handle_event(Event::Key(KeyCode::Char('x').into()))
+            .await;
         assert!(app.task_edit_popup.is_some());
-        app.handle_event(Event::Key(KeyCode::Char('y').into()));
+        app.handle_event(Event::Key(KeyCode::Char('y').into()))
+            .await;
         assert!(!app.task_edit_popup.unwrap().should_close);
 
         // Edit current task name
@@ -487,12 +494,16 @@ mod tests {
         app.state = state;
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
-        app.handle_event(Event::Key(KeyCode::Up.into()));
-        app.handle_event(Event::Key(KeyCode::Char('x').into()));
-        app.handle_event(Event::Key(KeyCode::Char('y').into()));
-        app.handle_event(Event::Key(KeyCode::Char('h').into()));
-        app.handle_event(Event::Key(KeyCode::Char('i').into()));
-        app.handle_event(Event::Key(KeyCode::Enter.into()));
+        app.handle_event(Event::Key(KeyCode::Up.into())).await;
+        app.handle_event(Event::Key(KeyCode::Char('x').into()))
+            .await;
+        app.handle_event(Event::Key(KeyCode::Char('y').into()))
+            .await;
+        app.handle_event(Event::Key(KeyCode::Char('h').into()))
+            .await;
+        app.handle_event(Event::Key(KeyCode::Char('i').into()))
+            .await;
+        app.handle_event(Event::Key(KeyCode::Enter.into())).await;
         let task_keys = app
             .state
             .view_tasks(app.state.get_default_view().unwrap().db_id)
@@ -508,11 +519,15 @@ mod tests {
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
         app.handle_event(Event::Key(KeyCode::Up.into()));
-        app.handle_event(Event::Key(KeyCode::Char('x').into()));
-        app.handle_event(Event::Key(KeyCode::Char('y').into()));
-        app.handle_event(Event::Key(KeyCode::Char('h').into()));
-        app.handle_event(Event::Key(KeyCode::Char('i').into()));
-        app.handle_event(Event::Key(KeyCode::Esc.into()));
+        app.handle_event(Event::Key(KeyCode::Char('x').into()))
+            .await;
+        app.handle_event(Event::Key(KeyCode::Char('y').into()))
+            .await;
+        app.handle_event(Event::Key(KeyCode::Char('h').into()))
+            .await;
+        app.handle_event(Event::Key(KeyCode::Char('i').into()))
+            .await;
+        app.handle_event(Event::Key(KeyCode::Esc.into())).await;
         assert!(app.task_edit_popup.unwrap().should_close);
 
         // 'n' does not close popup
@@ -521,10 +536,13 @@ mod tests {
         app.state = state;
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
-        app.handle_event(Event::Key(KeyCode::Up.into()));
-        app.handle_event(Event::Key(KeyCode::Char('x').into()));
-        app.handle_event(Event::Key(KeyCode::Char('y').into()));
-        app.handle_event(Event::Key(KeyCode::Char('n').into()));
+        app.handle_event(Event::Key(KeyCode::Up.into())).await;
+        app.handle_event(Event::Key(KeyCode::Char('x').into()))
+            .await;
+        app.handle_event(Event::Key(KeyCode::Char('y').into()))
+            .await;
+        app.handle_event(Event::Key(KeyCode::Char('n').into()))
+            .await;
         assert!(!app.task_edit_popup.unwrap().should_close);
 
         //
@@ -533,12 +551,16 @@ mod tests {
         app.state = state;
         app.task_list.current_view = Some(app.state.get_default_view().unwrap().db_id);
 
-        app.handle_event(Event::Key(KeyCode::Up.into()));
-        app.handle_event(Event::Key(KeyCode::Char('x').into()));
-        app.handle_event(Event::Key(KeyCode::Char('y').into()));
-        app.handle_event(Event::Key(KeyCode::Char('n').into()));
-        app.handle_event(Event::Key(KeyCode::Char('o').into()));
-        app.handle_event(Event::Key(KeyCode::Enter.into()));
+        app.handle_event(Event::Key(KeyCode::Up.into())).await;
+        app.handle_event(Event::Key(KeyCode::Char('x').into()))
+            .await;
+        app.handle_event(Event::Key(KeyCode::Char('y').into()))
+            .await;
+        app.handle_event(Event::Key(KeyCode::Char('n').into()))
+            .await;
+        app.handle_event(Event::Key(KeyCode::Char('o').into()))
+            .await;
+        app.handle_event(Event::Key(KeyCode::Enter.into())).await;
         let task_keys = app
             .state
             .view_tasks(app.state.get_default_view().unwrap().db_id)
