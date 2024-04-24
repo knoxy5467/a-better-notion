@@ -356,10 +356,11 @@ pub fn init_test() -> State {
         name: "Finish ABN".to_owned(),
         ..Default::default()
     });
-    let view_key = state.view_def(View {
+    let view_key = state.add_view(View {
+        db_id: -1, // default view should always be -1 id
         name: "Main View".to_string(),
         ..View::default()
     });
-    state.view_mod(view_key, |v| v.tasks = Some(vec![task1, task2]));
+    state.modify_view(view_key, |v| v.tasks = Some(vec![task1, task2]));
     state
 }
