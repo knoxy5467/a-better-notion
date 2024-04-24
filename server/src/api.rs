@@ -280,7 +280,7 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
             .filter(
                 Condition::all()
                     .add(task_property::Column::TaskId.eq(req.task_id))
-                    .add(task_property::Column::Name.eq(prop.name)),
+                    .add(task_property::Column::Name.eq(prop.name.clone())),
             )
             .one(db)
             .await
@@ -455,7 +455,7 @@ async fn get_property_or_err(
                 .value,
         ),
         "number" => TaskPropVariant::Number(
-            &task_num_property::Entity::find()
+            task_num_property::Entity::find()
                 .filter(
                     Condition::all()
                         .add(task_num_property::Column::TaskId.eq(task_id))
