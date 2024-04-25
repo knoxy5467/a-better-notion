@@ -155,6 +155,7 @@ pub trait ServerResponse: fmt::Debug + Send + Sync + 'static {
     fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<Option<StateEvent>>;
 }
 impl ServerResponse for ReadTaskShortResponse {
+    // note: this shouldn't error, if it does in the future, make sure to handle them in the ReadTasksShortResponse ServerResponse impl
     fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<Option<StateEvent>> {
         // create task from received info
         let mut task = Task {
@@ -209,10 +210,9 @@ impl ServerResponse for DeleteTaskResponse {
 
 impl ServerResponse for ReadTasksShortResponse {
     fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<Option<StateEvent>> {
-        for res in *self {
-            if let Ok(res) = res {
-                Box::new(res).update_state(state);
-            }   
+        // no need to handle errors here, ReadTaskShortResponse's don't return errors
+        for res in (*self).into_iter().flatten() {
+            Box::new(res).update_state(state);
         }
         Ok(Some(StateEvent::TasksUpdate))
     }
@@ -227,7 +227,7 @@ impl ServerResponse for FilterResponse {
         let view_tasks = state.view_task_keys(view_key).unwrap();
         let tasks_to_fetch = view_tasks
             .filter_map(|tkey|state.tasks.get(tkey)
-            .map(|t|if !t.is_syncronized {t.db_id} else {None}).flatten())
+            .and_then(|t|if !t.is_syncronized {t.db_id} else {None}))
             .map(|task_id|ReadTaskShortRequest { task_id, req_id: 0 }).collect::<Vec<ReadTaskShortRequest>>();
         tracing::debug!("fetching tasks: {:?}", tasks_to_fetch);
         if !tasks_to_fetch.is_empty() {
@@ -342,7 +342,7 @@ impl State {
                 if let Some(db_id) = task.db_id {
                     self.spawn_request::<UpdateTaskRequest, UpdateTaskResponse>(self.client.put(format!("{}/task", self.url)), UpdateTaskRequest {
                         task_id: db_id,
-                        name: name,
+                        name,
                         checked: completed,
                         props_to_add: vec![],
                         props_to_remove: vec![],
@@ -353,7 +353,7 @@ impl State {
                         req_id: key.0.as_ffi(),
                     });
                 }
-                return Ok(());
+                Ok(())
             } else { Err(UnsyncronizedTaskError(key).into()) }
         } else { Err(NoTaskError(key).into()) }
         
@@ -488,7 +488,7 @@ impl State {
         self.views.keys().next()
     }
     /// shorthand function to get the list of tasks associated with a view (some keys may be invalid)
-    pub fn view_task_keys<'a>(&'a self, view_key: ViewKey) -> Option<impl Iterator<Item = TaskKey> + Clone + 'a> {
+    pub fn view_task_keys(&self, view_key: ViewKey) -> Option<impl Iterator<Item = TaskKey> + Clone + '_> {
         self.view_get(view_key).ok()
             .and_then(|v| v.tasks.as_ref())
             .map(|v| v.iter().cloned())
@@ -547,7 +547,7 @@ where
     let res: Response = req_builder.json(&req).send().await?;
     let bytes = res.bytes().await?;
     tracing::debug!("received data: {bytes:?}");
-    let res: Res = serde_json::from_slice(&bytes).map_err(|e|reqwest_middleware::Error::middleware(e))?;
+    let res: Res = serde_json::from_slice(&bytes).map_err(reqwest_middleware::Error::middleware)?;
     Ok(res)
 }
 
@@ -557,7 +557,7 @@ where
 #[tracing::instrument]
 pub async fn init(url: &str) -> color_eyre::Result<(State, Receiver<MidEvent>)> {
     let (mut state, receiver) = State::new();
-    state.url = url.to_owned();
+    url.clone_into(&mut state.url);
 
     let view_key = state.view_def(View {
         name: "Main View".to_string(),

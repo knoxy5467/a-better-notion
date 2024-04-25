@@ -32,7 +32,7 @@ impl TaskList {
         // keep track of number of items removed so we can adjust selected item (if something is currently selected)
         let mut removed_count = 0;
         let mut did_switch = false;
-        let current_task = self.list_state.selected().map(|s|self.shown_tasks.get(s).cloned()).flatten();
+        let current_task = self.list_state.selected().and_then(|s|self.shown_tasks.get(s).cloned());
         self.shown_tasks.extract_if(|k|state.task_get(*k).is_err()).for_each(|key| {
             if Some(key) == current_task { did_switch = true; };
             if !did_switch {
@@ -45,9 +45,9 @@ impl TaskList {
             self.list_state.select(None);
         } else { // if not empty list
             // decrement current selected by amt_removed, ensuring selection is within span of list
-            self.list_state.selected_mut().as_mut().map(|i|
+            if let Some(i) = self.list_state.selected_mut().as_mut() {
                 *i = (i.saturating_sub(removed_count)).clamp(0, len.saturating_sub(1))
-            );
+            }
         }
         
     }
@@ -70,11 +70,11 @@ impl TaskList {
     /// get currently selected task
     pub fn selected_task<'a>(&mut self, state: &'a State) -> Option<(TaskKey, &'a Task)> {
         self.prune_list(state);
-        if self.shown_tasks.len() == 0 { return None; } // error if no tasks
-        self.list_state.selected().map(|r|{
+        if self.shown_tasks.is_empty() { return None; } // error if no tasks
+        self.list_state.selected().and_then(|r|{
             let key = self.shown_tasks[r];
             state.task_get(key).ok().map(|t|(key, t))
-        }).flatten()
+        })
     }
     // move current selection by amt in either direction, wrapping optionally
     pub fn shift(&mut self, amt: isize, wrap: bool) {
@@ -124,7 +124,7 @@ impl TaskList {
         match key_event.code {
             Char('c') => self.task_popup = Some(TaskPopup::Create(Default::default())), // create task
             Char('d') => { // delete task
-                if let Some((key, task)) = self.selected_task(&state) {
+                if let Some((key, task)) = self.selected_task(state) {
                     self.task_popup = Some(TaskPopup::Delete(key, task.name.clone()));
                 }
             },
@@ -136,7 +136,7 @@ impl TaskList {
             Up => self.shift(-1, false),
             Down => self.shift(1, false),
             Enter => {
-                if let Some((selected_key, _)) = self.selected_task(&state) {
+                if let Some((selected_key, _)) = self.selected_task(state) {
                     let res = state.task_mod(selected_key, |t| t.completed = !t.completed);
                     if let Err(err) = res {
                         report_error(err);

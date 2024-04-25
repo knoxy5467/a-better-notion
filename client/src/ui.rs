@@ -145,7 +145,7 @@ impl App {
     }
 }
 
-pub fn report_error(error: impl std::error::Error + std::fmt::Debug) {
+pub fn report_error(error: impl std::error::Error) {
     tracing::error!("{error}");
 }
 

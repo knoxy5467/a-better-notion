@@ -66,7 +66,7 @@ impl TaskPopup {
             Self::Edit(key, textarea) => {
                 if let Event::Key(KeyEvent{code: KeyCode::Enter, ..}) = event {
                     return Err(state.task_mod(*key, |t|
-                        if let Some(line) = textarea.lines().get(0) {t.name = line.clone()}
+                        if let Some(line) = textarea.lines().first() {t.name.clone_from(line)}
                     ).err().map(Into::into));
                 } else {
                     textarea.input(event.clone());
