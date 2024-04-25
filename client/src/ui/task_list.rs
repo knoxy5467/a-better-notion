@@ -2,7 +2,7 @@ mod task_popup;
 
 use std::collections::HashSet;
 
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{Event, KeyCode};
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -15,7 +15,7 @@ use crate::{mid::{State, Task, TaskKey, ViewKey}, ui::{report_error, task_list::
 
 use task_popup::TaskPopup;
 
-use super::{COMPLETED_TEXT_COLOR, SELECTED_STYLE_FG, TEXT_COLOR};
+use super::{COMPLETED_TEXT_COLOR, GREYED_OUT_TEXT_COLOR, SELECTED_STYLE_FG, TEXT_COLOR};
 
 #[derive(Default, Debug)]
 /// Task list widget
@@ -29,7 +29,6 @@ pub struct TaskList {
 impl TaskList {
     /// remove unused items
     pub fn prune_list(&mut self, state: &State) {
-        let len = self.shown_tasks.len();
         // keep track of number of items removed so we can adjust selected item (if something is currently selected)
         let mut removed_count = 0;
         let mut did_switch = false;
@@ -40,8 +39,17 @@ impl TaskList {
                 removed_count += 1;
             }
         });
-        // decrement current selected by amt_removed
-        self.list_state.selected_mut().as_mut().map(|i| *i = (i.saturating_sub(removed_count)).clamp(0, len));
+        
+        let len = self.shown_tasks.len();
+        if len == 0 { // reset selection if neeeded
+            self.list_state.select(None);
+        } else { // if not empty list
+            // decrement current selected by amt_removed, ensuring selection is within span of list
+            self.list_state.selected_mut().as_mut().map(|i|
+                *i = (i.saturating_sub(removed_count)).clamp(0, len.saturating_sub(1))
+            );
+        }
+        
     }
     /// update views that tasks to be shown are sourced from
     pub fn source_views_mod(&mut self, state: &State, func: impl FnOnce(&mut Vec<ViewKey>)) {
@@ -92,23 +100,27 @@ impl TaskList {
         // set selection
         self.list_state.select(Some(bounded_index));
     }
-    pub fn handle_key_event(&mut self, state: &mut State, key_event: KeyEvent) -> bool {
+    pub fn handle_term_event(&mut self, state: &mut State, event: &Event) -> bool {
         use KeyCode::*;
         // handle if in popup state
         if let Some(task_popup) = &mut self.task_popup {
-            match task_popup.handle_key_event(state, key_event.code) {
-                Ok(do_render) => return do_render,
+            // early return if popup exists
+            return match task_popup.handle_term_event(state, event) {
+                Ok(do_render) => do_render,
                 Err(err) => {
                     self.task_popup = None;
                     if let Some(err) = err {
                         match err {
-                            CloseError::NoTask(err) => log::error!("attempted to delete a task that does not exist: {err:?}"),
+                            CloseError::NoTaskError(err) => log::error!("attempted to delete a task: {err:?}"),
+                            CloseError::ModifyTaskError(err) => log::error!("attempted to modify a task but got error: {err:?}"),
                             CloseError::AddTask(t) => self.shown_tasks.push(t),
                         }
                     }
+                    true
                 }
             }
         }
+        let Event::Key(key_event) = event else {return false};
         match key_event.code {
             Char('c') => self.task_popup = Some(TaskPopup::Create(Default::default())), // create task
             Char('d') => { // delete task
@@ -116,11 +128,11 @@ impl TaskList {
                     self.task_popup = Some(TaskPopup::Delete(key, task.name.clone()));
                 }
             },
-            /* Char('e') => {
-                if let Some(selection) = self.task_list.selected_task {
-                    self.taks = Some(TaskEditPopup::new(Some(selection)));
+            Char('e') => {
+                if let Some((selection, _)) = self.selected_task(state) {
+                    self.task_popup = TaskPopup::edit(selection, state);
                 }
-            } */
+            }
             Up => self.shift(-1, false),
             Down => self.shift(1, false),
             Enter => {
@@ -138,14 +150,21 @@ impl TaskList {
     // render task list to buffer
     pub fn render(&mut self, state: &State, block: Block<'_>, area: Rect, buf: &mut Buffer) {
         // flat_map current tasks to make sure they're valid
+        self.prune_list(state);
         let valid_tasks = self.shown_tasks.iter().flat_map(|key|
             state.task_get(*key).ok().map(|t|(key, t))
         );
 
         // take items from the current view and render them into a list
-        let lines = valid_tasks.map(|(_key, task)| match task.completed {
-            false => Line::styled(format!(" ☐ {}", task.name), TEXT_COLOR),
-            true => Line::styled(format!(" ✓ {}", task.name), COMPLETED_TEXT_COLOR),
+        let lines = valid_tasks.map(|(_key, task)| {
+            let mut text_style: Style = if task.completed { COMPLETED_TEXT_COLOR.into() } else { TEXT_COLOR.into() };
+            if !task.is_syncronized { text_style = GREYED_OUT_TEXT_COLOR.into(); }
+            if task.pending_deletion { text_style = text_style.add_modifier(Modifier::CROSSED_OUT) }
+
+            let mut mark : &'static str = "☐";
+            if task.completed { mark = "✓"; }
+
+            Line::styled(format!(" {mark} {}", task.name), text_style)
         })
         .collect::<Vec<Line>>();
 
@@ -172,6 +191,8 @@ impl TaskList {
                 .render(area, buf);
         }   
         // popup rendering
-        self.task_popup.as_ref().inspect(|t|t.render(area, buf));
+        if let Some(popup) = self.task_popup.as_mut() {
+            popup.render(area, buf)
+        }
     }
 }

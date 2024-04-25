@@ -32,9 +32,9 @@ pub struct Task {
     /// if it is stored in the database, it will have a unique task_id.
     pub db_id: Option<TaskID>,
     /// latest should be set to true if this value matches server (if false and needed, it should be fetched and updated as soon as possible)
-    is_syncronized: bool,
+    pub is_syncronized: bool,
     /// if task is pending deletion request
-    pending_deletion: bool,
+    pub pending_deletion: bool,
 }
 impl Task {
     pub fn new(name: String, completed: bool) -> Task {
@@ -54,7 +54,7 @@ pub struct View {
     /// Properties shown in view
     pub props: Vec<PropNameKey>,
     /// Tasks that are apart of the view, calculated on the backend via calls to /filterids
-    pub tasks: Option<HashSet<TaskKey>>,
+    pub tasks: Option<Vec<TaskKey>>,
     /// Computed task list for view
     pub db_id: Option<ViewID>,
 }
@@ -188,7 +188,9 @@ impl ServerResponse for CreateTaskResponse {
     fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<Option<StateEvent>> {
         let task_key = TaskKey(slotmap::KeyData::from_ffi(self.req_id));
         let task = state.tasks.get_mut(task_key).with_context(||format!("req_id received from CreateTaskResponse does not match a local task key: {task_key:?}"))?;
-        task.db_id = Some(self.task_id);
+        task.db_id = Some(self.task_id); // record db ID
+        state.task_map.insert(self.task_id, task_key); // record in db map
+        task.is_syncronized = true; // flag syncronized
         Ok(Some(StateEvent::TasksUpdate))
     }
 }
@@ -220,7 +222,7 @@ impl ServerResponse for FilterResponse {
         let tasks = self.tasks.into_iter().map(|tid|state.new_server_task(tid).0).collect::<Vec<TaskKey>>();
         let view_key = ViewKey(KeyData::from_ffi(self.req_id));
         let view = state.views.get_mut(view_key).with_context(||format!("request id corresponding to view key: {:?} sent back was invalid", view_key))?; // TODO add context
-        view.tasks = Some(HashSet::from_iter(tasks.into_iter()));
+        view.tasks = Some(tasks);
 
         let view_tasks = state.view_task_keys(view_key).unwrap();
         let tasks_to_fetch = view_tasks
@@ -331,8 +333,10 @@ impl State {
     pub fn task_mod(&mut self, key: TaskKey, edit_fn: impl FnOnce(&mut Task)) -> Result<(), ModifyTaskError> {
         if let Some(task) = self.tasks.get_mut(key) {
             if task.is_syncronized {
+                // get previous task state
                 let bef = task.clone();
-                edit_fn(task);
+                edit_fn(task); // modify task
+                // send only difference between task before and after to server.
                 let name = (bef.name != task.name).then_some(task.name.clone());
                 let completed = (bef.completed != task.completed).then_some(task.completed);
                 if let Some(db_id) = task.db_id {
@@ -557,7 +561,7 @@ pub async fn init(url: &str) -> color_eyre::Result<(State, Receiver<MidEvent>)> 
 
     let view_key = state.view_def(View {
         name: "Main View".to_string(),
-        tasks: Some(state.tasks.keys().collect::<HashSet<TaskKey>>()),
+        tasks: Some(state.tasks.keys().collect::<Vec<TaskKey>>()),
         ..View::default()
     });
     // request all tasks using a "None" filter into the default "Main View"
@@ -584,7 +588,7 @@ pub fn init_test() -> (State, Receiver<MidEvent>) {
         name: "Main View".to_string(),
         ..View::default()
     });
-    state.view_mod(view_key, |v| v.tasks = Some([task1, task2].into_iter().collect::<HashSet<TaskKey>>()));
+    state.view_mod(view_key, |v| v.tasks = Some(vec![task1, task2]));
     (state, receiver)
 }
 

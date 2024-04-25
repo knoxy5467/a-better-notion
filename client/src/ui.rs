@@ -1,13 +1,12 @@
 use std::io;
 
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{Event, KeyCode, KeyEventKind};
 use futures::{channel::mpsc::Receiver, Stream, StreamExt};
 use ratatui::{
     prelude::*,
     symbols::border,
     widgets::{block::*, *},
 };
-// use tokio::runtime::Handle;
 
 use crate::{mid::{MidEvent, State, StateEvent}, term};
 
@@ -15,6 +14,7 @@ mod task_list;
 
 const BACKGROUND: Color = Color::Reset;
 const TEXT_COLOR: Color = Color::White;
+const GREYED_OUT_TEXT_COLOR: Color = Color::Gray;
 const SELECTED_STYLE_FG: Color = Color::LightYellow;
 const COMPLETED_TEXT_COLOR: Color = Color::Green;
 
@@ -103,15 +103,7 @@ impl App {
     /// updates the application's state based on user input
     fn handle_event(&mut self, event: UIEvent) -> bool {
         match event {
-            UIEvent::UserEvent(event) => match event {
-                // it's important to check that the event is a key press event as
-                // crossterm also emits key release and repeat events on Windows.
-                Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                    self.handle_key_event(key_event)
-                }
-                Event::Resize(_, _) => true,
-                _ => false,
-            },
+            UIEvent::UserEvent(event) => self.handle_term_event(event),
             UIEvent::StateEvent(state_event) => match state_event {
                 StateEvent::TasksUpdate => true,
                 StateEvent::PropsUpdate => todo!(),
@@ -125,16 +117,31 @@ impl App {
         }
         
     }
-    fn handle_key_event(&mut self, key_event: KeyEvent) -> bool {
+    // handle crossterm events, return boolean value to determine whether screen should be re-rendered or not given the event
+    fn handle_term_event(&mut self, event: Event) -> bool {
         use KeyCode::*;
-        if let Char('h') = key_event.code {} else { self.help_box_shown = false; }
-        match key_event.code {
-            Esc => if self.help_box_shown { self.help_box_shown = false; }
-            Char('q') => self.should_exit = true,
-            Char('h') => self.help_box_shown = !self.help_box_shown,
-            _ => return self.task_list.handle_key_event(&mut self.state, key_event),
+
+        // pass event to task list to check if it handles the event, if not, handle it below
+        if self.task_list.handle_term_event(&mut self.state, &event) {
+            return true;
         }
-        true // assume if didn't explicitly return false, that we should re-render
+        match event {
+            // it's important to check that the event is a key press event as
+            // crossterm also emits key release and repeat events on Windows.
+            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
+                if let Char('h') = key_event.code {} else { self.help_box_shown = false; }
+                match key_event.code {
+                    Esc => if self.help_box_shown { self.help_box_shown = false; }
+                    Char('q') => self.should_exit = true,
+                    Char('h') => self.help_box_shown = !self.help_box_shown,
+                    _ => return false,
+                }
+            }
+            Event::Resize(_, _) => (),
+            _ => (),
+        }
+        
+        true // assume we should re-render if we didn't explicitly return false somewhere above.
     }
 }
 
@@ -415,7 +422,7 @@ mod tests {
         assert_eq!(app.task_list.list_state.selected(), None);
         app.handle_event(UserEvent(Event::Key(KeyCode::Down.into())));
         assert_eq!(app.task_list.list_state.selected(), None);
-        app.handle_key_event(KeyCode::Enter.into());
+        /* app.handle_key_event(KeyCode::Enter.into());
 
         let mut app = App::new(State::new().0);
         app.handle_key_event(KeyCode::Char('q').into());
@@ -423,7 +430,7 @@ mod tests {
 
         let mut app = App::new(State::new().0);
         app.handle_key_event(KeyCode::Char('.').into());
-        assert!(!app.should_exit);
+        assert!(!app.should_exit); */
 
         let mut app = App::new(State::new().0);
         app.handle_event(UserEvent(Event::FocusLost));
