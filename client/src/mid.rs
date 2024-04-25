@@ -272,6 +272,8 @@ impl State {
         }
 
     }
+    /// schedule task to wait for response from server and the notifies the client via mid_event_sender when received.
+    /// TODO: Configure request timeouts
     #[tracing::instrument]
     fn spawn_request<Req, Res>(&mut self, req_builder: RequestBuilder, req: Req) -> JoinHandle<()>
     where
@@ -599,6 +601,53 @@ mod tests {
     use mockito::Server;
     use serde_json::to_vec;
 
+    async fn mockito_setup() {
+        let mut server = Server::new_async().await;
+
+        server
+            .mock("GET", "/filter")
+            //.match_body(Matcher::Json(to_value(FilterRequest { filter: Filter::None }).unwrap()))
+            .with_body(to_vec(&vec![0, 1, 2]).unwrap())
+            .expect(1)
+            .create_async()
+            .await;
+
+        server
+            .mock("GET", "/tasks")
+            //.match_body(Matcher::Json(to_value(&vec![0, 1, 2].into_iter().map(|task_id|ReadTaskShortRequest{task_id}).collect::<Vec<_>>()).unwrap()))
+            .with_body(
+                &to_vec::<ReadTasksShortResponse>(&vec![
+                    Ok(ReadTaskShortResponse {
+                        task_id: 0,
+                        name: "Test Task 1".into(),
+                        ..Default::default()
+                    }),
+                    Ok(ReadTaskShortResponse {
+                        task_id: 1,
+                        name: "Test Task 2".into(),
+                        ..Default::default()
+                    }),
+                    Err("random error message".into()),
+                    Ok(ReadTaskShortResponse {
+                        task_id: 2,
+                        name: "Test Task 3".into(),
+                        ..Default::default()
+                    }),
+                ])
+                .unwrap(),
+            )
+            .expect(1)
+            .create_async()
+            .await;
+
+        server
+            .mock("GET", mockito::Matcher::Any)
+            .with_body("TEST MAIN PATH")
+            .expect(0)
+            .create_async()
+            .await;
+    }
+
     #[tokio::test]
     async fn test_do_request() {
         let mut server = Server::new_async().await;
@@ -646,50 +695,7 @@ mod tests {
     #[tokio::test]
     // #[traced_test]
     async fn test_init() {
-        let mut server = Server::new_async().await;
-
-        server
-            .mock("GET", "/filter")
-            //.match_body(Matcher::Json(to_value(FilterRequest { filter: Filter::None }).unwrap()))
-            .with_body(to_vec(&vec![0, 1, 2]).unwrap())
-            .expect(1)
-            .create_async()
-            .await;
-
-        server
-            .mock("GET", "/tasks")
-            //.match_body(Matcher::Json(to_value(&vec![0, 1, 2].into_iter().map(|task_id|ReadTaskShortRequest{task_id}).collect::<Vec<_>>()).unwrap()))
-            .with_body(
-                &to_vec::<ReadTasksShortResponse>(&vec![
-                    Ok(ReadTaskShortResponse {
-                        task_id: 0,
-                        name: "Test Task 1".into(),
-                        ..Default::default()
-                    }),
-                    Ok(ReadTaskShortResponse {
-                        task_id: 1,
-                        name: "Test Task 2".into(),
-                        ..Default::default()
-                    }),
-                    Err("random error message".into()),
-                    Ok(ReadTaskShortResponse {
-                        task_id: 2,
-                        name: "Test Task 3".into(),
-                        ..Default::default()
-                    }),
-                ])
-                .unwrap(),
-            )
-            .expect(1)
-            .create_async()
-            .await;
-
-        server
-            .mock("GET", mockito::Matcher::Any)
-            .with_body("TEST MAIN PATH")
-            .expect(0)
-            .create_async()
-            .await;
+        
 
         let url = server.url();
         println!("url: {url}");
