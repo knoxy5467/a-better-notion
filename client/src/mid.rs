@@ -598,10 +598,10 @@ pub fn init_test() -> (State, Receiver<MidEvent>) {
 mod tests {
     pub use super::*;
     use common::backend::{FilterResponse, ReadTaskShortResponse};
-    use mockito::Server;
+    use mockito::{Server, ServerGuard};
     use serde_json::to_vec;
 
-    async fn mockito_setup() {
+    async fn mockito_setup() -> ServerGuard {
         let mut server = Server::new_async().await;
 
         server
@@ -646,6 +646,7 @@ mod tests {
             .expect(0)
             .create_async()
             .await;
+        server
     }
 
     #[tokio::test]
@@ -695,8 +696,7 @@ mod tests {
     #[tokio::test]
     // #[traced_test]
     async fn test_init() {
-        
-
+        let server = mockito_setup().await;
         let url = server.url();
         println!("url: {url}");
 
