@@ -305,18 +305,18 @@ mod tests {
         term.backend_mut().draw(iter).unwrap();
     }
 
-    #[test]
-    fn render_test() -> color_eyre::Result<()> {
+    #[tokio::test]
+    async fn render_test() -> color_eyre::Result<()> {
         // test default state
         let (_, mut term) = create_render_test(State::new().0, 55, 5);
 
         reset_buffer_style(&mut term);
         let expected = Buffer::with_lines(vec![
             "╭────────────────── Task Management ──────────────────╮",
-            "│              No Task Views to Display               │",
+            "│         No Tasks, Have you Selected a View?         │",
             "│                                                     │",
             "│                                                     │",
-            "╰────────── Select: <Up>/<Down>, Quit: <Q> ─Updates: 1╯",
+            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> es: 1╯",
         ]);
         term.backend_mut().assert_buffer(&expected);
 
