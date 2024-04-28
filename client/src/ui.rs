@@ -334,7 +334,7 @@ mod tests {
             "│  ✓ Eat Lunch                                        │",
             "│> ☐ Finish ABN                                       │",
             "│                                                     │",
-            "╰────────── Select: <Up>/<Down>, Quit: <Q> ─Updates: 2╯",
+            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> es: 2╯",
         ]);
         term.backend().assert_buffer(&expected);
 
@@ -350,7 +350,7 @@ mod tests {
             "│                                                     │",
             "│                                                     │",
             "│                                                     │",
-            "╰────────── Select: <Up>/<Down>, Quit: <Q> ─Updates: 3╯",
+            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> es: 3╯",
         ]);
         term.backend().assert_buffer(&expected);
 
@@ -365,11 +365,11 @@ mod tests {
             "╭────────────────── Task Management ──────────────────╮",
             "│  ✓ Eat Lunch                                        │",
             "│> ☐ Finish ABN                                       │",
-            "│             ╭Create Task──────────────╮             │",
-            "│             │hi                       │             │",
+            "│             ╭Edit Task────────────────╮             │",
+            "│             │Finish ABNhi             │             │",
             "│             ╰─────────────────────────╯             │",
             "│                                                     │",
-            "╰────────── Select: <Up>/<Down>, Quit: <Q> ─Updates: 8╯",
+            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> es: 8╯",
         ]);
         term.backend().assert_buffer(&expected);
 
@@ -381,11 +381,11 @@ mod tests {
             "╭────────────────── Task Management ──────────────────╮",
             "│  ✓ Eat Lunch                                        │",
             "│> ☐ Finish ABN                                       │",
-            "│  ☐ hi                                               │",
             "│                                                     │",
             "│                                                     │",
             "│                                                     │",
-            "╰────────── Select: <Up>/<Down>, Quit: <Q> Updates: 11╯",
+            "│                                                     │",
+            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> s: 11╯",
         ]);
         term.backend().assert_buffer(&expected);
         Ok(())
