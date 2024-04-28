@@ -1,6 +1,6 @@
 mod task_popup;
 
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
@@ -58,7 +58,7 @@ impl TaskList {
     } 
     /// recreate the shown list 
     pub fn rebuild_list(&mut self, state: &State) {
-        let mut set = HashSet::new();
+        let mut set = BTreeSet::new();
         // collect all items from source views into set
         self.source_views.iter().flat_map(|key|state.view_get(*key).ok())
             .map(|view|set.extend(view.tasks.iter().flatten())).last();
