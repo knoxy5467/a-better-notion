@@ -191,6 +191,9 @@ WHERE id = NEW.task_id;
 RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+CREATE TRIGGER task_table_updated_trigger AFTER
+UPDATE
+ON task FOR EACH ROW EXECUTE FUNCTION update_last_edited();
 CREATE OR REPLACE FUNCTION task_id_tables() RETURNS VOID AS $$
 DECLARE tbl_name text;
 BEGIN FOR tbl_name IN
@@ -207,11 +210,16 @@ WHERE column_name = 'task_id' LOOP EXECUTE format(
 END LOOP;
 END $$ LANGUAGE plpgsql;
 SELECT task_id_tables();
-INSERT INTO task (completed, title, id)
+INSERT INTO task (completed, title)
 VALUES (
         true,
-        'give ABN an A for their Alpha Release!',
-        1
+        'give ABN an A for their Alpha Release!'
     );
-INSERT INTO task (completed, title, id)
-VALUES (false, 'make dinner', 2);
+INSERT INTO task (completed, title)
+VALUES (false, 'make dinner');
+
+CREATE table IF NOT EXISTS "view" (
+    "id" SERIAL PRIMARY KEY,
+    "properties" text[]  NOT NULL,
+    "filter" jsonb NOT NULL,
+);
