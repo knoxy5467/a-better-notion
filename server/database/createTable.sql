@@ -223,3 +223,9 @@ CREATE TABLE IF NOT EXISTS "view" (
     "properties" text[]  NOT NULL,
     "filter" jsonb NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS "user"(
+    "id" SERIAL PRIMARY KEY,
+    "email" text NOT NULL ,
+    "password_hash" text NOT NULL
+);
