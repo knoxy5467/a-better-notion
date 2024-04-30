@@ -218,8 +218,8 @@ VALUES (
 INSERT INTO task (completed, title)
 VALUES (false, 'make dinner');
 
-CREATE table IF NOT EXISTS "view" (
+CREATE TABLE IF NOT EXISTS "view" (
     "id" SERIAL PRIMARY KEY,
     "properties" text[]  NOT NULL,
-    "filter" jsonb NOT NULL,
+    "filter" jsonb NOT NULL
 );
