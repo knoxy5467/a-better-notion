@@ -8,12 +8,13 @@ use std::{
     panic,
 };
 
-use color_eyre::eyre;
 use actix_settings::{NoSettings, Settings};
+use color_eyre::eyre;
 use crossterm::event::EventStream;
 use ratatui::backend::CrosstermBackend;
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
+
 mod mid;
 mod term;
 mod ui;
@@ -33,7 +34,11 @@ fn main() -> color_eyre::Result<()> {
             install_hooks()?;
             term::enable()?;
             let settings = load_settings().expect("could not load settings");
-            let state = mid::init(&format!("http://{}:{}", settings.actix.hosts[0].host, settings.actix.hosts[0].port)).await?;
+            let state = mid::init(&format!(
+                "http://{}:{}",
+                settings.actix.hosts[0].host, settings.actix.hosts[0].port
+            ))
+            .await?;
             let res = ui::run(CrosstermBackend::new(stdout()), state, EventStream::new()).await;
             term::restore()?;
             res?;
@@ -93,7 +98,7 @@ pub fn install_hooks() -> color_eyre::Result<()> {
 mod test_main {
     use super::*;
     #[test]
-    fn test_load_settings () {
+    fn test_load_settings() {
         load_settings().expect("failed to load settings");
     }
 }

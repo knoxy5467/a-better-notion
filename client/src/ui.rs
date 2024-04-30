@@ -7,14 +7,16 @@ use ratatui::{
     symbols::border,
     widgets::{block::*, *},
 };
-// use tokio::runtime::Handle;
+use tokio::runtime::Handle;
 
 use crate::{mid::State, term};
 
+use self::login::Login;
 use self::task_create_popup::TaskCreatePopup;
 use self::task_delete_popup::TaskDeletePopup;
 use self::task_edit_popup::TaskEditPopup;
 
+mod login;
 mod task_create_popup;
 mod task_delete_popup;
 mod task_edit_popup;
@@ -51,6 +53,7 @@ pub struct App {
     task_create_popup: Option<TaskCreatePopup>,
     task_delete_popup: Option<TaskDeletePopup>,
     task_edit_popup: Option<TaskEditPopup>,
+    login_form: Option<Login>,
 }
 
 impl App {
@@ -64,6 +67,7 @@ impl App {
             task_create_popup: None,
             task_delete_popup: None,
             task_edit_popup: None,
+            login_form: Some(Login::new()),
         }
     }
     /// run app with some terminal output and event stream input
@@ -113,6 +117,14 @@ impl App {
     fn handle_key_event(&mut self, key_event: KeyEvent) -> bool {
         use KeyCode::*;
         // handle if in popup state
+        // should make new enum containing each popup
+
+        if let Some(login_form) = &mut self.login_form {
+            if !login_form.should_close {
+                return login_form.handle_key_event(key_event.code);
+            }
+        }
+
         if let Some(task_create_popup) = &mut self.task_create_popup {
             return task_create_popup.handle_key_event(&mut self.state, key_event.code);
         }
@@ -190,6 +202,14 @@ impl Widget for &mut App {
             .border_set(border::ROUNDED);
 
         self.task_list.render(&self.state, block, area, buf);
+
+        if let Some(login_form) = &mut self.login_form {
+            if login_form.should_close {
+                self.login_form = None;
+            } else {
+                login_form.render(area, buf);
+            }
+        }
 
         if let Some(task_create_popup) = &mut self.task_create_popup {
             if task_create_popup.should_close {
