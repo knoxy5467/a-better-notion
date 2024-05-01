@@ -1,0 +1,52 @@
+name: Rust
+on:
+  release:
+    types: [created]
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-server-docker-zip-linux-zip:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        profile: minimal
+        override: true
+    - name: Build and package server docker
+      run: |
+          cargo build --verbose --release
+          zip -r server-docker.zip ./target/release/server ./Dockerfile ./docker-compose.yml ./docker-settings.toml ./server/database/createTable.sql
+    - name: Upload Release Docker Asset
+      id: upload-release-server-docker 
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }} 
+        asset_name: server-docker.zip
+        asset_content_type: application/zip
+    - name: package linux client and server
+      run: |
+        mkdir -p temp/release
+        mkdir -p temp/release/client
+        mkdir -p temp/release/server
+        cp ./target/release/server temp/release/server/server
+        cp ./server/Server.toml temp/release/server/Server.toml
+        cp ./client/Server.toml temp/release/client/Server.toml
+        cp ./target/release/client temp/release/client/client        
+        zip -r linux-release.zip temp/release/*
+    - name: Upload Release linux Asset
+      id: upload-release-linux-executables 
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_name: linux-release.zip
+        asset_content_type: application/zip
+    
