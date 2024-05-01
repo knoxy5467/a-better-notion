@@ -1,4 +1,4 @@
-name: Rust
+name: upload release assets
 on:
   release:
     types: [created]
@@ -28,6 +28,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event.release.upload_url }} 
+        asset_path: ./server-docker.zip
         asset_name: server-docker.zip
         asset_content_type: application/zip
     - name: package linux client and server
@@ -47,6 +48,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./linux-release.zip
         asset_name: linux-release.zip
         asset_content_type: application/zip
     
