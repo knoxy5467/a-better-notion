@@ -12,23 +12,31 @@ serde = { version = "1.0.197", features = ["derive"]}
 serde_json = "1.0.114"
 # Middleware Async
 tokio = { version = "1.36.0", features = ["full"] }
-reqwest = { version = "0.11", features = ["json"] } # use older version for tracing
+reqwest = { version = "0.12.3", features = ["json"] } # use older version for tracing
 
 # Local
 common = {path = "../common"}
 
 # UI
 crossterm = { version = "0.27.0", features = ["event-stream"] }
-ratatui = { version = "0.26.1", features = ["crossterm"] }
+ratatui = { version = "0.26.2", features = ["crossterm"] }
 color-eyre = "0.6.3"
 thiserror = "1.0.58"
 num-modular = "0.6.1"
 futures = "0.3.30"
 tracing-error = "0.2.0"
 tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-reqwest-tracing = "0.4.8"
-reqwest-middleware = "0.2.5"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "tracing-log"] }
+reqwest-tracing = "0.5.0"
+reqwest-middleware = {version = "0.3.0", features = ["json"]}
+log = "0.4.21"
+fern = "0.6.2"
+humantime = "2.1.0"
+tracing-appender = "0.2.3"
+tracing-log = "0.2.0"
+actix-settings = "0.7.1"
+server = { version = "0.1.0", path = "../server" }
+tui-textarea = { git = "https://github.com/zontasticality/tui-textarea" }
 
 [profile.dev.package.backtrace]
 opt-level = 3

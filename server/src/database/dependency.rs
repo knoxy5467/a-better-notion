@@ -74,12 +74,6 @@ mod tests {
             completed: false,
             last_edited: created_time,
         };
-        let task_depending_on_another_task = task::Model {
-            id: 2,
-            title: "taskDependingOnAnotherTask".to_owned(),
-            completed: false,
-            last_edited: created_time,
-        };
         let dependency_row = dependency::Model {
             task_id: 2,
             depends_on_id: 1,

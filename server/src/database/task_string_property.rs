@@ -16,7 +16,7 @@ pub enum Relation {
         from = "Column::TaskId",
         to = "super::task::Column::Id"
     )]
-    Task
+    Task,
 }
 impl Related<super::task::Entity> for Entity {
     fn to() -> RelationDef {
@@ -27,6 +27,8 @@ impl ActiveModelBehavior for ActiveModel {}
 
 #[cfg(test)]
 mod tests {
+    use sea_orm::Iterable;
+
     use super::*;
 
     #[test]
@@ -37,5 +39,11 @@ mod tests {
         let clone = original.clone();
         assert_eq!(original, clone);
         format!("{:?}", original);
+    }
+    #[test]
+    fn test_enum_iter() {
+        let mut iter = Relation::iter();
+        assert_eq!(iter.next(), Some(Relation::Task));
+        assert_eq!(iter.next(), None);
     }
 }

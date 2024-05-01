@@ -20,6 +20,7 @@ tokio = {version = "1.37", features = ["full", "test-util"]}
 # Local
 common = {path = "../common"}
 llvm-tools = "0.1.1"
+actix-settings = "0.7.1"
 [dev-dependencies]
 coverage-helper = "0.2"
 testcontainers = "0.15"
@@ -27,5 +28,3 @@ testcontainers-modules = {version = "0.3.6", features = ["postgres"]}
 reqwest = "0.12.3"
 [build]
 rustflags = ["-C instrument-coverage"]
-
-[env]

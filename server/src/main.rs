@@ -5,10 +5,13 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 mod api;
 mod database;
-use actix_web::{dev::Server, web::Data, App, HttpServer};
+use actix_web::{dev::Server, middleware::Logger, web::Data, App, HttpServer};
+use actix_settings::{ApplySettings as _, BasicSettings};
 use api::*;
 use log::{info, warn};
-use sea_orm::{Database, DatabaseConnection};
+use sea_orm::{Database, DatabaseConnection, DbErr, RuntimeErr};
+use serde::Deserialize;
+use tokio::time::Duration;
 static INIT: std::sync::Once = std::sync::Once::new();
 fn initialize_logger() {
     INIT.call_once(|| {
@@ -16,31 +19,74 @@ fn initialize_logger() {
     });
 }
 
+#[derive(Debug, Deserialize)]
+struct DatabaseSettings {
+    database_url: String,
+}
+type AbnSettings = BasicSettings<DatabaseSettings>;
+
 #[coverage(off)]
 #[actix_web::main]
 async fn main() -> () {
     let server = start_server().await;
     server.await.unwrap();
 }
+
+fn load_settings() -> Result<AbnSettings, actix_settings::Error> {
+    AbnSettings::parse_toml("Server.toml")
+}
+// watch for overflows with attempts
+async fn connect_to_database_exponential_backoff(
+    attempts: u32,
+    db_url: String,
+) -> Result<DatabaseConnection, DbErr> {
+    let mut attempt: u64 = 1;
+    let base: u64 = 2;
+    let total_attempts = base.pow(attempts);
+    while attempt < total_attempts {
+        tokio::time::sleep(Duration::from_secs(attempt)).await;
+        match Database::connect(db_url.clone()).await {
+            Ok(db) => return Ok(db),
+            Err(e) => {
+                warn!("Failed to connect to database: {}", e);
+                attempt *= 2;
+            }
+        }
+    }
+    Err(DbErr::Conn(RuntimeErr::Internal(format!(
+        "Failed to connect to database after {} attempts",
+        attempts
+    ))))
+}
 #[allow(clippy::needless_return)]
 async fn start_server() -> Server {
     initialize_logger();
-    let db =
-        Database::connect("postgres://abn:abn@localhost:5432/abn?options=-c%20search_path%3Dtask")
-            .await
-            .unwrap();
-    let db_data: Data<DatabaseConnection> = Data::new(db);
+    let settings = load_settings().expect("could not load settings");
+    let db_url = settings.application.database_url.clone();
+    let db_connection = connect_to_database_exponential_backoff(4_u32, db_url.clone())
+        .await
+        .unwrap();
+    let db_data: Data<DatabaseConnection> = Data::new(db_connection);
+    println!("loaded settings");
+    println!("{:?}", settings);
     let server = HttpServer::new(move || {
         let db_data = db_data.clone();
         App::new()
+            .wrap(Logger::default())
             .app_data(db_data)
             .service(get_task_request)
             .service(get_tasks_request)
-            .service(get_filter_request)
             .service(create_task_request)
+            .service(create_tasks_request)
+            .service(update_task_request)
+            .service(update_tasks_request)
+            .service(delete_task_request)
+            .service(delete_tasks_request)
+            .service(get_filter_request)
+            .service(get_property_request)
+            .service(get_properties_request)
     })
-    .bind(("127.0.0.1", 8080))
-    .unwrap()
+    .apply_settings(&settings)
     .system_exit();
     info!("server starting");
     let server_obj = server.run();
@@ -70,6 +116,23 @@ mod test_main {
             std::process::exit(0)
         });
         main();
+    }
+    #[test]
+    fn test_load_settings() {
+        load_settings().expect("failed to load settings");
+    }
+}
+#[cfg(test)]
+mod server_unit_tests {
+    use super::*;
+    #[tokio::test]
+    async fn test_connect_to_database_exponential_backoff_should_fail_after_31_seconds() {
+        let db_url = "postgres://bleh:abn@localhost:5432/abn";
+        let start_time = std::time::Instant::now();
+        let db_connection =
+            connect_to_database_exponential_backoff(4_u32, db_url.to_string()).await;
+        assert!(db_connection.is_err());
+        assert!(start_time.elapsed().as_secs() > 31);
     }
 }
 #[cfg(test)]

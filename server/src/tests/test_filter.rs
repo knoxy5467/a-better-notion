@@ -1,11 +1,10 @@
 use super::*;
+use actix_web::test;
 use common::{backend::*, Filter};
+use sea_orm::MockDatabase;
 
 #[actix_web::test]
-async fn filter_request() {
-    use actix_web::test;
-    use sea_orm::MockDatabase;
-
+async fn test_empty_filter() {
     let db = MockDatabase::new(sea_orm::DatabaseBackend::Postgres);
     let db_conn = db
         .append_query_results([vec![
@@ -28,11 +27,12 @@ async fn filter_request() {
     let req = test::TestRequest::default()
         .set_json(FilterRequest {
             filter: Filter::None,
+            req_id: 0,
         })
         .uri("/filter")
         .to_request();
     let resp: FilterResponse = test::call_and_read_body_json(&app, req).await;
 
-    assert_eq!(resp[0], 1);
-    assert_eq!(resp[1], 2);
+    assert_eq!(resp.tasks[0], 1);
+    assert_eq!(resp.tasks[1], 2);
 }
