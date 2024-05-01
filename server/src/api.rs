@@ -550,6 +550,7 @@ async fn get_properties_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<PropertiesRequest>,
 ) -> Result<web::Json<PropertiesResponse>> {
+    info!("get_properties_request, req: {:?}", req);
     let mut res = PropertiesResponse {
         res: vec![],
         req_id: req.req_id,
@@ -569,6 +570,7 @@ async fn get_properties_request(
         res.res.push(prop_column);
     }
 
+    info!("get_properties_request, res: {:?}", res);
     Ok(web::Json(res))
 }
 
