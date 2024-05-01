@@ -6,9 +6,40 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  build-server-client-zip-macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        profile: minimal
+        override: true
+    - name: build macos executables
+      run: cargo build --release --verbose
+    - name: package macos client and server
+      run: |
+        mkdir -p temp/release
+        mkdir -p temp/release/client
+        mkdir -p temp/release/server
+        cp ./target/release/server temp/release/server/server
+        cp ./server/Server.toml temp/release/server/Server.toml
+        cp ./client/Server.toml temp/release/client/Server.toml
+        cp ./target/release/client temp/release/client/client        
+        zip -r macos-release.zip temp/release/*
+    - name: Upload Release macos Asset
+      id: upload-release-macos-executables 
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./macos-release.zip
+        asset_name: macos-release.zip
+        asset_content_type: application/zip
   build-server-docker-zip-linux-zip:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
     - name: Set up Rust
