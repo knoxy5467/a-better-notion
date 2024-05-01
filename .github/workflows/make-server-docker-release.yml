@@ -6,6 +6,36 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  build-server-client-zip-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        profile: minimal
+        override: true
+    - name: Build Windows executables
+      run: cargo build --release --verbose
+    - name: Package Windows client and server
+      run: |
+        New-Item -ItemType Directory -Force -Path temp\release\client
+        New-Item -ItemType Directory -Force -Path temp\release\server
+        Copy-Item -Path .\target\release\server.exe -Destination temp\release\server\server.exe
+        Copy-Item -Path .\server\Server.toml -Destination temp\release\server\Server.toml
+        Copy-Item -Path .\client\Server.toml -Destination temp\release\client\Server.toml
+        Copy-Item -Path .\target\release\client.exe -Destination temp\release\client\client.exe
+        Compress-Archive -Path temp\release\* -DestinationPath windows-release.zip -Force
+    - name: Upload Release Windows Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./windows-release.zip
+        asset_name: windows-release.zip
+        asset_content_type: application/zip
   build-server-client-zip-macos:
     runs-on: macos-latest
     steps:
