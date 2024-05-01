@@ -19,3 +19,7 @@ lcov.info
 
 # mac garbo
 *.DS_STORE
+
+# logs
+logs
+server/src/logs

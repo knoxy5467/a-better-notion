@@ -1,7 +1,13 @@
+use std::env;
+
+use self::testcontainer_common_utils::DB;
+
 use super::*;
-use actix_web::test;
-use common::{backend::*, Filter};
+use crate::database::*;
+use actix_web::{error::ErrorInternalServerError, test};
+use common::{backend::*, Comparator, Filter, TaskProp, TaskPropVariant};
 use sea_orm::MockDatabase;
+use testcontainer_common_utils::setup_db;
 
 #[actix_web::test]
 async fn test_empty_filter() {
@@ -34,4 +40,90 @@ async fn test_empty_filter() {
 
     assert_eq!(resp[0], 1);
     assert_eq!(resp[1], 2);
+}
+#[actix_web::test]
+async fn db_test() {
+    env::set_var("RUST_LOG", "info");
+    initialize_logger();
+    info!("starting db");
+    setup_db();
+    // run all my tests
+    let db = DB.get().unwrap();
+
+    let ids: [TaskID] = create_tasks_request(
+        db,
+        vec![
+            CreateTaskRequest {
+                name: "task 1".to_string(),
+                completed: true,
+                req_id: 1,
+            },
+            CreateTaskRequest {
+                name: "task 2".to_string(),
+                completed: true,
+                req_id: 1,
+            },
+        ],
+    )
+    .await
+    .unwrap()
+    .to_owned()
+    .map(|x| x.task_id);
+
+    update_tasks_request(
+        db,
+        vec![
+            UpdateTaskRequest {
+                task_id: ids[0],
+                name: None,
+                checked: None,
+                props_to_add: vec![TaskProp {
+                    name: "dogs".to_string(),
+                    value: TaskPropVariant::Number(1.0),
+                }],
+                props_to_remove: vec![],
+                deps_to_add: vec![],
+                deps_to_remove: vec![],
+                scripts_to_add: vec![],
+                scripts_to_remove: vec![],
+                req_id: 0,
+            },
+            UpdateTaskRequest {
+                task_id: ids[1],
+                name: None,
+                checked: None,
+                props_to_add: vec![TaskProp {
+                    name: "dogs".to_string(),
+                    value: TaskPropVariant::Number(2.0),
+                }],
+                props_to_remove: vec![],
+                deps_to_add: vec![],
+                deps_to_remove: vec![],
+                scripts_to_add: vec![],
+                scripts_to_remove: vec![],
+                req_id: 0,
+            },
+        ],
+    )
+    .await
+    .unwrap();
+
+    let res = filter_request(
+        db,
+        FilterRequest {
+            filter: Filter::Leaf {
+                field: "dogs".to_string(),
+                comparator: Comparator::EQ,
+                immediate: TaskPropVariant::Number(1.0),
+            },
+        },
+    )
+    .await
+    .unwrap();
+
+    println!("{:?}", res);
+
+    info!("shutting down db");
+    // if tests are async you must await all of them before running below this will shut down the docker container
+    db.stop();
 }
