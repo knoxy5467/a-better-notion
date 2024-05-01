@@ -20,7 +20,7 @@ jobs:
     - name: Build and package server docker
       run: |
           cargo build --verbose --release
-          zip -r server-docker.zip ./target/release/server ./Dockerfile ./docker-compose.yml ./docker-settings.toml ./server/database/createTable.sql
+          zip -r server-docker.zip ./target/release/server ./Dockerfile ./docker-compose.yml ./docker_settings.toml ./server/database/createTable.sql
     - name: Upload Release Docker Asset
       id: upload-release-server-docker 
       uses: actions/upload-release-asset@v1
