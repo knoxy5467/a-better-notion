@@ -33,7 +33,7 @@ fn main() -> color_eyre::Result<()> {
             tracing::info!("Use RUST_LOG=debug for debug logs!");
             term::enable()?;
             let settings = load_settings().expect("could not load settings");
-            let state = mid::init(&format!("http://{}:{}", settings.actix.hosts[0].host, settings.actix.hosts[0].port)).await?;
+            let state = mid::init(&format!("http://{}:{}", settings.actix.hosts[0].host, settings.actix.hosts[0].port))?;
             let res = ui::run(CrosstermBackend::new(stdout()), state, EventStream::new()).await;
             term::restore()?;
             tracing::info!("Exiting...");

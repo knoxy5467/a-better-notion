@@ -107,14 +107,14 @@ pub type UpdateTasksResponse = Vec<UpdateTaskResponse>;
 pub struct DeleteTaskRequest {
     /// id to delete
     pub task_id: TaskID,
-    /// id of request
+    /// client-side id of request (encoded TaskKey)
     pub req_id: u64,
 }
-/// response is empty
+/// response encodes client-side TaskKey to delete
 pub type DeleteTaskResponse = u64;
 /// reawest::delete("/tasks")
 pub type DeleteTasksRequest = Vec<DeleteTaskRequest>;
-/// response is empty
+/// response encodes list of client-side TaskKeys to delete
 pub type DeleteTasksResponse = Vec<u64>;
 
 /// # PROPERTIES API
