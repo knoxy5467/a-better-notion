@@ -45,10 +45,6 @@ pub struct CreateTaskRequest {
     pub name: String,
     /// completion status of task
     pub completed: bool,
-    /// list of properties to add to task
-    pub properties: Vec<TaskProp>,
-    /// [name, date, value]
-    pub dependencies: Vec<TaskID>,
     /// id of request
     pub req_id: u64,
 }
@@ -216,8 +212,6 @@ mod tests {
         test_serde_commutes(CreateTaskRequest {
             name: "test".to_owned(),
             completed: false,
-            properties: vec![],
-            dependencies: vec![],
             req_id: 0,
         });
     }
