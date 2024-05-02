@@ -651,6 +651,24 @@ mod tests {
             .create_async()
             .await;
 
+        server.mock("POST", "/task")
+            .with_body_from_request(|req| {
+                let req: CreateTaskRequest = serde_json::from_slice::<CreateTaskRequest>(req.body().unwrap()).unwrap();
+                to_vec(&CreateTaskResponse{req_id: req.req_id, task_id: 3}).unwrap() // Note: This is mega sus b/c mock. Database ID is hardcoded!
+            })
+            .expect(1)
+            .create_async()
+            .await;
+
+        server.mock("PUT", "/task")
+            .with_body_from_request(|req| {
+                let req = serde_json::from_slice::<UpdateTaskRequest>(req.body().unwrap()).unwrap();
+                to_vec(&UpdateTaskResponse{task_id: req.task_id, req_id: req.req_id}).unwrap()
+            })
+            .expect(1)
+            .create_async()
+            .await;
+
         server.mock("DELETE", "/task")
             // send back request
             .with_body_from_request(|req| {
@@ -774,6 +792,48 @@ mod tests {
         let mut test = 0;
         state.task_mod(tasks[1], |_| test = 1);
         assert_eq!(test, 0);
+
+        // test update works
+        state.task_mod(tasks[0], |t: &mut Task| "Cook some lunch yo".clone_into(&mut t.name));
+        dbg!(receiver.next().await.unwrap()); // skip state event
+        state.handle_mid_event(receiver.next().await.unwrap());
+        // dbg!(receiver.next().await.unwrap());
+        // dbg!(receiver.next().await.unwrap());
+        // dbg!(receiver.next().await.unwrap());
+        //assert_eq!(1, 0);
+        assert_eq!(state.task_get(tasks[0]).unwrap().name, "Cook some lunch yo");
+
+        // test create task works
+        let task1 = state.task_def(Task {
+            name: "Eat Lunch".to_owned(),
+            completed: true,
+            ..Default::default()
+        });
+        dbg!(receiver.next().await.unwrap()); // catch state event
+        state.handle_mid_event(receiver.next().await.unwrap());
+        assert_eq!(state.tasks[task1].name, "Eat Lunch");
+    }
+
+    #[tokio::test]
+    async fn test_view_task_keys() {
+        let (server, mut state, mut receiver, view_key) = test_init().await;
+        let task_key_iter = state.view_task_keys(view_key).unwrap();
+        assert_eq!(task_key_iter.clone().count(), 3);
+        //let task_key1 = task_key_iter.clone().next();
+        //assert_eq!(task_key1, 1);
+        //let task_key2 = 
+        //assert_eq!(1, 0);
+    }
+
+    #[tokio::test]
+    async fn test_view_tasks() {
+        let (server, mut state, mut receiver, view_key) = test_init().await;
+        let task_key_iter = state.view_tasks(view_key).unwrap();
+        assert_eq!(task_key_iter.clone().count(), 3);
+        //let task_key1 = task_key_iter.clone().next();
+        //assert_eq!(task_key1, 1);
+        //let task_key2 = 
+        //assert_eq!(1, 0);
     }
 
     /* #[tokio::test]
