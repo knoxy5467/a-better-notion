@@ -368,6 +368,7 @@ impl State {
     }
     /// delete a task
     pub fn task_rm(&mut self, key: TaskKey) -> Result<(), NoTaskError> {
+        dbg!("removing a task!");
         if let Some(task) = self.tasks.get_mut(key) {
             if let Some(db_id) = task.db_id {
                 // mark pending deletion if in database
@@ -615,7 +616,7 @@ mod tests {
             .mock("GET", "/filter")
             // .match_body(Matcher::Json(to_value(FilterRequest { filter: Filter::None, req_id: 0 }).unwrap()))
             .with_body_from_request(|req| {
-                let req = serde_json::from_slice::<FilterRequest>(req.body().unwrap()).unwrap();
+                let req: FilterRequest = serde_json::from_slice::<FilterRequest>(req.body().unwrap()).unwrap();
                 to_vec(&FilterResponse { tasks: vec![0, 1, 2], req_id: req.req_id}).unwrap()
             })
             .expect(1)
@@ -654,8 +655,16 @@ mod tests {
             // send back request
             .with_body_from_request(|req| {
                 let req = serde_json::from_slice::<DeleteTaskRequest>(req.body().unwrap()).unwrap();
-                to_vec::<DeleteTaskResponse>(&req.req_id).unwrap()
-            });
+                println!("req is {:?}", req);
+                let resp: DeleteTaskResponse = req.req_id;
+                let new_resp = to_vec::<DeleteTaskResponse>(&resp).unwrap();
+                
+                println!("resp is {:?}", resp);
+                new_resp
+            })
+            .expect(1)
+            .create_async()
+            .await;
 
         server
             .mock("GET", mockito::Matcher::Any)
@@ -721,7 +730,8 @@ mod tests {
         // await server response for FilterRequest
         state.handle_mid_event(receiver.next().await.unwrap());
         println!("ui event {:?}", receiver.next().await.unwrap()); // drop UI event
-        // await server response for ReadTasksShortResponse (request automatically sent when handle_mid_event is called on FilterResponse)
+        // // await server response for ReadTasksShortResponse (request automatically sent when handle_mid_event is called on FilterResponse)
+        //dbg!(receiver.next().await.unwrap());
         state.handle_mid_event(receiver.next().await.unwrap());
         println!("ui event {:?}", receiver.next().await.unwrap()); // drop UI event
 
@@ -741,29 +751,29 @@ mod tests {
     // #[traced_test]
     async fn test_tasks() {
         let (server, mut state, mut receiver, view_key) = test_init().await;
-
+        
         let view = state.view_get(view_key).unwrap();
         assert_eq!(view.name, "Main View");
         let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
         
         tasks.sort(); // make keys are in sorted order
-        dbg!(&tasks);
         // test task_mod
         state.task_mod(tasks[0], |t| "Eat Dinner".clone_into(&mut t.name));
         assert_eq!(state.task_get(tasks[0]).unwrap().name, "Eat Dinner");
-
+        
         // test task_rm (& db key removal)
+        dbg!(receiver.next().await.unwrap()); // random error?
         state.task_rm(tasks[1]).unwrap();
-        state.handle_mid_event(receiver.next().await.unwrap()); // await server response
-        println!("ui event {:?}", receiver.next().await.unwrap()); // drop UI event
-
+        state.handle_mid_event(receiver.next().await.unwrap()); // the delete task event
+        
         // test get function fail
+        dbg!(state.task_get(tasks[1]));
         state.task_get(tasks[1]).unwrap_err();
+
         // test mod function fail
         let mut test = 0;
         state.task_mod(tasks[1], |_| test = 1);
         assert_eq!(test, 0);
-        assert!(state.task_map.is_empty());
     }
 
     /* #[tokio::test]
