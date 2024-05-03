@@ -153,7 +153,7 @@ mod tests {
                 },
                 crate::database::task_string_property::Model {
                     task_id: 1,
-                    name: "gas".to_owned(),
+                    task_property_name: "gas".to_owned(),
                     value: "bool".to_owned(),
                 },
             )]])
@@ -174,7 +174,7 @@ mod tests {
                 },
                 Some(crate::database::task_string_property::Model {
                     task_id: 1,
-                    name: "gas".to_owned(),
+                    task_property_name: "gas".to_owned(),
                     value: "bool".to_owned(),
                 })
             )]
@@ -194,7 +194,7 @@ mod tests {
                 },
                 crate::database::task_bool_property::Model {
                     task_id: 1,
-                    name: "gas".to_owned(),
+                    task_property_name: "gas".to_owned(),
                     value: true,
                 },
             )]])
@@ -215,7 +215,7 @@ mod tests {
                 },
                 Some(crate::database::task_bool_property::Model {
                     task_id: 1,
-                    name: "gas".to_owned(),
+                    task_property_name: "gas".to_owned(),
                     value: true,
                 })
             )]
@@ -235,7 +235,7 @@ mod tests {
                 },
                 crate::database::task_num_property::Model {
                     task_id: 1,
-                    name: "gas".to_owned(),
+                    task_property_name: "gas".to_owned(),
                     value: rust_decimal::Decimal::from_str_exact("100.001").unwrap(),
                 },
             )]])
@@ -256,7 +256,7 @@ mod tests {
                 },
                 Some(crate::database::task_num_property::Model {
                     task_id: 1,
-                    name: "gas".to_owned(),
+                    task_property_name: "gas".to_owned(),
                     value: rust_decimal::Decimal::from_str_exact("100.001").unwrap(),
                 })
             )]
@@ -276,7 +276,7 @@ mod tests {
                 },
                 crate::database::task_date_property::Model {
                     task_id: 1,
-                    name: "gas".to_owned(),
+                    task_property_name: "gas".to_owned(),
                     value: created_time,
                 },
             )]])
@@ -297,7 +297,7 @@ mod tests {
                 },
                 Some(crate::database::task_date_property::Model {
                     task_id: 1,
-                    name: "gas".to_owned(),
+                    task_property_name: "gas".to_owned(),
                     value: created_time,
                 })
             )]

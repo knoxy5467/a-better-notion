@@ -8,7 +8,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub task_id: i32,
     #[sea_orm(primary_key)]
-    pub name: String,
+    pub task_property_name: String,
     pub value: Decimal,
 }
 
@@ -22,7 +22,7 @@ pub enum Relation {
     Task,
     #[sea_orm(
         belongs_to = "super::task_property::Entity",
-        from = "Column::Name",
+        from = "Column::TaskPropertyName",
         to = "super::task_property::Column::Name"
     )]
     TaskProperty,
@@ -52,7 +52,7 @@ impl Linked for TaskPropertyLink {
                 .to(task_property::Column::TaskId)
                 .into(),
             task_num_property::Entity::belongs_to(task_property::Entity)
-                .from(task_num_property::Column::Name)
+                .from(task_num_property::Column::TaskPropertyName)
                 .to(task_property::Column::Name)
                 .into(),
             task_property::Entity::has_one(task_num_property::Entity)
@@ -61,7 +61,7 @@ impl Linked for TaskPropertyLink {
                 .into(),
             task_property::Entity::has_one(task_num_property::Entity)
                 .from(task_property::Column::Name)
-                .to(task_num_property::Column::Name)
+                .to(task_num_property::Column::TaskPropertyName)
                 .into(),
         ]
     }
@@ -97,7 +97,7 @@ mod tests {
             .append_query_results([[(
                 task_num_property::Model {
                     task_id: 1,
-                    name: "test".to_owned(),
+                    task_property_name: "test".to_owned(),
                     value: rust_decimal::Decimal::new(1, 0),
                 },
                 crate::database::task_property::Model {
@@ -117,7 +117,7 @@ mod tests {
             [(
                 task_num_property::Model {
                     task_id: 1,
-                    name: "test".to_owned(),
+                    task_property_name: "test".to_owned(),
                     value: rust_decimal::Decimal::new(1, 0),
                 },
                 Some(crate::database::task_property::Model {
@@ -140,7 +140,7 @@ mod tests {
                 },
                 task_num_property::Model {
                     task_id: 1,
-                    name: "test".to_owned(),
+                    task_property_name: "test".to_owned(),
                     value: rust_decimal::Decimal::new(1, 0),
                 },
             )]])
@@ -160,7 +160,7 @@ mod tests {
                 },
                 Some(task_num_property::Model {
                     task_id: 1,
-                    name: "test".to_owned(),
+                    task_property_name: "test".to_owned(),
                     value: rust_decimal::Decimal::new(1, 0),
                 }),
             )]

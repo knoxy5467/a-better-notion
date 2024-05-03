@@ -57,7 +57,7 @@ async fn db_test() {
     .await
     .unwrap();
     // run all my tests
-
+    info!("create task");
     let id0: i32 = create_task(
         &db_conn,
         &CreateTaskRequest {
@@ -68,7 +68,7 @@ async fn db_test() {
     )
     .await
     .unwrap();
-
+    info!("create task");
     let id1: i32 = create_task(
         &db_conn,
         &CreateTaskRequest {
@@ -80,6 +80,7 @@ async fn db_test() {
     .await
     .unwrap();
 
+    info!("update task");
     update_task(
         &db_conn,
         &UpdateTaskRequest {
@@ -100,6 +101,7 @@ async fn db_test() {
     )
     .await
     .unwrap();
+    info!("update task2");
     update_task(
         &db_conn,
         &UpdateTaskRequest {
@@ -121,6 +123,7 @@ async fn db_test() {
     .await
     .unwrap();
 
+    info!("filter");
     let res = filter(
         &db_conn,
         &FilterRequest {
@@ -129,14 +132,12 @@ async fn db_test() {
                 comparator: Comparator::EQ,
                 immediate: TaskPropVariant::Number(1.0),
             },
-            req_id: 1,
         },
     )
     .await
     .unwrap();
 
     println!("{:?}", res);
-
     info!("shutting down db");
     // if tests are async you must await all of them before running below this will shut down the docker container
     db.stop();

@@ -116,7 +116,7 @@ async fn update_prop_string() {
         }]])
         .append_query_results([[task_string_property::Model {
             task_id: 1,
-            name: "name".to_string(),
+            task_property_name: "name".to_string(),
             value: "value".to_string(),
         }]])
         .append_exec_results([MockExecResult {
@@ -201,7 +201,7 @@ async fn update_prop_num() {
         }]])
         .append_query_results([[task_num_property::Model {
             task_id: 1,
-            name: "name".to_string(),
+            task_property_name: "name".to_string(),
             value: Decimal::from_f64(1.0).unwrap(),
         }]])
         .append_exec_results([MockExecResult {
@@ -286,7 +286,7 @@ async fn update_prop_date() {
         }]])
         .append_query_results([[task_date_property::Model {
             task_id: 1,
-            name: "name".to_string(),
+            task_property_name: "name".to_string(),
             value: chrono::NaiveDateTime::default(),
         }]])
         .append_exec_results([MockExecResult {
@@ -371,7 +371,7 @@ async fn update_prop_bool() {
         }]])
         .append_query_results([[task_bool_property::Model {
             task_id: 1,
-            name: "name".to_string(),
+            task_property_name: "name".to_string(),
             value: true,
         }]])
         .append_exec_results([MockExecResult {

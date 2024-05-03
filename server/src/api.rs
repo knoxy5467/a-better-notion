@@ -153,7 +153,10 @@ pub async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Re
                         .filter(
                             Condition::all()
                                 .add(task_string_property::Column::TaskId.eq(req.task_id))
-                                .add(task_string_property::Column::Name.eq(prop.name.to_owned())),
+                                .add(
+                                    task_string_property::Column::TaskPropertyName
+                                        .eq(prop.name.to_owned()),
+                                ),
                         )
                         .one(db)
                         .await
@@ -170,7 +173,10 @@ pub async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Re
                         .filter(
                             Condition::all()
                                 .add(task_date_property::Column::TaskId.eq(req.task_id))
-                                .add(task_date_property::Column::Name.eq(prop.name.to_owned())),
+                                .add(
+                                    task_date_property::Column::TaskPropertyName
+                                        .eq(prop.name.to_owned()),
+                                ),
                         )
                         .one(db)
                         .await
@@ -187,7 +193,10 @@ pub async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Re
                         .filter(
                             Condition::all()
                                 .add(task_num_property::Column::TaskId.eq(req.task_id))
-                                .add(task_num_property::Column::Name.eq(prop.name.to_owned())),
+                                .add(
+                                    task_num_property::Column::TaskPropertyName
+                                        .eq(prop.name.to_owned()),
+                                ),
                         )
                         .one(db)
                         .await
@@ -204,7 +213,10 @@ pub async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Re
                         .filter(
                             Condition::all()
                                 .add(task_bool_property::Column::TaskId.eq(req.task_id))
-                                .add(task_bool_property::Column::Name.eq(prop.name.to_owned())),
+                                .add(
+                                    task_bool_property::Column::TaskPropertyName
+                                        .eq(prop.name.to_owned()),
+                                ),
                         )
                         .one(db)
                         .await
@@ -226,7 +238,7 @@ pub async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Re
             TaskPropVariant::String(val) => {
                 task_string_property::Entity::insert(task_string_property::ActiveModel {
                     task_id: Set(req.task_id),
-                    name: Set(prop.name.to_owned()),
+                    task_property_name: Set(prop.name.to_owned()),
                     value: Set(val.to_string()),
                 })
                 .exec(db)
@@ -238,7 +250,7 @@ pub async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Re
             TaskPropVariant::Number(val) => {
                 task_num_property::Entity::insert(task_num_property::ActiveModel {
                     task_id: Set(req.task_id),
-                    name: Set(prop.name.to_owned()),
+                    task_property_name: Set(prop.name.to_owned()),
                     value: Set(Decimal::from_f64(*val).unwrap()),
                 })
                 .exec(db)
@@ -250,7 +262,7 @@ pub async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Re
             TaskPropVariant::Date(val) => {
                 task_date_property::Entity::insert(task_date_property::ActiveModel {
                     task_id: Set(req.task_id),
-                    name: Set(prop.name.to_owned()),
+                    task_property_name: Set(prop.name.to_owned()),
                     value: Set(val.to_owned()),
                 })
                 .exec(db)
@@ -262,7 +274,7 @@ pub async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Re
             TaskPropVariant::Boolean(val) => {
                 task_bool_property::Entity::insert(task_bool_property::ActiveModel {
                     task_id: Set(req.task_id),
-                    name: Set(prop.name.to_owned()),
+                    task_property_name: Set(prop.name.to_owned()),
                     value: Set(*val),
                 })
                 .exec(db)
@@ -409,7 +421,8 @@ fn construct_filter(filter: &Filter) -> actix_web::Result<Condition> {
             let mut condition = Condition::all();
             match immediate {
                 TaskPropVariant::Number(imm) => {
-                    condition = condition.add(task_num_property::Column::Name.eq(field));
+                    condition =
+                        condition.add(task_num_property::Column::TaskPropertyName.eq(field));
                     condition = match comparator {
                         Comparator::LT => condition.add(task_num_property::Column::Value.lt(*imm)),
                         Comparator::LEQ => {
@@ -430,7 +443,8 @@ fn construct_filter(filter: &Filter) -> actix_web::Result<Condition> {
                     };
                 }
                 TaskPropVariant::Date(imm) => {
-                    condition = condition.add(task_date_property::Column::Name.eq(field));
+                    condition =
+                        condition.add(task_date_property::Column::TaskPropertyName.eq(field));
                     condition = match comparator {
                         Comparator::LT => condition.add(task_date_property::Column::Value.lt(*imm)),
                         Comparator::LEQ => {
@@ -453,7 +467,8 @@ fn construct_filter(filter: &Filter) -> actix_web::Result<Condition> {
                     };
                 }
                 TaskPropVariant::Boolean(imm) => {
-                    condition = condition.add(task_bool_property::Column::Name.eq(field));
+                    condition =
+                        condition.add(task_bool_property::Column::TaskPropertyName.eq(field));
                     condition = match comparator {
                         Comparator::EQ => condition.add(task_bool_property::Column::Value.eq(*imm)),
                         Comparator::NEQ => {
@@ -468,7 +483,8 @@ fn construct_filter(filter: &Filter) -> actix_web::Result<Condition> {
                     }
                 }
                 TaskPropVariant::String(imm) => {
-                    condition = condition.add(task_string_property::Column::Name.eq(field));
+                    condition =
+                        condition.add(task_string_property::Column::TaskPropertyName.eq(field));
                     condition = match comparator {
                         Comparator::LT => {
                             condition.add(task_string_property::Column::Value.lt(imm.clone()))
@@ -579,7 +595,7 @@ async fn get_property_or_err(
                 .filter(
                     Condition::all()
                         .add(task_string_property::Column::TaskId.eq(task_id))
-                        .add(task_string_property::Column::Name.eq(prop)),
+                        .add(task_string_property::Column::TaskPropertyName.eq(prop)),
                 )
                 .one(db)
                 .await
@@ -593,7 +609,7 @@ async fn get_property_or_err(
                     .filter(
                         Condition::all()
                             .add(task_num_property::Column::TaskId.eq(task_id))
-                            .add(task_num_property::Column::Name.eq(prop)),
+                            .add(task_num_property::Column::TaskPropertyName.eq(prop)),
                     )
                     .one(db)
                     .await
@@ -608,7 +624,7 @@ async fn get_property_or_err(
                 .filter(
                     Condition::all()
                         .add(task_date_property::Column::TaskId.eq(task_id))
-                        .add(task_date_property::Column::Name.eq(prop)),
+                        .add(task_date_property::Column::TaskPropertyName.eq(prop)),
                 )
                 .one(db)
                 .await
@@ -621,7 +637,7 @@ async fn get_property_or_err(
                 .filter(
                     Condition::all()
                         .add(task_bool_property::Column::TaskId.eq(task_id))
-                        .add(task_bool_property::Column::Name.eq(prop)),
+                        .add(task_bool_property::Column::TaskPropertyName.eq(prop)),
                 )
                 .one(db)
                 .await
