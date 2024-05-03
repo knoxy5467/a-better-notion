@@ -608,6 +608,7 @@ mod tests {
     use common::backend::{DeleteTasksRequest, DeleteTasksResponse, FilterResponse, ReadTaskShortResponse};
     use mockito::{Matcher, Server, ServerGuard};
     use serde_json::{to_value, to_vec};
+    use chrono::{NaiveDate, NaiveDateTime};
 
     async fn mockito_setup() -> ServerGuard {
         let mut server = Server::new_async().await;
@@ -814,6 +815,68 @@ mod tests {
         assert_eq!(state.tasks[task1].name, "Eat Lunch");
     }
 
+    #[tokio::test]
+    async fn test_prop_def() {
+        let (server, mut state, mut receiver, view_key) = test_init().await;
+        
+        let view = state.view_get(view_key).unwrap();
+        assert_eq!(view.name, "Main View");
+        let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
+        
+        tasks.sort(); // make keys are in sorted order
+        
+        // assign a date to tasks[0]
+        let mut name_key = state.prop_def_name("Due Date");
+        let mut prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into())).unwrap();
+        let mut prop = &state.props[prop_key];
+        
+        // check that tasks 0 got assigned the date
+        assert_eq!(prop, state.prop_get(tasks[0], name_key).unwrap());
+        
+        // test float prop
+        name_key = state.prop_def_name("time to finish (seconds)");
+        prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::Number(2.0567)).unwrap();
+        prop = &state.props[prop_key];
+        assert_eq!(prop, state.prop_get(tasks[0], name_key).unwrap());
+
+        // test string prop
+        name_key = state.prop_def_name("assignee");
+        prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::String(String::from("yacobo"))).unwrap();
+        prop = &state.props[prop_key];
+        assert_eq!(prop, state.prop_get(tasks[0], name_key).unwrap());
+
+        // test bool prop
+        name_key = state.prop_def_name("is ez?");
+        prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::Boolean(false)).unwrap();
+        prop = &state.props[prop_key];
+        assert_eq!(prop, state.prop_get(tasks[0], name_key).unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_remove_prop_name_deletes_props_prop_map_and_props() {
+        todo!();
+    }
+
+    #[tokio::test]
+    async fn test_prop_def_twice() {
+        let (server, mut state, mut receiver, view_key) = test_init().await;
+        
+        let view = state.view_get(view_key).unwrap();
+        assert_eq!(view.name, "Main View");
+        let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
+        
+        tasks.sort(); // make keys are in sorted order
+        
+        // assign a date to tasks[0]
+        let name_key = state.prop_def_name("random property");
+        let old_prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into())).unwrap();
+        let prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::String(String::from("j"))).unwrap();
+        let old_prop_ref = &state.props[old_prop_key];
+        let new_prop_ref = &state.props[prop_key];
+        
+        // both should have type "string"
+        assert_eq!(old_prop_ref.type_string(), new_prop_ref.type_string());
+    }
     #[tokio::test]
     async fn test_view_task_keys() {
         let (server, mut state, mut receiver, view_key) = test_init().await;
