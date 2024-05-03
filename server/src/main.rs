@@ -77,6 +77,13 @@ async fn start_server() -> Server {
             .service(get_tasks_request)
             .service(get_filter_request)
             .service(create_task_request)
+            .service(get_tasks_request)
+            .service(update_task_request)
+            .service(update_tasks_request)
+            .service(delete_task_request)
+            .service(delete_tasks_request)
+            .service(get_property_request)
+            .service(get_properties_request)
     })
     .apply_settings(&settings)
     .system_exit();
