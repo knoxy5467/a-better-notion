@@ -852,6 +852,52 @@ mod tests {
         assert_eq!(prop, state.prop_get(tasks[0], name_key).unwrap());
     }
 
+    // #[tokio::test]
+    // async fn test_prop_mod() {
+    //     let (server, mut state, mut receiver, view_key) = test_init().await;
+        
+    //     let view = state.view_get(view_key).unwrap();
+    //     assert_eq!(view.name, "Main View");
+    //     let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
+        
+    //     tasks.sort(); // make keys are in sorted order
+        
+    //     // String -> String mod
+    //     let name_key = state.prop_def_name("random property");
+    //     let prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::String(String::from("j"))).unwrap();
+    //     let prop_ref = &state.props[prop_key];
+
+    //     state.prop_mod(tasks[0], name_key, |prop| {
+    //         if (prop.type_string() == "string") {
+    //             prop.push_str("yo");
+    //         }
+    //     });
+
+    //     dbg!(prop_ref);
+
+        
+    // }
+    
+    #[tokio::test]
+    async fn test_prop_rm() {
+        let (server, mut state, mut receiver, view_key) = test_init().await;
+        
+        let view = state.view_get(view_key).unwrap();
+        assert_eq!(view.name, "Main View");
+        let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
+        
+        tasks.sort(); // make keys are in sorted order
+        
+        // assign a date to tasks[0]
+        let mut name_key = state.prop_def_name("Due Date");
+        let mut prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into())).unwrap();
+        let mut prop = &state.props[prop_key];
+
+        // remove the date
+        state.prop_rm(tasks[0], name_key);
+        assert!(state.prop_get(tasks[0], name_key).is_err()); // should throw err
+    }
+
     #[tokio::test]
     async fn test_remove_prop_name_deletes_props_prop_map_and_props() {
         todo!();
