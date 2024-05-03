@@ -1,13 +1,15 @@
 use std::env;
 
 use self::testcontainer_common_utils::DB;
+use actix_web::test;
+use common::{
+    backend::{CreateTaskRequest, FilterRequest, FilterResponse, UpdateTaskRequest},
+    Comparator, Filter, TaskProp, TaskPropVariant,
+};
+use testcontainer_common_utils::setup_db;
 
 use super::*;
-use crate::database::*;
-use actix_web::{error::ErrorInternalServerError, test};
-use common::{backend::*, Comparator, Filter, TaskProp, TaskPropVariant};
 use sea_orm::MockDatabase;
-use testcontainer_common_utils::setup_db;
 
 #[actix_web::test]
 async fn test_empty_filter() {
@@ -48,75 +50,87 @@ async fn db_test() {
     initialize_logger();
     info!("starting db");
     setup_db();
-    // run all my tests
     let db = DB.get().unwrap();
-
-    let ids: [TaskID] = create_tasks_request(
-        db,
-        vec![
-            CreateTaskRequest {
-                name: "task 1".to_string(),
-                completed: true,
-                req_id: 1,
-            },
-            CreateTaskRequest {
-                name: "task 2".to_string(),
-                completed: true,
-                req_id: 1,
-            },
-        ],
+    let db_conn = connect_to_database_exponential_backoff(
+        4,
+        "postgres://abn:abn@localhost:5432/abn?options=-c%20search_path%3Dtask".to_string(),
     )
     .await
-    .unwrap()
-    .to_owned()
-    .map(|x| x.task_id);
+    .unwrap();
+    // run all my tests
 
-    update_tasks_request(
-        db,
-        vec![
-            UpdateTaskRequest {
-                task_id: ids[0],
-                name: None,
-                checked: None,
-                props_to_add: vec![TaskProp {
-                    name: "dogs".to_string(),
-                    value: TaskPropVariant::Number(1.0),
-                }],
-                props_to_remove: vec![],
-                deps_to_add: vec![],
-                deps_to_remove: vec![],
-                scripts_to_add: vec![],
-                scripts_to_remove: vec![],
-                req_id: 0,
-            },
-            UpdateTaskRequest {
-                task_id: ids[1],
-                name: None,
-                checked: None,
-                props_to_add: vec![TaskProp {
-                    name: "dogs".to_string(),
-                    value: TaskPropVariant::Number(2.0),
-                }],
-                props_to_remove: vec![],
-                deps_to_add: vec![],
-                deps_to_remove: vec![],
-                scripts_to_add: vec![],
-                scripts_to_remove: vec![],
-                req_id: 0,
-            },
-        ],
+    let id0: i32 = create_task(
+        &db_conn,
+        &CreateTaskRequest {
+            name: "task 1".to_string(),
+            completed: true,
+            req_id: 1,
+        },
     )
     .await
     .unwrap();
 
-    let res = filter_request(
-        db,
-        FilterRequest {
+    let id1: i32 = create_task(
+        &db_conn,
+        &CreateTaskRequest {
+            name: "task 2".to_string(),
+            completed: true,
+            req_id: 1,
+        },
+    )
+    .await
+    .unwrap();
+
+    update_task(
+        &db_conn,
+        &UpdateTaskRequest {
+            task_id: id0,
+            name: None,
+            checked: None,
+            props_to_add: vec![TaskProp {
+                name: "dogs".to_string(),
+                value: TaskPropVariant::Number(1.0),
+            }],
+            props_to_remove: vec![],
+            deps_to_add: vec![],
+            deps_to_remove: vec![],
+            scripts_to_add: vec![],
+            scripts_to_remove: vec![],
+            req_id: 0,
+        },
+    )
+    .await
+    .unwrap();
+    update_task(
+        &db_conn,
+        &UpdateTaskRequest {
+            task_id: id1,
+            name: None,
+            checked: None,
+            props_to_add: vec![TaskProp {
+                name: "dogs".to_string(),
+                value: TaskPropVariant::Number(2.0),
+            }],
+            props_to_remove: vec![],
+            deps_to_add: vec![],
+            deps_to_remove: vec![],
+            scripts_to_add: vec![],
+            scripts_to_remove: vec![],
+            req_id: 0,
+        },
+    )
+    .await
+    .unwrap();
+
+    let res = filter(
+        &db_conn,
+        &FilterRequest {
             filter: Filter::Leaf {
                 field: "dogs".to_string(),
                 comparator: Comparator::EQ,
                 immediate: TaskPropVariant::Number(1.0),
             },
+            req_id: 1,
         },
     )
     .await

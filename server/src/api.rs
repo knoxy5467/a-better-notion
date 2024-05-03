@@ -2,7 +2,7 @@ use crate::database::*;
 use actix_web::error::{ErrorInternalServerError, ErrorNotFound};
 #[allow(unused)]
 use actix_web::{delete, get, post, put, web, Responder, Result};
-use common::{backend::*, TaskID, TaskPropVariant};
+use common::{backend::*, Comparator, Filter, Operator, TaskID, TaskPropVariant};
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Condition, IntoActiveModel, Set};
 
@@ -65,7 +65,7 @@ async fn get_tasks_request(
 }
 
 /// post /task endpoint creates a single task
-async fn create_task(db: &DatabaseConnection, req: &CreateTaskRequest) -> Result<TaskID> {
+pub async fn create_task(db: &DatabaseConnection, req: &CreateTaskRequest) -> Result<TaskID> {
     let task_model = task::ActiveModel {
         id: NotSet,
         title: Set(req.name.clone()),
@@ -108,7 +108,7 @@ async fn create_tasks_request(
 }
 
 /// put /task updates one task
-async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result<TaskID> {
+pub async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result<TaskID> {
     let task = task::Entity::find_by_id(req.task_id)
         .one(db)
         .await
@@ -531,27 +531,34 @@ fn construct_filter(filter: &Filter) -> actix_web::Result<Condition> {
     }
 }
 
-/// get /filter endpoint for retrieving some number of TaskShorts
-#[allow(unused_variables)]
-#[get("/filter")]
-async fn filter_request(
-    data: web::Data<DatabaseConnection>,
-    req: web::Json<FilterRequest>,
-) -> Result<impl Responder> {
+pub async fn filter(
+    db: &DatabaseConnection,
+    req: &FilterRequest,
+) -> Result<web::Json<FilterResponse>> {
     let filter = construct_filter(&req.filter)?;
 
-    let tasks: Vec<task::Model> = task::Entity::find()
-        .filter(filter)
-        .all(data.as_ref())
-        .await
-        .map_err(|e| {
-            actix_web::error::ErrorInternalServerError(format!("couldn't filter tasks: {}", e))
-        })?;
+    let tasks: Vec<task::Model> =
+        task::Entity::find()
+            .filter(filter)
+            .all(db)
+            .await
+            .map_err(|e| {
+                actix_web::error::ErrorInternalServerError(format!("couldn't filter tasks: {}", e))
+            })?;
 
     Ok(web::Json(FilterResponse {
         tasks: tasks.iter().map(|a| a.id).collect::<Vec<i32>>(),
         req_id: req.req_id,
     }))
+}
+
+/// get /filter endpoint for retrieving some number of TaskShorts
+#[get("/filter")]
+async fn get_filter_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<FilterRequest>,
+) -> Result<impl Responder> {
+    filter(&data, &req).await
 }
 
 async fn get_property_or_err(
