@@ -852,31 +852,38 @@ mod tests {
         assert_eq!(prop, state.prop_get(tasks[0], name_key).unwrap());
     }
 
-    // #[tokio::test]
-    // async fn test_prop_mod() {
-    //     let (server, mut state, mut receiver, view_key) = test_init().await;
+    #[tokio::test]
+    async fn test_prop_mod() {
+        let (server, mut state, mut receiver, view_key) = test_init().await;
         
-    //     let view = state.view_get(view_key).unwrap();
-    //     assert_eq!(view.name, "Main View");
-    //     let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
+        let view = state.view_get(view_key).unwrap();
+        assert_eq!(view.name, "Main View");
+        let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
         
-    //     tasks.sort(); // make keys are in sorted order
+        tasks.sort(); // make keys are in sorted order
         
-    //     // String -> String mod
-    //     let name_key = state.prop_def_name("random property");
-    //     let prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::String(String::from("j"))).unwrap();
-    //     let prop_ref = &state.props[prop_key];
+        // String -> String mod
+        let name_key = state.prop_def_name("random property");
+        let prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::String(String::from("j"))).unwrap();
+        let prop_ref = &state.props[prop_key];
 
-    //     state.prop_mod(tasks[0], name_key, |prop| {
-    //         if (prop.type_string() == "string") {
-    //             prop.push_str("yo");
-    //         }
-    //     });
-
-    //     dbg!(prop_ref);
-
+        state.prop_mod(tasks[0], name_key, |prop| {
+            match prop {
+                TaskPropVariant::String(_) => {
+                    let mut new_prop = TaskPropVariant::String("jacob is cool".to_string());
+                    *prop = new_prop;
+                }
+                _ => {}
+            }
+        });
+        let new_random_str = state.prop_get(tasks[0], name_key).unwrap();
+        let actual_random_str = match new_random_str {
+            TaskPropVariant::String(s) => Some(s.as_str()),
+            _ => None, // Handle other variants if needed
+        };
+        assert_eq!(actual_random_str.unwrap(), "jacob is cool");
         
-    // }
+    }
     
     #[tokio::test]
     async fn test_prop_rm() {
