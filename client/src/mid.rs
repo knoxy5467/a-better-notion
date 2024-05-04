@@ -59,6 +59,14 @@ pub struct View {
     pub db_id: Option<ViewID>,
 }
 
+impl View {
+    pub fn new(name: String) -> View {
+        View {
+            name, ..Default::default()
+        }
+    }
+}
+
 new_key_type! { pub struct PropNameKey; }
 new_key_type! { pub struct ViewKey; }
 
