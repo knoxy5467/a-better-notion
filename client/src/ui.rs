@@ -8,7 +8,10 @@ use ratatui::{
     widgets::{block::*, *},
 };
 
-use crate::{mid::{MidEvent, State, StateEvent}, term};
+use crate::{
+    mid::{MidEvent, State, StateEvent},
+    term,
+};
 
 mod task_list;
 
@@ -67,7 +70,8 @@ impl App {
         mut events: impl Stream<Item = io::Result<Event>> + Unpin,
         mut state_events: impl Stream<Item = MidEvent> + Unpin,
     ) -> color_eyre::Result<()> {
-        self.task_list.source_views_mod(&self.state, |s|s.extend(self.state.view_get_default()));
+        self.task_list
+            .source_views_mod(&self.state, |s| s.extend(self.state.view_get_default()));
         // render initial frame
         term.draw(|frame| frame.render_widget(&mut *self, frame.size()))?;
         // wait for events
@@ -110,12 +114,11 @@ impl App {
                 StateEvent::ViewsUpdate => {
                     self.task_list.rebuild_list(&self.state); // rebuild list state when views update
                     true
-                },
+                }
                 StateEvent::ScriptUpdate(_) => todo!(),
                 StateEvent::ServerStatus(_) => todo!(),
             },
         }
-        
     }
     // handle crossterm events, return boolean value to determine whether screen should be re-rendered or not given the event
     fn handle_term_event(&mut self, event: Event) -> bool {
@@ -129,9 +132,16 @@ impl App {
             // it's important to check that the event is a key press event as
             // crossterm also emits key release and repeat events on Windows.
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                if let Char('h') = key_event.code {} else { self.help_box_shown = false; }
+                if let Char('h') = key_event.code {
+                } else {
+                    self.help_box_shown = false;
+                }
                 match key_event.code {
-                    Esc => if self.help_box_shown { self.help_box_shown = false; }
+                    Esc => {
+                        if self.help_box_shown {
+                            self.help_box_shown = false;
+                        }
+                    }
                     Char('q') => self.should_exit = true,
                     Char('h') => self.help_box_shown = !self.help_box_shown,
                     _ => return false,
@@ -140,7 +150,7 @@ impl App {
             Event::Resize(_, _) => (),
             _ => (),
         }
-        
+
         true // assume we should re-render if we didn't explicitly return false somewhere above.
     }
 }
@@ -189,13 +199,13 @@ impl Widget for &mut App {
         if self.help_box_shown {
             // create a centered rect of fixed vertical size that takes up 50% of the vertical area.
             let vertical_center = Layout::vertical([Constraint::Length(7)])
-            .flex(layout::Flex::Center)
-            .split(area);
+                .flex(layout::Flex::Center)
+                .split(area);
 
             let popup_area = Layout::horizontal([Constraint::Percentage(50)])
                 .flex(layout::Flex::Center)
                 .split(vertical_center[0])[0];
-            
+
             Clear.render(popup_area, buf); // clear background of popup area
 
             // create task popup block with rounded corners
@@ -231,7 +241,6 @@ impl Widget for &mut App {
                 .block(block)
                 .render(popup_area, buf);
         }
-
     }
 }
 
@@ -323,7 +332,8 @@ mod tests {
         // test task state
         let (state, _) = init_test();
         let (mut app, mut term) = create_render_test(state, 55, 5);
-        app.task_list.source_views_mod(&app.state, |s|s.extend(app.state.view_get_default())); // set the view key as is currently done in run()
+        app.task_list
+            .source_views_mod(&app.state, |s| s.extend(app.state.view_get_default())); // set the view key as is currently done in run()
         println!("{:?}", app);
 
         app.step(&mut term, UserEvent(Event::Key(KeyCode::Down.into())))?;
@@ -397,7 +407,9 @@ mod tests {
         // test up and down in example mid state
         let (state, _) = init_test();
         app.state = state;
-        app.task_list.source_views_mod(&app.state, |s|s.push(app.state.view_get_default().unwrap()));
+        app.task_list.source_views_mod(&app.state, |s| {
+            s.push(app.state.view_get_default().unwrap())
+        });
         app.handle_event(UserEvent(Event::Key(KeyCode::Up.into())));
 
         assert_eq!(app.task_list.list_state.selected(), Some(0));
@@ -440,7 +452,9 @@ mod tests {
         let mut app = App::new(State::new().0);
         let state = init_test().0;
         app.state = state;
-        app.task_list.source_views_mod(&app.state, |s|s.push(app.state.view_get_default().unwrap()));
+        app.task_list.source_views_mod(&app.state, |s| {
+            s.push(app.state.view_get_default().unwrap())
+        });
 
         /* app.handle_event(UserEvent(Event::Key(KeyCode::Char('x').into())));
         assert!(app.task_popup.is_none());

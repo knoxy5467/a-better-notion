@@ -2,18 +2,28 @@
 #![allow(unused)] // for my sanity developing (TODO: remove this later)
 use color_eyre::eyre::{Context, ContextCompat};
 use common::{
-    backend::{CreateTaskRequest, CreateTaskResponse, DeleteTaskRequest, DeleteTaskResponse, FilterRequest, FilterResponse, ReadTaskShortRequest, ReadTaskShortResponse, ReadTasksShortRequest, ReadTasksShortResponse, UpdateTaskRequest, UpdateTaskResponse},
+    backend::{
+        CreateTaskRequest, CreateTaskResponse, DeleteTaskRequest, DeleteTaskResponse,
+        FilterRequest, FilterResponse, ReadTaskShortRequest, ReadTaskShortResponse,
+        ReadTasksShortRequest, ReadTasksShortResponse, UpdateTaskRequest, UpdateTaskResponse,
+    },
     *,
 };
-use futures::{channel::mpsc::{self, Receiver, Sender}, SinkExt, Stream, StreamExt};
+use futures::{
+    channel::mpsc::{self, Receiver, Sender},
+    SinkExt, Stream, StreamExt,
+};
 use reqwest::Response;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, RequestBuilder};
 use reqwest_tracing::{SpanBackendWithUrl, TracingMiddleware};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use slotmap::{new_key_type, KeyData, SlotMap};
-use tokio::task::JoinHandle;
-use std::{collections::{HashMap, HashSet}, fmt};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+};
 use thiserror::Error;
+use tokio::task::JoinHandle;
 
 new_key_type! { pub struct PropKey; }
 new_key_type! { pub struct TaskKey; }
@@ -39,9 +49,11 @@ pub struct Task {
 impl Task {
     pub fn new(name: String, completed: bool) -> Task {
         Task {
-            name, completed, ..Default::default()
+            name,
+            completed,
+            ..Default::default()
         }
-    } 
+    }
 }
 
 /// Middleware stored View
@@ -62,7 +74,8 @@ pub struct View {
 impl View {
     pub fn new(name: String) -> View {
         View {
-            name, ..Default::default()
+            name,
+            ..Default::default()
         }
     }
 }
@@ -113,10 +126,11 @@ impl State {
         match event {
             MidEvent::ServerResponse(Ok(resp)) => {
                 if let Some(event) = resp.update_state(self)? {
-                    self.mid_event_sender.try_send(MidEvent::StateEvent(event))?;
+                    self.mid_event_sender
+                        .try_send(MidEvent::StateEvent(event))?;
                 }
-            },
-            MidEvent::ServerResponse(Err(err)) => {Err(err)?},
+            }
+            MidEvent::ServerResponse(Err(err)) => Err(err)?,
             MidEvent::StateEvent(_) => panic!("middleware does not handle state events"),
         }
         Ok(())
@@ -169,7 +183,11 @@ impl ServerResponse for ReadTaskShortResponse {
         let mut task = Task {
             name: self.name,
             completed: self.completed,
-            dependencies: self.deps.iter().map(|tid|state.new_server_task(*tid).0).collect::<Vec<TaskKey>>(),
+            dependencies: self
+                .deps
+                .iter()
+                .map(|tid| state.new_server_task(*tid).0)
+                .collect::<Vec<TaskKey>>(),
             scripts: self.scripts,
             db_id: Some(self.task_id),
             is_syncronized: true,
@@ -183,12 +201,20 @@ impl ServerResponse for ReadTaskShortResponse {
 // should only receive this if we already know the server has the task (i.e. sent CreateTaskResponse)
 impl ServerResponse for UpdateTaskResponse {
     fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<Option<StateEvent>> {
-        let task_key = state.task_map.get(&self.task_id).with_context(||format!("cannot find locally stored task associated with DB id: {:?}", self.task_id))?;
+        let task_key = state.task_map.get(&self.task_id).with_context(|| {
+            format!(
+                "cannot find locally stored task associated with DB id: {:?}",
+                self.task_id
+            )
+        })?;
         if let Some(task) = state.tasks.get_mut(*task_key) {
             task.db_id = Some(self.task_id);
             task.is_syncronized = true;
         } else {
-            panic!("fatal: DB id {:?} was associated with task key {:?} but task didn't exist", self.task_id, task_key);
+            panic!(
+                "fatal: DB id {:?} was associated with task key {:?} but task didn't exist",
+                self.task_id, task_key
+            );
         }
         Ok(Some(StateEvent::TasksUpdate))
     }
@@ -209,7 +235,8 @@ impl ServerResponse for DeleteTaskResponse {
         let task_key = TaskKey(slotmap::KeyData::from_ffi(*self));
         // remove task key
         let task = state.tasks.remove(task_key).with_context(||format!("req_id received from DeleteTaskResponse does not match a local task key: {task_key:?}"))?;
-        if let Some(db_id) = task.db_id { // if we have a local db_id, remove it from the map
+        if let Some(db_id) = task.db_id {
+            // if we have a local db_id, remove it from the map
             state.task_map.remove(&db_id);
         }
         Ok(Some(StateEvent::TasksUpdate))
@@ -228,24 +255,41 @@ impl ServerResponse for ReadTasksShortResponse {
 impl ServerResponse for FilterResponse {
     fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<Option<StateEvent>> {
         // allocate server tasks
-        let tasks = self.tasks.into_iter().map(|tid|state.new_server_task(tid).0).collect::<Vec<TaskKey>>();
+        let tasks = self
+            .tasks
+            .into_iter()
+            .map(|tid| state.new_server_task(tid).0)
+            .collect::<Vec<TaskKey>>();
         // set task keys in view
         let view_key = ViewKey(KeyData::from_ffi(self.req_id));
-        let view = state.views.get_mut(view_key).with_context(||format!("request id corresponding to view key: {:?} sent back was invalid", view_key))?; // TODO add context
+        let view = state.views.get_mut(view_key).with_context(|| {
+            format!(
+                "request id corresponding to view key: {:?} sent back was invalid",
+                view_key
+            )
+        })?; // TODO add context
         view.tasks = Some(tasks);
 
         // get tasks
         let view_tasks = state.view_task_keys(view_key).unwrap();
         // calculate which tasks we have and which need fetching using is_syncronized
         let tasks_to_fetch = view_tasks
-            .filter_map(|tkey|state.tasks.get(tkey)
-            .and_then(|t|if !t.is_syncronized {t.db_id} else {None}))
-            .map(|task_id|ReadTaskShortRequest { task_id, req_id: 0 }).collect::<Vec<ReadTaskShortRequest>>();
+            .filter_map(|tkey| {
+                state
+                    .tasks
+                    .get(tkey)
+                    .and_then(|t| if !t.is_syncronized { t.db_id } else { None })
+            })
+            .map(|task_id| ReadTaskShortRequest { task_id, req_id: 0 })
+            .collect::<Vec<ReadTaskShortRequest>>();
 
         // automatically fetch needed tasks. TODO: to be smarter about this should we dynamically fetch based on UI (?)
         tracing::debug!("fetching tasks: {:?}", tasks_to_fetch);
         if !tasks_to_fetch.is_empty() {
-            state.spawn_request::<ReadTasksShortRequest, ReadTasksShortResponse>(state.client.get(format!("{}/tasks", state.url)), tasks_to_fetch);
+            state.spawn_request::<ReadTasksShortRequest, ReadTasksShortResponse>(
+                state.client.get(format!("{}/tasks", state.url)),
+                tasks_to_fetch,
+            );
         }
         Ok(Some(StateEvent::ViewsUpdate))
     }
@@ -255,28 +299,36 @@ impl State {
     /// Create a new state. This should be (mostly) used internally, use init_test() or init() for regular applications.
     pub fn new() -> (State, Receiver<MidEvent>) {
         let (mid_event_sender, receiver) = mpsc::channel(30);
-        (State {
-            task_map: Default::default(),
-            tasks: Default::default(),
-            prop_names: Default::default(),
-            prop_name_map: Default::default(),
-            prop_map: Default::default(),
-            props: Default::default(),
-            scripts: Default::default(),
-            views_map: Default::default(),
-            views: Default::default(),
-            url: Default::default(),
-            status: Default::default(),
-            mid_event_sender,
-            client: ClientBuilder::new(reqwest::Client::new())
-            .with(TracingMiddleware::<SpanBackendWithUrl>::new())
-            .build(),
-        }, receiver)
+        (
+            State {
+                task_map: Default::default(),
+                tasks: Default::default(),
+                prop_names: Default::default(),
+                prop_name_map: Default::default(),
+                prop_map: Default::default(),
+                props: Default::default(),
+                scripts: Default::default(),
+                views_map: Default::default(),
+                views: Default::default(),
+                url: Default::default(),
+                status: Default::default(),
+                mid_event_sender,
+                client: ClientBuilder::new(reqwest::Client::new())
+                    .with(TracingMiddleware::<SpanBackendWithUrl>::new())
+                    .build(),
+            },
+            receiver,
+        )
     }
     // create new or return existing task given server TaskID
     fn new_server_task(&mut self, task_id: TaskID) -> (TaskKey, &mut Task) {
         if let Some(key) = self.task_map.get(&task_id).cloned() {
-            (key, self.tasks.get_mut(key).expect("fatal: a key in the task_map should imply that tasks has the relevant key"))
+            (
+                key,
+                self.tasks.get_mut(key).expect(
+                    "fatal: a key in the task_map should imply that tasks has the relevant key",
+                ),
+            )
         } else {
             let key = self.tasks.insert(Task::default());
             self.task_map.insert(task_id, key);
@@ -284,21 +336,20 @@ impl State {
             task.db_id = Some(task_id);
             (key, task)
         }
-
     }
     /// schedule task to wait for response from server and the notifies the client via mid_event_sender when received.
     /// TODO: Configure request timeouts
     #[tracing::instrument]
     fn spawn_request<Req, Res>(&mut self, req_builder: RequestBuilder, req: Req) -> JoinHandle<()>
     where
-    Req: Serialize + std::fmt::Debug + Send + Sync + 'static,
-    Res: ServerResponse + for<'d> Deserialize<'d>,
+        Req: Serialize + std::fmt::Debug + Send + Sync + 'static,
+        Res: ServerResponse + for<'d> Deserialize<'d>,
     {
         tracing::debug!("doing a request: {:?}", req);
         let mut sender = self.mid_event_sender.clone();
         tokio::spawn(async move {
             let resp = do_request::<Req, Res>(req_builder, req).await;
-            let resp = resp.map(|e|Box::new(e) as Box<dyn ServerResponse>);
+            let resp = resp.map(|e| Box::new(e) as Box<dyn ServerResponse>);
             tracing::debug!("received a response: {:?}", resp);
             sender.send(MidEvent::ServerResponse(resp)).await;
         })
@@ -331,13 +382,16 @@ impl State {
         // TODO: register definition to queue so that we can sync to server
         let key = self.tasks.insert(task);
         let task = &self.tasks[key]; // safety: we just inserted key
-        self.spawn_request::<CreateTaskRequest, CreateTaskResponse>(self.client.post(format!("{}/task", self.url)), CreateTaskRequest {
-            name: task.name.clone(),
-            completed: task.completed,
-            properties: vec![], // TODO: send props
-            dependencies: vec![], // TODO: send deps
-            req_id: key.0.as_ffi(),
-        });
+        self.spawn_request::<CreateTaskRequest, CreateTaskResponse>(
+            self.client.post(format!("{}/task", self.url)),
+            CreateTaskRequest {
+                name: task.name.clone(),
+                completed: task.completed,
+                properties: vec![],   // TODO: send props
+                dependencies: vec![], // TODO: send deps
+                req_id: key.0.as_ffi(),
+            },
+        );
         key
     }
 
@@ -346,33 +400,43 @@ impl State {
         self.tasks.get(key).ok_or(NoTaskError(key))
     }
     /// modify a task
-    pub fn task_mod(&mut self, key: TaskKey, edit_fn: impl FnOnce(&mut Task)) -> Result<(), ModifyTaskError> {
+    pub fn task_mod(
+        &mut self,
+        key: TaskKey,
+        edit_fn: impl FnOnce(&mut Task),
+    ) -> Result<(), ModifyTaskError> {
         if let Some(task) = self.tasks.get_mut(key) {
             if task.is_syncronized {
                 // get previous task state
                 let bef = task.clone();
                 edit_fn(task); // modify task
-                // send only difference between task before and after to server.
+                               // send only difference between task before and after to server.
                 let name = (bef.name != task.name).then_some(task.name.clone());
                 let completed = (bef.completed != task.completed).then_some(task.completed);
                 if let Some(db_id) = task.db_id {
-                    self.spawn_request::<UpdateTaskRequest, UpdateTaskResponse>(self.client.put(format!("{}/task", self.url)), UpdateTaskRequest {
-                        task_id: db_id,
-                        name,
-                        checked: completed,
-                        props_to_add: vec![],
-                        props_to_remove: vec![],
-                        deps_to_add: vec![],
-                        deps_to_remove: vec![],
-                        scripts_to_add: vec![],
-                        scripts_to_remove: vec![],
-                        req_id: key.0.as_ffi(),
-                    });
+                    self.spawn_request::<UpdateTaskRequest, UpdateTaskResponse>(
+                        self.client.put(format!("{}/task", self.url)),
+                        UpdateTaskRequest {
+                            task_id: db_id,
+                            name,
+                            checked: completed,
+                            props_to_add: vec![],
+                            props_to_remove: vec![],
+                            deps_to_add: vec![],
+                            deps_to_remove: vec![],
+                            scripts_to_add: vec![],
+                            scripts_to_remove: vec![],
+                            req_id: key.0.as_ffi(),
+                        },
+                    );
                 }
                 Ok(())
-            } else { Err(UnsyncronizedTaskError(key).into()) }
-        } else { Err(NoTaskError(key).into()) }
-        
+            } else {
+                Err(UnsyncronizedTaskError(key).into())
+            }
+        } else {
+            Err(NoTaskError(key).into())
+        }
     }
     /// delete a task
     pub fn task_rm(&mut self, key: TaskKey) -> Result<(), NoTaskError> {
@@ -381,14 +445,19 @@ impl State {
             if let Some(db_id) = task.db_id {
                 // mark pending deletion if in database
                 task.pending_deletion = true;
-                self.spawn_request::<DeleteTaskRequest, DeleteTaskResponse>(self.client.delete(format!("{}/task", self.url)), DeleteTaskRequest { task_id: db_id, req_id: key.0.as_ffi() 
-                });
+                self.spawn_request::<DeleteTaskRequest, DeleteTaskResponse>(
+                    self.client.delete(format!("{}/task", self.url)),
+                    DeleteTaskRequest {
+                        task_id: db_id,
+                        req_id: key.0.as_ffi(),
+                    },
+                );
             } else {
                 // if not in database, remove immediately
                 self.tasks.remove(key);
             }
         } else {
-            return Err(NoTaskError(key))
+            return Err(NoTaskError(key));
         }
         Ok(())
     }
@@ -505,18 +574,22 @@ impl State {
         self.views.keys().next()
     }
     /// shorthdand function to get the list of tasks associated with a view (some keys may be invalid)
-    pub fn view_task_keys(&self, view_key: ViewKey) -> Option<impl Iterator<Item = TaskKey> + Clone + '_> {
-        self.view_get(view_key).ok()
+    pub fn view_task_keys(
+        &self,
+        view_key: ViewKey,
+    ) -> Option<impl Iterator<Item = TaskKey> + Clone + '_> {
+        self.view_get(view_key)
+            .ok()
             .and_then(|v| v.tasks.as_ref())
             .map(|v| v.iter().cloned())
     }
     /// get an iterator of only valid tasks and their keys
-    pub fn view_tasks(&self, view_key: ViewKey) -> Option<impl Iterator<Item = (TaskKey, &Task)> + Clone> {
+    pub fn view_tasks(
+        &self,
+        view_key: ViewKey,
+    ) -> Option<impl Iterator<Item = (TaskKey, &Task)> + Clone> {
         self.view_task_keys(view_key)
-            .map(|tks|tks
-                .flat_map(|key|
-                    self.task_get(key).ok().map(|t|(key, t))
-                    ))
+            .map(|tks| tks.flat_map(|key| self.task_get(key).ok().map(|t| (key, t))))
     }
     /// modify a view
     pub fn view_mod(&mut self, view_key: ViewKey, edit_fn: impl FnOnce(&mut View)) -> Option<()> {
@@ -526,23 +599,6 @@ impl State {
     /// delete a view
     pub fn view_rm(&mut self, view_key: ViewKey) {
         self.views.remove(view_key);
-    }
-    /// create a script
-    pub fn script_create(&mut self) -> ScriptID {
-        self.scripts.insert(0, Script::default());
-        0
-    }
-    /// get a script
-    pub fn script_get(&self, script_id: ScriptID) -> Option<&Script> {
-        self.scripts.get(&script_id)
-    }
-    /// modify a script
-    pub fn script_mod(&mut self, script_id: ScriptID, edit_fn: impl FnOnce(&mut Script)) {
-        self.scripts.entry(script_id).and_modify(edit_fn);
-    }
-    /// delete a script
-    pub fn script_rm(&mut self, script_id: ScriptID) {
-        self.scripts.remove(&script_id);
     }
 
     /* pub fn register_event(&mut self, name: &str) {
@@ -556,7 +612,10 @@ impl State {
 
 // request helper function
 #[tracing::instrument]
-async fn do_request<Req, Res>(req_builder: RequestBuilder, req: Req) -> reqwest_middleware::Result<Res>
+async fn do_request<Req, Res>(
+    req_builder: RequestBuilder,
+    req: Req,
+) -> reqwest_middleware::Result<Res>
 where
     Req: Serialize + std::fmt::Debug,
     Res: for<'d> Deserialize<'d> + std::fmt::Debug,
@@ -583,10 +642,13 @@ pub fn init(url: &str) -> color_eyre::Result<(State, Receiver<MidEvent>)> {
     });
 
     // request all tasks using a "None" filter into the default "Main View"
-    state.spawn_request::<FilterRequest, FilterResponse>(state.client.get(format!("{url}/filter")), FilterRequest {
-        filter: Filter::None,
-        req_id: view_key.0.as_ffi(),
-    });
+    state.spawn_request::<FilterRequest, FilterResponse>(
+        state.client.get(format!("{url}/filter")),
+        FilterRequest {
+            filter: Filter::None,
+            req_id: view_key.0.as_ffi(),
+        },
+    );
 
     Ok((state, receiver))
 }
@@ -613,10 +675,12 @@ pub fn init_test() -> (State, Receiver<MidEvent>) {
 #[cfg(test)]
 mod tests {
     pub use super::*;
-    use common::backend::{DeleteTasksRequest, DeleteTasksResponse, FilterResponse, ReadTaskShortResponse};
+    use chrono::{NaiveDate, NaiveDateTime};
+    use common::backend::{
+        DeleteTasksRequest, DeleteTasksResponse, FilterResponse, ReadTaskShortResponse,
+    };
     use mockito::{Matcher, Server, ServerGuard};
     use serde_json::{to_value, to_vec};
-    use chrono::{NaiveDate, NaiveDateTime};
 
     async fn mockito_setup() -> ServerGuard {
         let mut server = Server::new_async().await;
@@ -625,8 +689,13 @@ mod tests {
             .mock("GET", "/filter")
             // .match_body(Matcher::Json(to_value(FilterRequest { filter: Filter::None, req_id: 0 }).unwrap()))
             .with_body_from_request(|req| {
-                let req: FilterRequest = serde_json::from_slice::<FilterRequest>(req.body().unwrap()).unwrap();
-                to_vec(&FilterResponse { tasks: vec![0, 1, 2], req_id: req.req_id}).unwrap()
+                let req: FilterRequest =
+                    serde_json::from_slice::<FilterRequest>(req.body().unwrap()).unwrap();
+                to_vec(&FilterResponse {
+                    tasks: vec![0, 1, 2],
+                    req_id: req.req_id,
+                })
+                .unwrap()
             })
             .expect(1)
             .create_async()
@@ -660,32 +729,44 @@ mod tests {
             .create_async()
             .await;
 
-        server.mock("POST", "/task")
+        server
+            .mock("POST", "/task")
             .with_body_from_request(|req| {
-                let req: CreateTaskRequest = serde_json::from_slice::<CreateTaskRequest>(req.body().unwrap()).unwrap();
-                to_vec(&CreateTaskResponse{req_id: req.req_id, task_id: 3}).unwrap() // Note: This is mega sus b/c mock. Database ID is hardcoded!
+                let req: CreateTaskRequest =
+                    serde_json::from_slice::<CreateTaskRequest>(req.body().unwrap()).unwrap();
+                to_vec(&CreateTaskResponse {
+                    req_id: req.req_id,
+                    task_id: 3,
+                })
+                .unwrap() // Note: This is mega sus b/c mock. Database ID is hardcoded!
             })
             .expect(1)
             .create_async()
             .await;
 
-        server.mock("PUT", "/task")
+        server
+            .mock("PUT", "/task")
             .with_body_from_request(|req| {
                 let req = serde_json::from_slice::<UpdateTaskRequest>(req.body().unwrap()).unwrap();
-                to_vec(&UpdateTaskResponse{task_id: req.task_id, req_id: req.req_id}).unwrap()
+                to_vec(&UpdateTaskResponse {
+                    task_id: req.task_id,
+                    req_id: req.req_id,
+                })
+                .unwrap()
             })
             .expect(1)
             .create_async()
             .await;
 
-        server.mock("DELETE", "/task")
+        server
+            .mock("DELETE", "/task")
             // send back request
             .with_body_from_request(|req| {
                 let req = serde_json::from_slice::<DeleteTaskRequest>(req.body().unwrap()).unwrap();
                 println!("req is {:?}", req);
                 let resp: DeleteTaskResponse = req.req_id;
                 let new_resp = to_vec::<DeleteTaskResponse>(&resp).unwrap();
-                
+
                 println!("resp is {:?}", resp);
                 new_resp
             })
@@ -757,8 +838,8 @@ mod tests {
         // await server response for FilterRequest
         state.handle_mid_event(receiver.next().await.unwrap());
         println!("ui event {:?}", receiver.next().await.unwrap()); // drop UI event
-        // // await server response for ReadTasksShortResponse (request automatically sent when handle_mid_event is called on FilterResponse)
-        //dbg!(receiver.next().await.unwrap());
+                                                                   // // await server response for ReadTasksShortResponse (request automatically sent when handle_mid_event is called on FilterResponse)
+                                                                   //dbg!(receiver.next().await.unwrap());
         state.handle_mid_event(receiver.next().await.unwrap());
         println!("ui event {:?}", receiver.next().await.unwrap()); // drop UI event
 
@@ -778,21 +859,27 @@ mod tests {
     // #[traced_test]
     async fn test_tasks() {
         let (server, mut state, mut receiver, view_key) = test_init().await;
-        
+
         let view = state.view_get(view_key).unwrap();
         assert_eq!(view.name, "Main View");
-        let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
-        
+        let mut tasks = view
+            .tasks
+            .as_ref()
+            .unwrap()
+            .iter()
+            .cloned()
+            .collect::<Vec<TaskKey>>();
+
         tasks.sort(); // make keys are in sorted order
-        // test task_mod
+                      // test task_mod
         state.task_mod(tasks[0], |t| "Eat Dinner".clone_into(&mut t.name));
         assert_eq!(state.task_get(tasks[0]).unwrap().name, "Eat Dinner");
-        
+
         // test task_rm (& db key removal)
         dbg!(receiver.next().await.unwrap()); // random error?
         state.task_rm(tasks[1]).unwrap();
         state.handle_mid_event(receiver.next().await.unwrap()); // the delete task event
-        
+
         // test get function fail
         dbg!(state.task_get(tasks[1]));
         state.task_get(tasks[1]).unwrap_err();
@@ -803,7 +890,9 @@ mod tests {
         assert_eq!(test, 0);
 
         // test update works
-        state.task_mod(tasks[0], |t: &mut Task| "Cook some lunch yo".clone_into(&mut t.name));
+        state.task_mod(tasks[0], |t: &mut Task| {
+            "Cook some lunch yo".clone_into(&mut t.name)
+        });
         dbg!(receiver.next().await.unwrap()); // skip state event
         state.handle_mid_event(receiver.next().await.unwrap());
         // dbg!(receiver.next().await.unwrap());
@@ -826,36 +915,58 @@ mod tests {
     #[tokio::test]
     async fn test_prop_def() {
         let (server, mut state, mut receiver, view_key) = test_init().await;
-        
+
         let view = state.view_get(view_key).unwrap();
         assert_eq!(view.name, "Main View");
-        let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
-        
+        let mut tasks = view
+            .tasks
+            .as_ref()
+            .unwrap()
+            .iter()
+            .cloned()
+            .collect::<Vec<TaskKey>>();
+
         tasks.sort(); // make keys are in sorted order
-        
+
         // assign a date to tasks[0]
         let mut name_key = state.prop_def_name("Due Date");
-        let mut prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into())).unwrap();
+        let mut prop_key = state
+            .prop_def(
+                tasks[0],
+                name_key,
+                TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into()),
+            )
+            .unwrap();
         let mut prop = &state.props[prop_key];
-        
+
         // check that tasks 0 got assigned the date
         assert_eq!(prop, state.prop_get(tasks[0], name_key).unwrap());
-        
+
         // test float prop
         name_key = state.prop_def_name("time to finish (seconds)");
-        prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::Number(2.0567)).unwrap();
+        prop_key = state
+            .prop_def(tasks[0], name_key, TaskPropVariant::Number(2.0567))
+            .unwrap();
         prop = &state.props[prop_key];
         assert_eq!(prop, state.prop_get(tasks[0], name_key).unwrap());
 
         // test string prop
         name_key = state.prop_def_name("assignee");
-        prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::String(String::from("yacobo"))).unwrap();
+        prop_key = state
+            .prop_def(
+                tasks[0],
+                name_key,
+                TaskPropVariant::String(String::from("yacobo")),
+            )
+            .unwrap();
         prop = &state.props[prop_key];
         assert_eq!(prop, state.prop_get(tasks[0], name_key).unwrap());
 
         // test bool prop
         name_key = state.prop_def_name("is ez?");
-        prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::Boolean(false)).unwrap();
+        prop_key = state
+            .prop_def(tasks[0], name_key, TaskPropVariant::Boolean(false))
+            .unwrap();
         prop = &state.props[prop_key];
         assert_eq!(prop, state.prop_get(tasks[0], name_key).unwrap());
     }
@@ -863,26 +974,36 @@ mod tests {
     #[tokio::test]
     async fn test_prop_mod() {
         let (server, mut state, mut receiver, view_key) = test_init().await;
-        
+
         let view = state.view_get(view_key).unwrap();
         assert_eq!(view.name, "Main View");
-        let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
-        
+        let mut tasks = view
+            .tasks
+            .as_ref()
+            .unwrap()
+            .iter()
+            .cloned()
+            .collect::<Vec<TaskKey>>();
+
         tasks.sort(); // make keys are in sorted order
-        
+
         // String -> String mod
         let name_key = state.prop_def_name("random property");
-        let prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::String(String::from("j"))).unwrap();
+        let prop_key = state
+            .prop_def(
+                tasks[0],
+                name_key,
+                TaskPropVariant::String(String::from("j")),
+            )
+            .unwrap();
         let prop_ref = &state.props[prop_key];
 
-        state.prop_mod(tasks[0], name_key, |prop| {
-            match prop {
-                TaskPropVariant::String(_) => {
-                    let mut new_prop = TaskPropVariant::String("jacob is cool".to_string());
-                    *prop = new_prop;
-                }
-                _ => {}
+        state.prop_mod(tasks[0], name_key, |prop| match prop {
+            TaskPropVariant::String(_) => {
+                let mut new_prop = TaskPropVariant::String("jacob is cool".to_string());
+                *prop = new_prop;
             }
+            _ => {}
         });
         let new_random_str = state.prop_get(tasks[0], name_key).unwrap();
         let actual_random_str = match new_random_str {
@@ -890,22 +1011,33 @@ mod tests {
             _ => None, // Handle other variants if needed
         };
         assert_eq!(actual_random_str.unwrap(), "jacob is cool");
-        
     }
-    
+
     #[tokio::test]
     async fn test_prop_rm() {
         let (server, mut state, mut receiver, view_key) = test_init().await;
-        
+
         let view = state.view_get(view_key).unwrap();
         assert_eq!(view.name, "Main View");
-        let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
-        
+        let mut tasks = view
+            .tasks
+            .as_ref()
+            .unwrap()
+            .iter()
+            .cloned()
+            .collect::<Vec<TaskKey>>();
+
         tasks.sort(); // make keys are in sorted order
-        
+
         // assign a date to tasks[0]
         let mut name_key = state.prop_def_name("Due Date");
-        let mut prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into())).unwrap();
+        let mut prop_key = state
+            .prop_def(
+                tasks[0],
+                name_key,
+                TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into()),
+            )
+            .unwrap();
         let mut prop = &state.props[prop_key];
 
         // remove the date
@@ -916,19 +1048,43 @@ mod tests {
     #[tokio::test]
     async fn test_remove_prop_name_deletes_props_prop_map_and_props() {
         let (server, mut state, mut receiver, view_key) = test_init().await;
-        
+
         let view = state.view_get(view_key).unwrap();
         assert_eq!(view.name, "Main View");
-        let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
-        
+        let mut tasks = view
+            .tasks
+            .as_ref()
+            .unwrap()
+            .iter()
+            .cloned()
+            .collect::<Vec<TaskKey>>();
+
         tasks.sort(); // make keys are in sorted order
-        
+
         // assign a date to tasks[0]
         let mut name_key = state.prop_def_name("Due Date");
-        state.prop_def(tasks[0], name_key, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into())).unwrap();
-        state.prop_def(tasks[1], name_key, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into())).unwrap();
-        state.prop_def(tasks[2], name_key, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into())).unwrap();
-        
+        state
+            .prop_def(
+                tasks[0],
+                name_key,
+                TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into()),
+            )
+            .unwrap();
+        state
+            .prop_def(
+                tasks[1],
+                name_key,
+                TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into()),
+            )
+            .unwrap();
+        state
+            .prop_def(
+                tasks[2],
+                name_key,
+                TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into()),
+            )
+            .unwrap();
+
         state.prop_rm_name(name_key);
         assert!(state.prop_get(tasks[0], name_key).is_err()); // these should all be errors
         assert!(state.prop_get(tasks[1], name_key).is_err());
@@ -943,20 +1099,38 @@ mod tests {
     #[tokio::test]
     async fn test_prop_def_twice() {
         let (server, mut state, mut receiver, view_key) = test_init().await;
-        
+
         let view = state.view_get(view_key).unwrap();
         assert_eq!(view.name, "Main View");
-        let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
-        
+        let mut tasks = view
+            .tasks
+            .as_ref()
+            .unwrap()
+            .iter()
+            .cloned()
+            .collect::<Vec<TaskKey>>();
+
         tasks.sort(); // make keys are in sorted order
-        
+
         // assign a date to tasks[0]
         let name_key = state.prop_def_name("random property");
-        let old_prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into())).unwrap();
-        let prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::String(String::from("j"))).unwrap();
+        let old_prop_key = state
+            .prop_def(
+                tasks[0],
+                name_key,
+                TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into()),
+            )
+            .unwrap();
+        let prop_key = state
+            .prop_def(
+                tasks[0],
+                name_key,
+                TaskPropVariant::String(String::from("j")),
+            )
+            .unwrap();
         let old_prop_ref = &state.props[old_prop_key];
         let new_prop_ref = &state.props[prop_key];
-        
+
         // both should have type "string"
         //assert_eq!(old_prop_ref.type_string(), new_prop_ref.type_string());
     }
@@ -967,7 +1141,7 @@ mod tests {
         assert_eq!(task_key_iter.clone().count(), 3);
         //let task_key1 = task_key_iter.clone().next();
         //assert_eq!(task_key1, 1);
-        //let task_key2 = 
+        //let task_key2 =
         //assert_eq!(1, 0);
     }
 
@@ -978,81 +1152,7 @@ mod tests {
         assert_eq!(task_key_iter.clone().count(), 3);
         //let task_key1 = task_key_iter.clone().next();
         //assert_eq!(task_key1, 1);
-        //let task_key2 = 
+        //let task_key2 =
         //assert_eq!(1, 0);
     }
-
-    /* #[tokio::test]
-    async fn test_frontend_api() {
-        let server = mockito_setup().await;
-        let url = server.url();
-        println!("url: {url}");
-
-        
-
-        let name_key = state.prop_def_name("Due Date");
-        // test prop def removal
-        let invalid_name_key = state.prop_def_name("Invalid");
-        assert_eq!(state.prop_rm_name(invalid_name_key).unwrap(), "Invalid");
-        assert!(state.prop_rm_name(invalid_name_key).is_err());
-
-        // test prop_def
-        state
-            .prop_def(tasks[0], name_key, TaskPropVariant::Boolean(false))
-            .unwrap();
-        assert!(state
-            .prop_def(tasks[0], invalid_name_key, TaskPropVariant::Boolean(false))
-            .is_err());
-        assert!(state
-            .prop_def(tasks[1], name_key, TaskPropVariant::Boolean(false))
-            .is_err());
-
-        // test prop_mod
-        assert!(state
-            .prop_mod(tasks[1], name_key, |t| *t = TaskPropVariant::Boolean(true))
-            .is_err());
-        assert!(state
-            .prop_mod(tasks[0], invalid_name_key, |t| *t =
-                TaskPropVariant::Boolean(true))
-            .is_err());
-        assert!(state
-            .prop_mod(tasks[0], name_key, |t| *t = TaskPropVariant::Boolean(true))
-            .is_ok());
-        // test prop_get
-        assert_eq!(
-            state.prop_get(tasks[0], name_key).unwrap(),
-            &TaskPropVariant::Boolean(true)
-        );
-        assert!(state.prop_get(tasks[1], name_key).is_err());
-        assert!(state.prop_get(tasks[0], invalid_name_key).is_err());
-
-        // test prop_rm
-        assert!(state.prop_rm(tasks[0], invalid_name_key).is_err());
-        assert!(state.prop_rm(tasks[1], name_key).is_err());
-        assert_eq!(
-            state.prop_rm(tasks[0], name_key).unwrap(),
-            TaskPropVariant::Boolean(true)
-        );
-        assert!(state.prop_rm(tasks[0], name_key).is_err());
-
-        // script testing
-        let script_id = state.script_create();
-        state.script_mod(script_id, |s| {
-            "function do_lua()".clone_into(&mut s.content)
-        });
-        assert_eq!(
-            state.script_get(script_id).unwrap().content,
-            "function do_lua()"
-        );
-        state.script_rm(script_id);
-        assert!(state.script_get(script_id).is_none());
-
-        // test remove view
-        state.view_rm(view_key);
-        assert!(state.view_get(view_key).is_err());
-
-        // prop errors
-        dbg!(PropDataError::Prop(tasks[0], name_key));
-        println!("{}", PropDataError::Prop(tasks[1], invalid_name_key));
-    } */
 }
