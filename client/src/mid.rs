@@ -13,6 +13,7 @@ use futures::{
     channel::mpsc::{self, Receiver, Sender},
     SinkExt, Stream, StreamExt,
 };
+use mockall::automock;
 use reqwest::Response;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, RequestBuilder};
 use reqwest_tracing::{SpanBackendWithUrl, TracingMiddleware};
@@ -173,6 +174,7 @@ pub enum StateEvent {
 }
 
 // data events received from server must implement this trait to be applied to middleware
+#[automock]
 pub trait ServerResponse: fmt::Debug + Send + Sync + 'static {
     fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<Option<StateEvent>>;
 }
