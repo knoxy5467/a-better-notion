@@ -5,14 +5,13 @@ use ratatui::{
 use tui_textarea::{TextArea, TextAreaWidget};
 use thiserror::Error;
 
-use crate::mid::{ModifyTaskError, NoTaskError, State, Task, TaskKey, ViewKey};
+use crate::mid::{ModifyTaskError, NoTaskError, State, Task, TaskKey, ViewKey, View};
 
 #[derive(Debug)]
-pub enum TaskPopup {
+pub enum ViewPopup {
 	Create(String),
-	Delete(TaskKey, String),
-    Edit(TaskKey, Box<TextArea>),
-    Views(Vec<ViewKey>),
+	Delete(ViewKey, String),
+    Edit(ViewKey, Box<TextArea>),
 }
 
 #[derive(Debug, Error)]
@@ -25,9 +24,9 @@ pub enum CloseError {
     AddTask(TaskKey),
 }
 
-impl TaskPopup {
-    pub fn edit(key: TaskKey, state: &State) -> Option<Self> {
-        let name = &state.task_get(key).ok()?.name;
+impl ViewPopup {
+    pub fn edit(key: ViewKey, state: &State) -> Option<Self> {
+        let name = &state.view_get(key).ok()?.name;
         let mut textarea = TextArea::default();
         textarea.set_cursor_line_style(Style::default());
         textarea.insert_str(name);
@@ -48,7 +47,7 @@ impl TaskPopup {
                     KeyCode::Char(c) => name.push(*c),
                     KeyCode::Backspace => {name.pop();},
                     KeyCode::Enter => {
-                        let task_key = state.task_def(Task::new(name.clone(), false));
+                        let view_key = state.view_def(View::new(name.clone(), false));
                         return Err(Some(CloseError::AddTask(task_key)));
                     }
                     _ => return Ok(false),
@@ -94,7 +93,7 @@ impl TaskPopup {
 		match self {
 			Self::Create(name) => {
                 let block = Block::default()
-                .title("Create Task")
+                .title("Create View")
                 .borders(Borders::ALL)
                 .border_set(border::ROUNDED);
 
@@ -136,10 +135,3 @@ impl TaskPopup {
 		};
     }
 }
-
-/* #[cfg(test)]
-mod tests {
-    async fn mock_popup() {
-
-    }
-} */

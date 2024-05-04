@@ -491,10 +491,14 @@ impl State {
     pub fn view_get(&self, view_key: ViewKey) -> Result<&View, NoViewError> {
         self.views.get(view_key).ok_or(NoViewError(view_key))
     }
+    pub fn view_get_keys(&self) -> impl Iterator<Item = ViewKey> + '_ {
+        self.views.keys()
+    }
     /// get the default view
     pub fn view_get_default(&self) -> Option<ViewKey> {
         self.views.keys().next()
     }
+
     /// shorthdand function to get the list of tasks associated with a view (some keys may be invalid)
     pub fn view_task_keys(&self, view_key: ViewKey) -> Option<impl Iterator<Item = TaskKey> + Clone + '_> {
         self.view_get(view_key).ok()

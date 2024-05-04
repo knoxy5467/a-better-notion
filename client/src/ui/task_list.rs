@@ -133,6 +133,14 @@ impl TaskList {
                     self.task_popup = TaskPopup::edit(selection, state);
                 }
             }
+            Char('v') => {
+                let mut all_views: Vec<ViewKey> = Vec::new();
+                let views = state.view_get_keys();
+                for key in views {
+                    all_views.push(key);
+                }
+                self.task_popup = Some(TaskPopup::Views(all_views));
+            }
             Up => self.shift(-1, false),
             Down => self.shift(1, false),
             Enter => {
