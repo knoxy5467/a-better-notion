@@ -26,8 +26,6 @@ async fn insert_task_fails_with_bad_request() {
         .set_json(CreateTaskRequest {
             name: "test".to_string(),
             completed: false,
-            properties: vec![],
-            dependencies: vec![],
             req_id: 0,
         })
         .uri("/task")
@@ -62,8 +60,6 @@ async fn insert_task_succeeds_with_good_request() {
         .set_json(CreateTaskRequest {
             name: "test".to_string(),
             completed: false,
-            properties: vec![],
-            dependencies: vec![],
             req_id: 0,
         })
         .uri("/task")
@@ -114,15 +110,11 @@ async fn insert_tasks_works() {
             CreateTaskRequest {
                 name: "test".to_string(),
                 completed: false,
-                properties: vec![],
-                dependencies: vec![],
                 req_id: 0,
             },
             CreateTaskRequest {
                 name: "test2".to_string(),
                 completed: false,
-                properties: vec![],
-                dependencies: vec![],
                 req_id: 1,
             },
         ])
