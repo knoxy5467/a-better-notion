@@ -36,6 +36,18 @@ fn load_settings() -> Result<AbnSettings, actix_settings::Error> {
     AbnSettings::parse_toml("Server.toml")
 }
 // watch for overflows with attempts
+/**
+this function will attempt to connect to the database with exponential backoff
+it will wait for 2^{current num attempts} seconds before trying again
+it will try for a total of 2^{attempts} seconds before giving up
+# Arguments
+* `attempts` - the number of attempts to try before giving up
+* `db_url` - the url of the database to connect to
+# Returns
+* `DatabaseConnection` - the connection to the database
+# Errors
+* `DbErr` - the error that occurred while trying to connect to the database
+*/
 pub async fn connect_to_database_exponential_backoff(
     attempts: u32,
     db_url: String,
