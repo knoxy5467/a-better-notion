@@ -77,7 +77,9 @@ pub enum Comparator {
     /// Does not contain
     NOTCONTAINS,
     /// Regular expression match
-    REGEX,
+    // REGEX,
+    /// Like SQL query
+    LIKE,
 }
 
 /// Operator that combines multiple Filters
@@ -87,6 +89,8 @@ pub enum Operator {
     AND,
     /// OR operator, appends the results of all the filters to each other.
     OR,
+    /// NOT operator, negates the first child
+    NOT,
 }
 
 /// The variants of Task Properties
