@@ -408,6 +408,9 @@ impl State {
         self.prop_name_map.insert(name, key);
         key
     }
+    pub fn prop_get_name(&self, name_key: PropNameKey) -> Option<&str> {
+        self.prop_names.get(name_key).map(String::as_str)
+    }
     /// delete a property name
     pub fn prop_rm_name(&mut self, name_key: PropNameKey) -> Result<String, PropDataError> {
         let name = self

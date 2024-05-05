@@ -113,6 +113,16 @@ impl TaskPropVariant {
         }
     }
 }
+impl std::fmt::Display for TaskPropVariant {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TaskPropVariant::Date(date) => write!(f, "{date}"),
+            TaskPropVariant::String(string) => write!(f, "{string}"),
+            TaskPropVariant::Number(num) => write!(f, "{num}"),
+            TaskPropVariant::Boolean(bool) => write!(f, "{bool}"),
+        }
+    }
+}
 /// A task property and its corresponding name.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct TaskProp {
