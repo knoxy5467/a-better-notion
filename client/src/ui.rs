@@ -115,6 +115,7 @@ impl App {
                 StateEvent::PropsUpdate => todo!(),
                 StateEvent::ViewsUpdate => {
                     self.task_list.rebuild_list(&self.state); // rebuild list state when views update
+                    self.view_list.rebuild_list(&self.state);
                     true
                 },
                 StateEvent::ScriptUpdate(_) => todo!(),

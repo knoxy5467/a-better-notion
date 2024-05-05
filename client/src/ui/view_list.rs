@@ -15,6 +15,8 @@ use crate::{mid::{State, Task, TaskKey, ViewKey}, ui::{report_error}};
 
 //use task_popup::TaskPopup;
 
+use self::view_popup::ViewPopup;
+
 use super::{COMPLETED_TEXT_COLOR, GREYED_OUT_TEXT_COLOR, SELECTED_STYLE_FG, TEXT_COLOR};
 
 #[derive(Default, Debug)]
@@ -22,7 +24,7 @@ use super::{COMPLETED_TEXT_COLOR, GREYED_OUT_TEXT_COLOR, SELECTED_STYLE_FG, TEXT
 pub struct ViewList {
     pub list_state: ListState,
     all_views: Vec<ViewKey>,
-    //view_popup: Option<TaskPopup>,
+    view_popup: Option<ViewPopup>,
 }
 
 impl ViewList {
@@ -89,27 +91,27 @@ impl ViewList {
     pub fn handle_term_event(&mut self, state: &mut State, event: &Event) -> bool {
         use KeyCode::*;
         // TODO: popups
-        // if let Some(task_popup) = &mut self.task_popup {
-        //     // early return if popup exists
-        //     return match task_popup.handle_term_event(state, event) {
-        //         Ok(do_render) => do_render,
-        //         Err(err) => {
-        //             self.task_popup = None;
-        //             if let Some(err) = err {
-        //                 match err {
-        //                     CloseError::NoTaskError(err) => log::error!("attempted to delete a task: {err:?}"),
-        //                     CloseError::ModifyTaskError(err) => log::error!("attempted to modify a task but got error: {err:?}"),
-        //                     CloseError::AddTask(t) => self.shown_tasks.push(t),
-        //                 }
-        //             }
-        //             true
-        //         }
-        //     }
-        // }
+        if let Some(view_popup) = &mut self.view_popup {
+            // early return if popup exists
+            return match view_popup.handle_term_event(state, event) {
+                Ok(do_render) => do_render,
+                Err(err) => {
+                    self.view_popup = None;
+                    if let Some(err) = err {
+                        match err {
+                            // CloseError::NoTaskError(err) => log::error!("attempted to delete a task: {err:?}"),
+                            // CloseError::ModifyTaskError(err) => log::error!("attempted to modify a task but got error: {err:?}"),
+                            view_popup::ViewPopupCloseError::AddView(v) => self.all_views.push(v),
+                        }
+                    }
+                    true
+                }
+            }
+        }
         let Event::Key(key_event) = event else {return false};
         // TODO: handle popup creates
         match key_event.code {
-            // Char('c') => self.task_popup = Some(TaskPopup::Create(Default::default())), // create task
+            Char('c') => self.view_popup = Some(ViewPopup::Create(Default::default())), // create task
             // Char('d') => { // delete task
             //     if let Some((key, task)) = self.selected_task(state) {
             //         self.task_popup = Some(TaskPopup::Delete(key, task.name.clone()));
@@ -181,9 +183,8 @@ impl ViewList {
                 .render(area, buf);
         }   
         // popup rendering
-        // TODO:
-        // if let Some(popup) = self.view_popup.as_mut() {
-        //     popup.render(area, buf)
-        // }
+        if let Some(popup) = self.view_popup.as_mut() {
+            popup.render(area, buf)
+        }
     }
 }
