@@ -139,6 +139,15 @@ pub enum Filter {
         /// Immediate value to use with the comparator
         immediate: TaskPropVariant,
     },
+    /// property of the task itself
+    LeafPrimitive {
+        /// property name for whatever
+        field: String,
+        /// the comparator
+        comparator: Comparator,
+        /// what we compare against
+        immediate: TaskPropVariant,
+    },
     /// Filter branch, combines multiple leaves based on Operator.
     Operator {
         /// operator used to combined a set of nested filters

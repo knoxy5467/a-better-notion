@@ -124,6 +124,7 @@ pub async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Re
     if req.checked.is_some() {
         task.completed = Set(req.checked.unwrap());
     }
+    task.update(db).await.map_err(ErrorInternalServerError)?;
     for prop in req.props_to_add.iter() {
         let model = task_property::Entity::find()
             .filter(
@@ -444,7 +445,7 @@ fn construct_filter(filter: &Filter) -> actix_web::Result<Condition> {
                         }
                     };
                 }
-                TaskPropVariant::ate(imm) => {
+                TaskPropVariant::Date(imm) => {
                     condition =
                         condition.add(task_date_property::Column::TaskPropertyName.eq(field));
                     condition = match comparator {
@@ -521,6 +522,69 @@ fn construct_filter(filter: &Filter) -> actix_web::Result<Condition> {
             };
             Ok(condition)
         }
+        Filter::LeafPrimitive {
+            field,
+            comparator,
+            immediate,
+        } => match field.as_str() {
+            "name" => {
+                let mut condition = Condition::all();
+                let imm = match immediate {
+                    TaskPropVariant::String(a) => a,
+                    _ => return Err(ErrorInternalServerError("die")),
+                };
+
+                condition = match comparator {
+                    Comparator::LT => condition.add(task::Column::Title.lt(imm.clone())),
+                    Comparator::LEQ => condition.add(task::Column::Title.lt(imm.clone())),
+                    Comparator::GT => condition.add(task::Column::Title.lt(imm.clone())),
+                    Comparator::GEQ => condition.add(task::Column::Title.lt(imm.clone())),
+                    Comparator::EQ => condition.add(task::Column::Title.lt(imm.clone())),
+                    Comparator::NEQ => condition.add(task::Column::Title.lt(imm.clone())),
+                    Comparator::CONTAINS => {
+                        condition.add(task::Column::Title.like(format!("%{}%", imm)))
+                    }
+                    Comparator::NOTCONTAINS => condition.add(Condition::not(
+                        Condition::all().add(task::Column::Title.like(format!("%{}%", imm))),
+                    )),
+                    Comparator::LIKE => condition.add(task::Column::Title.like(imm.clone())),
+                };
+                Ok(condition)
+            }
+            "completed" => {
+                let mut condition = Condition::all();
+                let imm = match immediate {
+                    TaskPropVariant::Boolean(a) => a,
+                    _ => return Err(ErrorInternalServerError("invalid type")),
+                };
+
+                condition = match comparator {
+                    Comparator::EQ => condition.add(task::Column::Completed.eq(*imm)),
+                    Comparator::NEQ => condition.add(task::Column::Completed.ne(*imm)),
+                    _ => return Err(ErrorInternalServerError("invalid comparator")),
+                };
+                Ok(condition)
+            }
+            "last_edited" => {
+                let mut condition = Condition::all();
+                let imm = match immediate {
+                    TaskPropVariant::Date(a) => a,
+                    _ => return Err(ErrorInternalServerError("invalid type")),
+                };
+
+                condition = match comparator {
+                    Comparator::LT => condition.add(task::Column::LastEdited.lt(*imm)),
+                    Comparator::LEQ => condition.add(task::Column::LastEdited.lte(*imm)),
+                    Comparator::GT => condition.add(task::Column::LastEdited.gt(*imm)),
+                    Comparator::GEQ => condition.add(task::Column::LastEdited.gte(*imm)),
+                    Comparator::EQ => condition.add(task::Column::LastEdited.eq(*imm)),
+                    Comparator::NEQ => condition.add(task::Column::LastEdited.ne(*imm)),
+                    _ => return Err(ErrorInternalServerError("invalid comparator")),
+                };
+                Ok(condition)
+            }
+            _ => Err(ErrorInternalServerError("Invalid task property")),
+        },
         Filter::Operator { op, childs } => {
             if let Operator::NOT = op {
                 match construct_filter(&childs[0]) {
