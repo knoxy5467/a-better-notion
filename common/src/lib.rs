@@ -24,8 +24,10 @@ pub type ViewID = i32;
 /// Identification of a property, from database
 pub type PropName = String;
 /// Data stored in Database representing a view.
-#[derive(Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct ViewData {
+    /// ID for view
+    pub view_id: i32,
     /// Filter for view
     pub filter: Filter,
     /// Properties shown in view

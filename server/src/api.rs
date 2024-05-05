@@ -545,6 +545,28 @@ async fn get_properties_request(
     Ok(web::Json(res))
 }
 
+#[get("/views")]
+async fn get_views_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<GetViewRequest>,
+) -> Result<web::Json<GetViewResponse>> {
+    Err(ErrorInternalServerError("heyo"))
+}
+#[post("/view")]
+async fn create_view_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<CreateViewRequest>,
+) -> Result<web::Json<CreateViewResponse>> {
+    Err(ErrorInternalServerError("heyo"))
+}
+#[put("/view")]
+async fn update_view_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<UpdateViewRequest>,
+) -> Result<web::Json<UpdateViewResponse>> {
+    Err(ErrorInternalServerError("heyo"))
+}
+
 #[cfg(test)]
 #[path = "./tests/test_create.rs"]
 mod test_create;

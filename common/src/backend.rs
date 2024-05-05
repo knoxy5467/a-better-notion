@@ -189,6 +189,39 @@ struct FilterTaskRequest {
 }
 type FilterTaskRespone = Vec<TaskShort>;
 
+/// request for GET /views
+pub type GetViewRequest = u64;
+/// response for GET /views
+pub type GetViewResponse = Vec<ViewData>;
+/// request for POST /views
+#[derive(Serialize, Deserialize)]
+pub struct CreateViewRequest {
+    /// the view you want to create
+    pub view: ViewData,
+    /// the request id
+    pub req_id: u64,
+}
+/// response for POST /views
+#[derive(Serialize, Deserialize)]
+pub struct CreateViewResponse {
+    /// ID of view
+    pub view_id: i32,
+    /// ID of request
+    pub req_id: u64,
+}
+/// request for PUT /views
+#[derive(Serialize, Deserialize)]
+pub struct UpdateViewRequest {
+    /// ID for view
+    pub view_id: i32,
+    /// new view that we're setting
+    pub view: ViewData,
+    /// ID of request
+    pub req_id: u64,
+}
+/// response for PUT /views
+pub type UpdateViewResponse = u64;
+
 #[cfg(test)]
 mod tests {
     use chrono::DateTime;
