@@ -4,7 +4,9 @@ use actix_web::error::{ErrorInternalServerError, ErrorNotFound};
 use actix_web::{delete, get, post, put, web, Responder, Result};
 use common::{backend::*, Comparator, Filter, Operator, TaskID, TaskPropVariant};
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
-use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Condition, IntoActiveModel, Set};
+use sea_orm::{
+    entity::prelude::*, ActiveValue::NotSet, Condition, IntoActiveModel, QuerySelect, Set,
+};
 
 /// get /task endpoint for retrieving a single TaskShort
 #[get("/task")]
@@ -442,7 +444,7 @@ fn construct_filter(filter: &Filter) -> actix_web::Result<Condition> {
                         }
                     };
                 }
-                TaskPropVariant::Date(imm) => {
+                TaskPropVariant::ate(imm) => {
                     condition =
                         condition.add(task_date_property::Column::TaskPropertyName.eq(field));
                     condition = match comparator {
@@ -550,16 +552,29 @@ pub async fn filter(
     let filter = construct_filter(&req.filter)?;
 
     let tasks: Vec<task::Model> = task::Entity::find()
-        .reverse_join(task_bool_property::Entity)
-        .reverse_join(task_date_property::Entity)
-        .reverse_join(task_num_property::Entity)
-        .reverse_join(task_string_property::Entity)
+        .join(
+            sea_orm::JoinType::LeftJoin,
+            task::Relation::TaskNumProperty.def(),
+        )
+        .join(
+            sea_orm::JoinType::LeftJoin,
+            task::Relation::TaskBoolProperty.def(),
+        )
+        .join(
+            sea_orm::JoinType::LeftJoin,
+            task::Relation::TaskStringProperty.def(),
+        )
+        .join(
+            sea_orm::JoinType::LeftJoin,
+            task::Relation::TaskDateProperty.def(),
+        )
         .filter(filter)
         .all(db)
         .await
         .map_err(|e| {
             actix_web::error::ErrorInternalServerError(format!("couldn't filter tasks: {}", e))
         })?;
+    log::info!("{:?}", tasks);
 
     Ok(web::Json(
         tasks.iter().map(|a| a.id).collect::<FilterResponse>(),
