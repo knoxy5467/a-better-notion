@@ -32,7 +32,7 @@ pub struct Task {
     /// if it is stored in the database, it will have a unique task_id.
     pub db_id: Option<TaskID>,
     /// latest should be set to true if this value matches server (if false and needed, it should be fetched and updated as soon as possible)
-    pub is_syncronized: bool,
+    pub current_rollback: Option<Box<Task>>,
     /// if task is pending deletion request
     pub pending_deletion: bool,
 }
@@ -172,7 +172,7 @@ impl ServerResponse for ReadTaskShortResponse {
             dependencies: self.deps.iter().map(|tid|state.new_server_task(*tid).0).collect::<Vec<TaskKey>>(),
             scripts: self.scripts,
             db_id: Some(self.task_id),
-            is_syncronized: true,
+            current_rollback: None,
             pending_deletion: false,
         };
         // create/update existing task with read task
@@ -186,7 +186,7 @@ impl ServerResponse for UpdateTaskResponse {
         let task_key = state.task_map.get(&self.task_id).with_context(||format!("cannot find locally stored task associated with DB id: {:?}", self.task_id))?;
         if let Some(task) = state.tasks.get_mut(*task_key) {
             task.db_id = Some(self.task_id);
-            task.is_syncronized = true;
+            task.current_rollback = None;
         } else {
             panic!("fatal: DB id {:?} was associated with task key {:?} but task didn't exist", self.task_id, task_key);
         }
@@ -199,7 +199,7 @@ impl ServerResponse for CreateTaskResponse {
         let task = state.tasks.get_mut(task_key).with_context(||format!("req_id received from CreateTaskResponse does not match a local task key: {task_key:?}"))?;
         task.db_id = Some(self.task_id); // record db ID
         state.task_map.insert(self.task_id, task_key); // record in db map
-        task.is_syncronized = true; // flag syncronized
+        task.current_rollback = None; // flag syncronized
         Ok(Some(StateEvent::TasksUpdate))
     }
 }
@@ -239,7 +239,7 @@ impl ServerResponse for FilterResponse {
         // calculate which tasks we have and which need fetching using is_syncronized
         let tasks_to_fetch = view_tasks
             .filter_map(|tkey|state.tasks.get(tkey)
-            .and_then(|t|if !t.is_syncronized {t.db_id} else {None}))
+            .and_then(|t|if !t.current_rollback.is_none() {t.db_id} else {None}))
             .map(|task_id|ReadTaskShortRequest { task_id, req_id: 0 }).collect::<Vec<ReadTaskShortRequest>>();
 
         // automatically fetch needed tasks. TODO: to be smarter about this should we dynamically fetch based on UI (?)
@@ -348,7 +348,7 @@ impl State {
     /// modify a task
     pub fn task_mod(&mut self, key: TaskKey, edit_fn: impl FnOnce(&mut Task)) -> Result<(), ModifyTaskError> {
         if let Some(task) = self.tasks.get_mut(key) {
-            if task.is_syncronized {
+            if task.current_rollback.is_none() {
                 // get previous task state
                 let bef = task.clone();
                 edit_fn(task); // modify task
@@ -613,10 +613,10 @@ pub fn init_test() -> (State, Receiver<MidEvent>) {
 #[cfg(test)]
 mod tests {
     pub use super::*;
+    use chrono::NaiveDate;
     use common::backend::{DeleteTasksRequest, DeleteTasksResponse, FilterResponse, ReadTaskShortResponse};
     use mockito::{Matcher, Server, ServerGuard};
     use serde_json::{to_value, to_vec};
-    use chrono::{NaiveDate, NaiveDateTime};
 
     async fn mockito_setup() -> ServerGuard {
         let mut server = Server::new_async().await;
