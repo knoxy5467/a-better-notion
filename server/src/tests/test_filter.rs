@@ -43,6 +43,92 @@ async fn test_empty_filter() {
     assert_eq!(resp[0], 1);
     assert_eq!(resp[1], 2);
 }
+
+macro_rules! simple_test {
+    ($name:expr, $comp:expr, $imm:expr, $res:expr, $db_conn:expr) => {
+        let res = filter(
+            $db_conn,
+            &FilterRequest {
+                filter: Filter::Leaf {
+                    field: $name.to_string(),
+                    comparator: $comp,
+                    immediate: $imm,
+                },
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(res[0], $res);
+        assert!(res.len() == 1);
+    };
+}
+
+macro_rules! simple_make {
+    ($val1:expr, $val2:expr, $name:expr, $db_conn:expr, $id0:ident, $id1:ident) => {
+        let $id0 = create_task(
+            $db_conn,
+            &CreateTaskRequest {
+                name: "task 1".to_string(),
+                completed: true,
+                req_id: 1,
+            },
+        )
+        .await
+        .unwrap();
+        let $id1 = create_task(
+            $db_conn,
+            &CreateTaskRequest {
+                name: "task 2".to_string(),
+                completed: true,
+                req_id: 1,
+            },
+        )
+        .await
+        .unwrap();
+        update_task(
+            $db_conn,
+            &UpdateTaskRequest {
+                task_id: $id0,
+                name: None,
+                checked: None,
+                props_to_add: vec![TaskProp {
+                    name: $name.to_string(),
+                    value: $val2,
+                }],
+                props_to_remove: vec![],
+                deps_to_add: vec![],
+                deps_to_remove: vec![],
+                scripts_to_add: vec![],
+                scripts_to_remove: vec![],
+                req_id: 0,
+            },
+        )
+        .await
+        .unwrap();
+        update_task(
+            $db_conn,
+            &UpdateTaskRequest {
+                task_id: $id1,
+                name: None,
+                checked: None,
+                props_to_add: vec![TaskProp {
+                    name: $name.to_string(),
+                    value: $val2,
+                }],
+                props_to_remove: vec![],
+                deps_to_add: vec![],
+                deps_to_remove: vec![],
+                scripts_to_add: vec![],
+                scripts_to_remove: vec![],
+                req_id: 0,
+            },
+        )
+        .await
+        .unwrap();
+    };
+}
+
 #[actix_web::test]
 async fn db_test() {
     env::set_var("RUST_LOG", "info");
@@ -56,9 +142,26 @@ async fn db_test() {
     )
     .await
     .unwrap();
+
     // run all my tests
     info!("create task");
-    let id0: i32 = create_task(
+    simple_make!(
+        TaskPropVariant::Number(1.0),
+        TaskPropVariant::Number(2.0),
+        "dogs",
+        &db_conn,
+        id0,
+        id1
+    );
+    simple_test!(
+        "dogs",
+        Comparator::EQ,
+        TaskPropVariant::Number(1.0),
+        id0,
+        &db_conn
+    );
+
+    /*let id0: i32 = create_task(
         &db_conn,
         &CreateTaskRequest {
             name: "task 1".to_string(),
@@ -137,7 +240,7 @@ async fn db_test() {
     .await
     .unwrap();
 
-    println!("{:?}", res);
+    println!("{:?}", res);*/
     info!("shutting down db");
     // if tests are async you must await all of them before running below this will shut down the docker container
     db.stop();
