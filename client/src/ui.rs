@@ -40,9 +40,12 @@ pub struct App {
     state: State,
     /// task list widget
     task_list: task_list::TaskList,
+    /// view list widget
+    view_list: view_list::ViewList,
     /// number of frame updates (used for debug purposes)
     updates: usize,
     help_box_shown: bool,
+    view_list_shown: bool,
 }
 
 pub enum UIEvent {
@@ -57,8 +60,10 @@ impl App {
             should_exit: false,
             state,
             task_list: task_list::TaskList::default(),
+            view_list: view_list::ViewList::default(),
             updates: 0,
             help_box_shown: false,
+            view_list_shown: false,
         }
     }
     /// run app with some terminal output and event stream input
@@ -123,9 +128,17 @@ impl App {
         use KeyCode::*;
 
         // pass event to task list to check if it handles the event, if not, handle it below
-        if self.task_list.handle_term_event(&mut self.state, &event) {
-            return true;
+        if self.view_list_shown {
+            if self.view_list.handle_term_event(&mut self.state, &event) {
+                return true;
+            }
         }
+        else {
+            if self.task_list.handle_term_event(&mut self.state, &event) {
+                return true;
+            }
+        }
+
         match event {
             // it's important to check that the event is a key press event as
             // crossterm also emits key release and repeat events on Windows.
@@ -133,6 +146,7 @@ impl App {
                 if let Char('h') = key_event.code {} else { self.help_box_shown = false; }
                 match key_event.code {
                     Esc => if self.help_box_shown { self.help_box_shown = false; }
+                    Char('v') => {self.view_list_shown = !self.view_list_shown;}
                     Char('q') => self.should_exit = true,
                     Char('h') => self.help_box_shown = !self.help_box_shown,
                     _ => return false,
@@ -183,8 +197,15 @@ impl Widget for &mut App {
             )
             .borders(Borders::ALL)
             .border_set(border::ROUNDED);
+        
+        // TODO: view rendering
+        if self.view_list_shown {
+            self.view_list.render(&self.state, block, area, buf);
+        }
 
-        self.task_list.render(&self.state, block, area, buf);
+        else {
+            self.task_list.render(&self.state, block, area, buf);
+        }
 
         // render help list
         if self.help_box_shown {
