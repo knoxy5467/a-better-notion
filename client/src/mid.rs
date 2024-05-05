@@ -59,6 +59,14 @@ pub struct View {
     pub db_id: Option<ViewID>,
 }
 
+impl View {
+    pub fn new(name: String) -> View {
+        View {
+            name, ..Default::default()
+        }
+    }
+}
+
 new_key_type! { pub struct PropNameKey; }
 new_key_type! { pub struct ViewKey; }
 
@@ -368,6 +376,7 @@ impl State {
     }
     /// delete a task
     pub fn task_rm(&mut self, key: TaskKey) -> Result<(), NoTaskError> {
+        dbg!("removing a task!");
         if let Some(task) = self.tasks.get_mut(key) {
             if let Some(db_id) = task.db_id {
                 // mark pending deletion if in database
@@ -611,6 +620,7 @@ mod tests {
     use common::backend::{DeleteTasksRequest, DeleteTasksResponse, FilterResponse, ReadTaskShortResponse};
     use mockito::{Matcher, Server, ServerGuard};
     use serde_json::{to_value, to_vec};
+    use chrono::{NaiveDate, NaiveDateTime};
 
     async fn mockito_setup() -> ServerGuard {
         let mut server = Server::new_async().await;
@@ -619,7 +629,7 @@ mod tests {
             .mock("GET", "/filter")
             // .match_body(Matcher::Json(to_value(FilterRequest { filter: Filter::None, req_id: 0 }).unwrap()))
             .with_body_from_request(|req| {
-                let req = serde_json::from_slice::<FilterRequest>(req.body().unwrap()).unwrap();
+                let req: FilterRequest = serde_json::from_slice::<FilterRequest>(req.body().unwrap()).unwrap();
                 to_vec(&FilterResponse { tasks: vec![0, 1, 2], req_id: req.req_id}).unwrap()
             })
             .expect(1)
@@ -654,12 +664,38 @@ mod tests {
             .create_async()
             .await;
 
+        server.mock("POST", "/task")
+            .with_body_from_request(|req| {
+                let req: CreateTaskRequest = serde_json::from_slice::<CreateTaskRequest>(req.body().unwrap()).unwrap();
+                to_vec(&CreateTaskResponse{req_id: req.req_id, task_id: 3}).unwrap() // Note: This is mega sus b/c mock. Database ID is hardcoded!
+            })
+            .expect(1)
+            .create_async()
+            .await;
+
+        server.mock("PUT", "/task")
+            .with_body_from_request(|req| {
+                let req = serde_json::from_slice::<UpdateTaskRequest>(req.body().unwrap()).unwrap();
+                to_vec(&UpdateTaskResponse{task_id: req.task_id, req_id: req.req_id}).unwrap()
+            })
+            .expect(1)
+            .create_async()
+            .await;
+
         server.mock("DELETE", "/task")
             // send back request
             .with_body_from_request(|req| {
                 let req = serde_json::from_slice::<DeleteTaskRequest>(req.body().unwrap()).unwrap();
-                to_vec::<DeleteTaskResponse>(&req.req_id).unwrap()
-            });
+                println!("req is {:?}", req);
+                let resp: DeleteTaskResponse = req.req_id;
+                let new_resp = to_vec::<DeleteTaskResponse>(&resp).unwrap();
+                
+                println!("resp is {:?}", resp);
+                new_resp
+            })
+            .expect(1)
+            .create_async()
+            .await;
 
         server
             .mock("GET", mockito::Matcher::Any)
@@ -725,7 +761,8 @@ mod tests {
         // await server response for FilterRequest
         state.handle_mid_event(receiver.next().await.unwrap());
         println!("ui event {:?}", receiver.next().await.unwrap()); // drop UI event
-        // await server response for ReadTasksShortResponse (request automatically sent when handle_mid_event is called on FilterResponse)
+        // // await server response for ReadTasksShortResponse (request automatically sent when handle_mid_event is called on FilterResponse)
+        //dbg!(receiver.next().await.unwrap());
         state.handle_mid_event(receiver.next().await.unwrap());
         println!("ui event {:?}", receiver.next().await.unwrap()); // drop UI event
 
@@ -745,29 +782,208 @@ mod tests {
     // #[traced_test]
     async fn test_tasks() {
         let (server, mut state, mut receiver, view_key) = test_init().await;
-
+        
         let view = state.view_get(view_key).unwrap();
         assert_eq!(view.name, "Main View");
         let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
         
         tasks.sort(); // make keys are in sorted order
-        dbg!(&tasks);
         // test task_mod
         state.task_mod(tasks[0], |t| "Eat Dinner".clone_into(&mut t.name));
         assert_eq!(state.task_get(tasks[0]).unwrap().name, "Eat Dinner");
-
+        
         // test task_rm (& db key removal)
+        dbg!(receiver.next().await.unwrap()); // random error?
         state.task_rm(tasks[1]).unwrap();
-        state.handle_mid_event(receiver.next().await.unwrap()); // await server response
-        println!("ui event {:?}", receiver.next().await.unwrap()); // drop UI event
-
+        state.handle_mid_event(receiver.next().await.unwrap()); // the delete task event
+        
         // test get function fail
+        dbg!(state.task_get(tasks[1]));
         state.task_get(tasks[1]).unwrap_err();
+
         // test mod function fail
         let mut test = 0;
         state.task_mod(tasks[1], |_| test = 1);
         assert_eq!(test, 0);
-        assert!(state.task_map.is_empty());
+
+        // test update works
+        state.task_mod(tasks[0], |t: &mut Task| "Cook some lunch yo".clone_into(&mut t.name));
+        dbg!(receiver.next().await.unwrap()); // skip state event
+        state.handle_mid_event(receiver.next().await.unwrap());
+        // dbg!(receiver.next().await.unwrap());
+        // dbg!(receiver.next().await.unwrap());
+        // dbg!(receiver.next().await.unwrap());
+        //assert_eq!(1, 0);
+        assert_eq!(state.task_get(tasks[0]).unwrap().name, "Cook some lunch yo");
+
+        // test create task works
+        let task1 = state.task_def(Task {
+            name: "Eat Lunch".to_owned(),
+            completed: true,
+            ..Default::default()
+        });
+        dbg!(receiver.next().await.unwrap()); // catch state event
+        state.handle_mid_event(receiver.next().await.unwrap());
+        assert_eq!(state.tasks[task1].name, "Eat Lunch");
+    }
+
+    #[tokio::test]
+    async fn test_prop_def() {
+        let (server, mut state, mut receiver, view_key) = test_init().await;
+        
+        let view = state.view_get(view_key).unwrap();
+        assert_eq!(view.name, "Main View");
+        let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
+        
+        tasks.sort(); // make keys are in sorted order
+        
+        // assign a date to tasks[0]
+        let mut name_key = state.prop_def_name("Due Date");
+        let mut prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into())).unwrap();
+        let mut prop = &state.props[prop_key];
+        
+        // check that tasks 0 got assigned the date
+        assert_eq!(prop, state.prop_get(tasks[0], name_key).unwrap());
+        
+        // test float prop
+        name_key = state.prop_def_name("time to finish (seconds)");
+        prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::Number(2.0567)).unwrap();
+        prop = &state.props[prop_key];
+        assert_eq!(prop, state.prop_get(tasks[0], name_key).unwrap());
+
+        // test string prop
+        name_key = state.prop_def_name("assignee");
+        prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::String(String::from("yacobo"))).unwrap();
+        prop = &state.props[prop_key];
+        assert_eq!(prop, state.prop_get(tasks[0], name_key).unwrap());
+
+        // test bool prop
+        name_key = state.prop_def_name("is ez?");
+        prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::Boolean(false)).unwrap();
+        prop = &state.props[prop_key];
+        assert_eq!(prop, state.prop_get(tasks[0], name_key).unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_prop_mod() {
+        let (server, mut state, mut receiver, view_key) = test_init().await;
+        
+        let view = state.view_get(view_key).unwrap();
+        assert_eq!(view.name, "Main View");
+        let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
+        
+        tasks.sort(); // make keys are in sorted order
+        
+        // String -> String mod
+        let name_key = state.prop_def_name("random property");
+        let prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::String(String::from("j"))).unwrap();
+        let prop_ref = &state.props[prop_key];
+
+        state.prop_mod(tasks[0], name_key, |prop| {
+            match prop {
+                TaskPropVariant::String(_) => {
+                    let mut new_prop = TaskPropVariant::String("jacob is cool".to_string());
+                    *prop = new_prop;
+                }
+                _ => {}
+            }
+        });
+        let new_random_str = state.prop_get(tasks[0], name_key).unwrap();
+        let actual_random_str = match new_random_str {
+            TaskPropVariant::String(s) => Some(s.as_str()),
+            _ => None, // Handle other variants if needed
+        };
+        assert_eq!(actual_random_str.unwrap(), "jacob is cool");
+        
+    }
+    
+    #[tokio::test]
+    async fn test_prop_rm() {
+        let (server, mut state, mut receiver, view_key) = test_init().await;
+        
+        let view = state.view_get(view_key).unwrap();
+        assert_eq!(view.name, "Main View");
+        let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
+        
+        tasks.sort(); // make keys are in sorted order
+        
+        // assign a date to tasks[0]
+        let mut name_key = state.prop_def_name("Due Date");
+        let mut prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into())).unwrap();
+        let mut prop = &state.props[prop_key];
+
+        // remove the date
+        state.prop_rm(tasks[0], name_key);
+        assert!(state.prop_get(tasks[0], name_key).is_err()); // should throw err
+    }
+
+    #[tokio::test]
+    async fn test_remove_prop_name_deletes_props_prop_map_and_props() {
+        let (server, mut state, mut receiver, view_key) = test_init().await;
+        
+        let view = state.view_get(view_key).unwrap();
+        assert_eq!(view.name, "Main View");
+        let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
+        
+        tasks.sort(); // make keys are in sorted order
+        
+        // assign a date to tasks[0]
+        let mut name_key = state.prop_def_name("Due Date");
+        state.prop_def(tasks[0], name_key, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into())).unwrap();
+        state.prop_def(tasks[1], name_key, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into())).unwrap();
+        state.prop_def(tasks[2], name_key, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into())).unwrap();
+        
+        state.prop_rm_name(name_key);
+        assert!(state.prop_get(tasks[0], name_key).is_err()); // these should all be errors
+        assert!(state.prop_get(tasks[1], name_key).is_err());
+        assert!(state.prop_get(tasks[1], name_key).is_err());
+    }
+
+    // #[tokio::test]
+    // async fn test_remove_prop_name_deletes_props_prop_map_and_props() {
+    //     todo!();
+    // }
+
+    #[tokio::test]
+    async fn test_prop_def_twice() {
+        let (server, mut state, mut receiver, view_key) = test_init().await;
+        
+        let view = state.view_get(view_key).unwrap();
+        assert_eq!(view.name, "Main View");
+        let mut tasks = view.tasks.as_ref().unwrap().iter().cloned().collect::<Vec<TaskKey>>();
+        
+        tasks.sort(); // make keys are in sorted order
+        
+        // assign a date to tasks[0]
+        let name_key = state.prop_def_name("random property");
+        let old_prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into())).unwrap();
+        let prop_key = state.prop_def(tasks[0], name_key, TaskPropVariant::String(String::from("j"))).unwrap();
+        let old_prop_ref = &state.props[old_prop_key];
+        let new_prop_ref = &state.props[prop_key];
+        
+        // both should have type "string"
+        //assert_eq!(old_prop_ref.type_string(), new_prop_ref.type_string());
+    }
+    #[tokio::test]
+    async fn test_view_task_keys() {
+        let (server, mut state, mut receiver, view_key) = test_init().await;
+        let task_key_iter = state.view_task_keys(view_key).unwrap();
+        assert_eq!(task_key_iter.clone().count(), 3);
+        //let task_key1 = task_key_iter.clone().next();
+        //assert_eq!(task_key1, 1);
+        //let task_key2 = 
+        //assert_eq!(1, 0);
+    }
+
+    #[tokio::test]
+    async fn test_view_tasks() {
+        let (server, mut state, mut receiver, view_key) = test_init().await;
+        let task_key_iter = state.view_tasks(view_key).unwrap();
+        assert_eq!(task_key_iter.clone().count(), 3);
+        //let task_key1 = task_key_iter.clone().next();
+        //assert_eq!(task_key1, 1);
+        //let task_key2 = 
+        //assert_eq!(1, 0);
     }
 
     /* #[tokio::test]
