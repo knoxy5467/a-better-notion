@@ -37,6 +37,7 @@ tracing-log = "0.2.0"
 actix-settings = "0.7.1"
 server = { version = "0.1.0", path = "../server" }
 tui-textarea = { git = "https://github.com/zontasticality/tui-textarea" }
+chrono = "0.4.38"
 
 [profile.dev.package.backtrace]
 opt-level = 3
