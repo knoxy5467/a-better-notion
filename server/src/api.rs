@@ -549,14 +549,17 @@ pub async fn filter(
 ) -> Result<web::Json<FilterResponse>> {
     let filter = construct_filter(&req.filter)?;
 
-    let tasks: Vec<task::Model> =
-        task::Entity::find()
-            .filter(filter)
-            .all(db)
-            .await
-            .map_err(|e| {
-                actix_web::error::ErrorInternalServerError(format!("couldn't filter tasks: {}", e))
-            })?;
+    let tasks: Vec<task::Model> = task::Entity::find()
+        .reverse_join(task_bool_property::Entity)
+        .reverse_join(task_date_property::Entity)
+        .reverse_join(task_num_property::Entity)
+        .reverse_join(task_string_property::Entity)
+        .filter(filter)
+        .all(db)
+        .await
+        .map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!("couldn't filter tasks: {}", e))
+        })?;
 
     Ok(web::Json(
         tasks.iter().map(|a| a.id).collect::<FilterResponse>(),
