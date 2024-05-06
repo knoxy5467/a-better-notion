@@ -705,6 +705,7 @@ name = "client"
 version = "0.1.0"
 dependencies = [
  "actix-settings",
+ "chrono",
  "color-eyre",
  "common",
  "crossterm",
