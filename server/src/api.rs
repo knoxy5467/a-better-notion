@@ -2,7 +2,7 @@ use crate::database::*;
 use actix_web::error::{ErrorInternalServerError, ErrorNotFound};
 #[allow(unused)]
 use actix_web::{delete, get, post, put, web, Responder, Result};
-use common::{backend::*, Comparator, Filter, Operator, TaskID, TaskPropVariant};
+use common::{backend::*, Comparator, Filter, Operator, PrimitiveField, TaskID, TaskPropVariant};
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use sea_orm::{
     entity::prelude::*, ActiveValue::NotSet, Condition, IntoActiveModel, QuerySelect, Set,
@@ -526,8 +526,8 @@ fn construct_filter(filter: &Filter) -> actix_web::Result<Condition> {
             field,
             comparator,
             immediate,
-        } => match field.as_str() {
-            "name" => {
+        } => match field {
+            PrimitiveField::TITLE => {
                 let mut condition = Condition::all();
                 let imm = match immediate {
                     TaskPropVariant::String(a) => a,
@@ -536,11 +536,11 @@ fn construct_filter(filter: &Filter) -> actix_web::Result<Condition> {
 
                 condition = match comparator {
                     Comparator::LT => condition.add(task::Column::Title.lt(imm.clone())),
-                    Comparator::LEQ => condition.add(task::Column::Title.lt(imm.clone())),
-                    Comparator::GT => condition.add(task::Column::Title.lt(imm.clone())),
-                    Comparator::GEQ => condition.add(task::Column::Title.lt(imm.clone())),
-                    Comparator::EQ => condition.add(task::Column::Title.lt(imm.clone())),
-                    Comparator::NEQ => condition.add(task::Column::Title.lt(imm.clone())),
+                    Comparator::LEQ => condition.add(task::Column::Title.lte(imm.clone())),
+                    Comparator::GT => condition.add(task::Column::Title.gt(imm.clone())),
+                    Comparator::GEQ => condition.add(task::Column::Title.gte(imm.clone())),
+                    Comparator::EQ => condition.add(task::Column::Title.eq(imm.clone())),
+                    Comparator::NEQ => condition.add(task::Column::Title.ne(imm.clone())),
                     Comparator::CONTAINS => {
                         condition.add(task::Column::Title.like(format!("%{}%", imm)))
                     }
@@ -551,7 +551,7 @@ fn construct_filter(filter: &Filter) -> actix_web::Result<Condition> {
                 };
                 Ok(condition)
             }
-            "completed" => {
+            PrimitiveField::COMPLETED => {
                 let mut condition = Condition::all();
                 let imm = match immediate {
                     TaskPropVariant::Boolean(a) => a,
@@ -565,7 +565,7 @@ fn construct_filter(filter: &Filter) -> actix_web::Result<Condition> {
                 };
                 Ok(condition)
             }
-            "last_edited" => {
+            PrimitiveField::LASTEDITED => {
                 let mut condition = Condition::all();
                 let imm = match immediate {
                     TaskPropVariant::Date(a) => a,

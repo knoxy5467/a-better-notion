@@ -2,9 +2,9 @@ use std::env;
 
 use self::testcontainer_common_utils::DB;
 use actix_web::test;
+use chrono::NaiveDate;
 use common::{
-    backend::{CreateTaskRequest, FilterRequest, FilterResponse, UpdateTaskRequest},
-    Comparator, Filter, TaskProp, TaskPropVariant,
+    backend::{CreateTaskRequest, FilterRequest, FilterResponse, UpdateTaskRequest}, Comparator, Filter, PrimitiveField, TaskProp, TaskPropVariant
 };
 use testcontainer_common_utils::setup_db;
 
@@ -59,6 +59,29 @@ macro_rules! simple_test {
         .await
         .unwrap();
 
+        info!("comparing {} {}", res[0], $res);
+        println!("comparing {} {}", res[0], $res);
+        assert_eq!(res[0], $res);
+        assert!(res.len() == 1);
+    };
+}
+macro_rules! simple_primitive_test {
+    ($name:expr, $comp:expr, $imm:expr, $res:expr, $db_conn:expr) => {
+        let res = filter(
+            $db_conn,
+            &FilterRequest {
+                filter: Filter::LeafPrimitive {
+                    field: $name,
+                    comparator: $comp,
+                    immediate: $imm,
+                },
+            },
+        )
+        .await
+        .unwrap();
+
+        info!("comparing {} {}", res[0], $res);
+        println!("comparing {} {}", res[0], $res);
         assert_eq!(res[0], $res);
         assert!(res.len() == 1);
     };
@@ -94,7 +117,7 @@ macro_rules! simple_make {
                 checked: None,
                 props_to_add: vec![TaskProp {
                     name: $name.to_string(),
-                    value: $val2,
+                    value: $val1,
                 }],
                 props_to_remove: vec![],
                 deps_to_add: vec![],
@@ -128,6 +151,35 @@ macro_rules! simple_make {
         .unwrap();
     };
 }
+macro_rules! super_make {
+    ($id:ident, $db_conn:expr, $name:expr, $completed:expr, $($pair:expr),*) => {
+        let $id = create_task($db_conn, &CreateTaskRequest {
+            name: $name.to_string(),
+            completed: $completed,
+            req_id: 0,
+        }).await.unwrap();
+        update_task(
+            $db_conn,
+            &UpdateTaskRequest {
+                task_id: $id,
+                name: None,
+                checked: None,
+                props_to_add: vec![$(
+                    TaskProp {
+                        name: $pair.0.to_string(),
+                        value: $pair.1,
+                    },
+                )*],
+                props_to_remove: vec![],
+                deps_to_add: vec![],
+                deps_to_remove: vec![],
+                scripts_to_add: vec![],
+                scripts_to_remove: vec![],
+                req_id: 0,
+            }
+        ).await.unwrap();
+    }
+}
 
 #[actix_web::test]
 async fn db_test() {
@@ -144,103 +196,125 @@ async fn db_test() {
     .unwrap();
 
     // run all my tests
-    info!("create task");
+    super_make!(id0, &db_conn, "a dude", true, ("dogs", TaskPropVariant::Number(1.0)));
+    super_make!(id1, &db_conn, "b not that", false, ("dogs", TaskPropVariant::Number(2.0)));
+
+    simple_test!("dogs", Comparator::LT, TaskPropVariant::Number(1.5), id0, &db_conn);
+    simple_test!("dogs", Comparator::LEQ, TaskPropVariant::Number(1.0), id0, &db_conn);
+    simple_test!("dogs", Comparator::GT, TaskPropVariant::Number(1.5), id1, &db_conn);
+    simple_test!("dogs", Comparator::GEQ, TaskPropVariant::Number(2.0), id1, &db_conn);
+    simple_test!("dogs", Comparator::EQ, TaskPropVariant::Number(1.0), id0, &db_conn);
+    simple_test!("dogs", Comparator::NEQ, TaskPropVariant::Number(1.0), id1, &db_conn);
+
+    simple_primitive_test!(PrimitiveField::TITLE, Comparator::LT, TaskPropVariant::String("b".to_string()), id0, &db_conn);
+    simple_primitive_test!(PrimitiveField::TITLE, Comparator::LEQ, TaskPropVariant::String("b".to_string()), id0, &db_conn);
+    simple_primitive_test!(PrimitiveField::TITLE, Comparator::GT, TaskPropVariant::String("b".to_string()), id1, &db_conn);
+    simple_primitive_test!(PrimitiveField::TITLE, Comparator::GEQ, TaskPropVariant::String("b".to_string()), id1, &db_conn);
+    simple_primitive_test!(PrimitiveField::TITLE, Comparator::EQ, TaskPropVariant::String("a dude".to_string()), id0, &db_conn);
+    simple_primitive_test!(PrimitiveField::TITLE, Comparator::NEQ, TaskPropVariant::String("a dude".to_string()), id1, &db_conn);
+    simple_primitive_test!(PrimitiveField::TITLE, Comparator::CONTAINS, TaskPropVariant::String("dude".to_string()), id0, &db_conn);
+    simple_primitive_test!(PrimitiveField::TITLE, Comparator::NOTCONTAINS, TaskPropVariant::String("dude".to_string()), id1, &db_conn);
+    simple_primitive_test!(PrimitiveField::TITLE, Comparator::LIKE, TaskPropVariant::String("%dude%".to_string()), id0, &db_conn);
+
+    simple_primitive_test!(PrimitiveField::COMPLETED, Comparator::EQ, TaskPropVariant::Boolean(true), id0, &db_conn);
+    simple_primitive_test!(PrimitiveField::COMPLETED, Comparator::NEQ, TaskPropVariant::Boolean(false), id0, &db_conn);
+
+
+    super_make!(id2, &db_conn, "task1", true, ("dogs", TaskPropVariant::Boolean(true)));
+    super_make!(id3, &db_conn, "task2", true, ("dogs", TaskPropVariant::Boolean(false)));
+    simple_test!("dogs", Comparator::EQ, TaskPropVariant::Boolean(true), id2, &db_conn);
+    simple_test!("dogs", Comparator::NEQ, TaskPropVariant::Boolean(false), id2, &db_conn);
     simple_make!(
-        TaskPropVariant::Number(1.0),
-        TaskPropVariant::Number(2.0),
+        TaskPropVariant::String("a dude".to_string()),
+        TaskPropVariant::String("c not that".to_string()),
         "dogs",
         &db_conn,
-        id0,
-        id1
+        id4,
+        id5
     );
-    simple_test!(
+    simple_test!("dogs", Comparator::LT, TaskPropVariant::String("b".to_string()), id4, &db_conn);
+    simple_test!("dogs", Comparator::LEQ, TaskPropVariant::String("b".to_string()), id4, &db_conn);
+    simple_test!("dogs", Comparator::GT, TaskPropVariant::String("b".to_string()), id5, &db_conn);
+    simple_test!("dogs", Comparator::GEQ, TaskPropVariant::String("b".to_string()), id5, &db_conn);
+    simple_test!("dogs", Comparator::EQ, TaskPropVariant::String("a dude".to_string()), id4, &db_conn);
+    simple_test!("dogs", Comparator::NEQ, TaskPropVariant::String("a dude".to_string()), id5, &db_conn);
+    simple_test!("dogs", Comparator::CONTAINS, TaskPropVariant::String("dude".to_string()), id4, &db_conn);
+    simple_test!("dogs", Comparator::NOTCONTAINS, TaskPropVariant::String("dude".to_string()), id5, &db_conn);
+    simple_test!("dogs", Comparator::LIKE, TaskPropVariant::String("%dude%".to_string()), id4, &db_conn);
+    simple_make!(
+        TaskPropVariant::Date(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap()),
+        TaskPropVariant::Date(NaiveDate::from_ymd_opt(2024, 2, 1).unwrap().and_hms_opt(0, 0, 0).unwrap()),
         "dogs",
-        Comparator::EQ,
-        TaskPropVariant::Number(1.0),
-        id0,
-        &db_conn
+        &db_conn,
+        id6,
+        id7
     );
+    simple_test!("dogs", Comparator::LT, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2024, 1, 5).unwrap().and_hms_opt(0, 0, 0).unwrap()), id6, &db_conn);
+    simple_test!("dogs", Comparator::LEQ, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap()), id6, &db_conn);
+    simple_test!("dogs", Comparator::GT, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2024, 1, 5).unwrap().and_hms_opt(0, 0, 0).unwrap()), id7, &db_conn);
+    simple_test!("dogs", Comparator::GEQ, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2024, 2, 1).unwrap().and_hms_opt(0, 0, 0).unwrap()), id7, &db_conn);
+    simple_test!("dogs", Comparator::EQ, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap()), id6, &db_conn);
+    simple_test!("dogs", Comparator::NEQ, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap()), id7, &db_conn);
 
-    /*let id0: i32 = create_task(
-        &db_conn,
-        &CreateTaskRequest {
-            name: "task 1".to_string(),
-            completed: true,
-            req_id: 1,
+    super_make!(id8, &db_conn, "a dude", false, ("dog2s", TaskPropVariant::Number(3.0)), ("dog3s", TaskPropVariant::Boolean(true)));
+    super_make!(id9, &db_conn, "b not that", true, ("dog2s", TaskPropVariant::Number(2.0)), ("dog3s", TaskPropVariant::Boolean(false)));
+    let mut res = filter(&db_conn, &FilterRequest {
+        filter: Filter::Operator {
+            op: common::Operator::AND,
+            childs: vec![
+                Filter::Leaf {
+                    field: "dog2s".to_string(),
+                    comparator: Comparator::GT,
+                    immediate: TaskPropVariant::Number(1.0) 
+                },
+                Filter::Leaf {
+                    field: "dog3s".to_string(),
+                    comparator: Comparator::EQ,
+                    immediate: TaskPropVariant::Boolean(true) 
+                }
+            ],
         },
-    )
-    .await
-    .unwrap();
-    info!("create task");
-    let id1: i32 = create_task(
-        &db_conn,
-        &CreateTaskRequest {
-            name: "task 2".to_string(),
-            completed: true,
-            req_id: 1,
-        },
-    )
-    .await
-    .unwrap();
+    },).await.unwrap();
 
-    info!("update task");
-    update_task(
-        &db_conn,
-        &UpdateTaskRequest {
-            task_id: id0,
-            name: None,
-            checked: None,
-            props_to_add: vec![TaskProp {
-                name: "dogs".to_string(),
-                value: TaskPropVariant::Number(1.0),
-            }],
-            props_to_remove: vec![],
-            deps_to_add: vec![],
-            deps_to_remove: vec![],
-            scripts_to_add: vec![],
-            scripts_to_remove: vec![],
-            req_id: 0,
-        },
-    )
-    .await
-    .unwrap();
-    info!("update task2");
-    update_task(
-        &db_conn,
-        &UpdateTaskRequest {
-            task_id: id1,
-            name: None,
-            checked: None,
-            props_to_add: vec![TaskProp {
-                name: "dogs".to_string(),
-                value: TaskPropVariant::Number(2.0),
-            }],
-            props_to_remove: vec![],
-            deps_to_add: vec![],
-            deps_to_remove: vec![],
-            scripts_to_add: vec![],
-            scripts_to_remove: vec![],
-            req_id: 0,
-        },
-    )
-    .await
-    .unwrap();
+    assert_eq!(res[0], id8);
+    assert!(res.len() == 1);
 
-    info!("filter");
-    let res = filter(
-        &db_conn,
-        &FilterRequest {
-            filter: Filter::Leaf {
-                field: "dogs".to_string(),
-                comparator: Comparator::EQ,
-                immediate: TaskPropVariant::Number(1.0),
-            },
+    res = filter(&db_conn, &FilterRequest {
+        filter: Filter::Operator {
+            op: common::Operator::OR,
+            childs: vec![
+                Filter::Leaf {
+                    field: "dog2s".to_string(),
+                    comparator: Comparator::EQ,
+                    immediate: TaskPropVariant::Number(3.0) 
+                },
+                Filter::Leaf {
+                    field: "dog3s".to_string(),
+                    comparator: Comparator::EQ,
+                    immediate: TaskPropVariant::Boolean(false) 
+                }
+            ],
         },
-    )
-    .await
-    .unwrap();
+    },).await.unwrap();
 
-    println!("{:?}", res);*/
+    assert!(res.contains(&id8));
+    assert!(res.contains(&id9));
+    assert!(res.len() == 2);
+
+    res = filter(&db_conn, &FilterRequest {
+        filter: Filter::Operator {
+            op: common::Operator::NOT,
+            childs: vec![
+                Filter::Leaf {
+                    field: "dog3s".to_string(),
+                    comparator: Comparator::EQ,
+                    immediate: TaskPropVariant::Boolean(false) 
+                }
+            ],
+        },
+    },).await.unwrap();
+    assert!(!res.contains(&id9));
+
     info!("shutting down db");
     // if tests are async you must await all of them before running below this will shut down the docker container
     db.stop();

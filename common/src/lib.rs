@@ -126,6 +126,17 @@ pub struct TaskProp {
     pub value: TaskPropVariant,
 }
 
+/// fields of tasks wihtout any properties
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub enum PrimitiveField {
+    /// title
+    TITLE,
+    /// completed 
+    COMPLETED,
+    /// last edited
+    LASTEDITED,
+}
+
 /// Represents a filter on tasks using their properties that the database computes.
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
 pub enum Filter {
@@ -142,7 +153,7 @@ pub enum Filter {
     /// property of the task itself
     LeafPrimitive {
         /// property name for whatever
-        field: String,
+        field: PrimitiveField,
         /// the comparator
         comparator: Comparator,
         /// what we compare against

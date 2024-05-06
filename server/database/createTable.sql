@@ -211,13 +211,6 @@ END LOOP;
 END $$ LANGUAGE plpgsql;
 SELECT task_id_tables();
 */
-INSERT INTO task (completed, title)
-VALUES (
-        true,
-        'give ABN an A for their Alpha Release!'
-    );
-INSERT INTO task (completed, title)
-VALUES (false, 'make dinner');
 CREATE TABLE IF NOT EXISTS "view" (
     "id" SERIAL PRIMARY KEY,
     "properties" text[]  NOT NULL,
