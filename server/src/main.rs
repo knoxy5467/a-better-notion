@@ -144,14 +144,14 @@ mod server_unit_tests {
 }
 #[cfg(test)]
 mod integration_tests {
-    use std::{env, net::TcpStream, time::Duration};
+    /*use std::{env, net::TcpStream, time::Duration};
 
     use log::info;
     use testcontainers::clients;
     use testcontainers_modules::{postgres::Postgres, testcontainers::RunnableImage};
     use tokio::time;
 
-    use crate::{start_server, testcontainer_common_utils::setup_db};
+    use crate::{start_server, testcontainer_common_utils::setup_db};*/
     #[allow(unused_must_use)]
     #[actix_web::test]
     async fn test_database_connection() {

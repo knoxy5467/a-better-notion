@@ -1,12 +1,17 @@
 use std::env;
 
-use self::testcontainer_common_utils::DB;
-use actix_web::test;
+#[allow(unused_imports)]
+use crate::connect_to_database_exponential_backoff;
+#[allow(unused_imports)]
+use crate::{database, initialize_logger, testcontainer_common_utils};
+#[allow(unused_imports)]
+use actix_web::{test, web::Data, App};
 use chrono::NaiveDate;
-use common::{
-    backend::{CreateTaskRequest, FilterRequest, FilterResponse, UpdateTaskRequest}, Comparator, Filter, PrimitiveField, TaskProp, TaskPropVariant
-};
+use common::backend::*;
+use common::*;
+use log::info;
 use testcontainer_common_utils::setup_db;
+use testcontainer_common_utils::DB;
 
 use super::*;
 use sea_orm::MockDatabase;
@@ -59,7 +64,6 @@ macro_rules! simple_test {
         .await
         .unwrap();
 
-        info!("comparing {} {}", res[0], $res);
         println!("comparing {} {}", res[0], $res);
         assert_eq!(res[0], $res);
         assert!(res.len() == 1);
@@ -80,7 +84,6 @@ macro_rules! simple_primitive_test {
         .await
         .unwrap();
 
-        info!("comparing {} {}", res[0], $res);
         println!("comparing {} {}", res[0], $res);
         assert_eq!(res[0], $res);
         assert!(res.len() == 1);
@@ -196,34 +199,171 @@ async fn db_test() {
     .unwrap();
 
     // run all my tests
-    super_make!(id0, &db_conn, "a dude", true, ("dogs", TaskPropVariant::Number(1.0)));
-    super_make!(id1, &db_conn, "b not that", false, ("dogs", TaskPropVariant::Number(2.0)));
+    super_make!(
+        id0,
+        &db_conn,
+        "a dude",
+        true,
+        ("dogs", TaskPropVariant::Number(1.0))
+    );
+    super_make!(
+        id1,
+        &db_conn,
+        "b not that",
+        false,
+        ("dogs", TaskPropVariant::Number(2.0))
+    );
 
-    simple_test!("dogs", Comparator::LT, TaskPropVariant::Number(1.5), id0, &db_conn);
-    simple_test!("dogs", Comparator::LEQ, TaskPropVariant::Number(1.0), id0, &db_conn);
-    simple_test!("dogs", Comparator::GT, TaskPropVariant::Number(1.5), id1, &db_conn);
-    simple_test!("dogs", Comparator::GEQ, TaskPropVariant::Number(2.0), id1, &db_conn);
-    simple_test!("dogs", Comparator::EQ, TaskPropVariant::Number(1.0), id0, &db_conn);
-    simple_test!("dogs", Comparator::NEQ, TaskPropVariant::Number(1.0), id1, &db_conn);
+    simple_test!(
+        "dogs",
+        Comparator::LT,
+        TaskPropVariant::Number(1.5),
+        id0,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::LEQ,
+        TaskPropVariant::Number(1.0),
+        id0,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::GT,
+        TaskPropVariant::Number(1.5),
+        id1,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::GEQ,
+        TaskPropVariant::Number(2.0),
+        id1,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::EQ,
+        TaskPropVariant::Number(1.0),
+        id0,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::NEQ,
+        TaskPropVariant::Number(1.0),
+        id1,
+        &db_conn
+    );
 
-    simple_primitive_test!(PrimitiveField::TITLE, Comparator::LT, TaskPropVariant::String("b".to_string()), id0, &db_conn);
-    simple_primitive_test!(PrimitiveField::TITLE, Comparator::LEQ, TaskPropVariant::String("b".to_string()), id0, &db_conn);
-    simple_primitive_test!(PrimitiveField::TITLE, Comparator::GT, TaskPropVariant::String("b".to_string()), id1, &db_conn);
-    simple_primitive_test!(PrimitiveField::TITLE, Comparator::GEQ, TaskPropVariant::String("b".to_string()), id1, &db_conn);
-    simple_primitive_test!(PrimitiveField::TITLE, Comparator::EQ, TaskPropVariant::String("a dude".to_string()), id0, &db_conn);
-    simple_primitive_test!(PrimitiveField::TITLE, Comparator::NEQ, TaskPropVariant::String("a dude".to_string()), id1, &db_conn);
-    simple_primitive_test!(PrimitiveField::TITLE, Comparator::CONTAINS, TaskPropVariant::String("dude".to_string()), id0, &db_conn);
-    simple_primitive_test!(PrimitiveField::TITLE, Comparator::NOTCONTAINS, TaskPropVariant::String("dude".to_string()), id1, &db_conn);
-    simple_primitive_test!(PrimitiveField::TITLE, Comparator::LIKE, TaskPropVariant::String("%dude%".to_string()), id0, &db_conn);
+    simple_primitive_test!(
+        PrimitiveField::TITLE,
+        Comparator::LT,
+        TaskPropVariant::String("b".to_string()),
+        id0,
+        &db_conn
+    );
+    simple_primitive_test!(
+        PrimitiveField::TITLE,
+        Comparator::LEQ,
+        TaskPropVariant::String("b".to_string()),
+        id0,
+        &db_conn
+    );
+    simple_primitive_test!(
+        PrimitiveField::TITLE,
+        Comparator::GT,
+        TaskPropVariant::String("b".to_string()),
+        id1,
+        &db_conn
+    );
+    simple_primitive_test!(
+        PrimitiveField::TITLE,
+        Comparator::GEQ,
+        TaskPropVariant::String("b".to_string()),
+        id1,
+        &db_conn
+    );
+    simple_primitive_test!(
+        PrimitiveField::TITLE,
+        Comparator::EQ,
+        TaskPropVariant::String("a dude".to_string()),
+        id0,
+        &db_conn
+    );
+    simple_primitive_test!(
+        PrimitiveField::TITLE,
+        Comparator::NEQ,
+        TaskPropVariant::String("a dude".to_string()),
+        id1,
+        &db_conn
+    );
+    simple_primitive_test!(
+        PrimitiveField::TITLE,
+        Comparator::CONTAINS,
+        TaskPropVariant::String("dude".to_string()),
+        id0,
+        &db_conn
+    );
+    simple_primitive_test!(
+        PrimitiveField::TITLE,
+        Comparator::NOTCONTAINS,
+        TaskPropVariant::String("dude".to_string()),
+        id1,
+        &db_conn
+    );
+    simple_primitive_test!(
+        PrimitiveField::TITLE,
+        Comparator::LIKE,
+        TaskPropVariant::String("%dude%".to_string()),
+        id0,
+        &db_conn
+    );
 
-    simple_primitive_test!(PrimitiveField::COMPLETED, Comparator::EQ, TaskPropVariant::Boolean(true), id0, &db_conn);
-    simple_primitive_test!(PrimitiveField::COMPLETED, Comparator::NEQ, TaskPropVariant::Boolean(false), id0, &db_conn);
+    simple_primitive_test!(
+        PrimitiveField::COMPLETED,
+        Comparator::EQ,
+        TaskPropVariant::Boolean(true),
+        id0,
+        &db_conn
+    );
+    simple_primitive_test!(
+        PrimitiveField::COMPLETED,
+        Comparator::NEQ,
+        TaskPropVariant::Boolean(false),
+        id0,
+        &db_conn
+    );
 
-
-    super_make!(id2, &db_conn, "task1", true, ("dogs", TaskPropVariant::Boolean(true)));
-    super_make!(id3, &db_conn, "task2", true, ("dogs", TaskPropVariant::Boolean(false)));
-    simple_test!("dogs", Comparator::EQ, TaskPropVariant::Boolean(true), id2, &db_conn);
-    simple_test!("dogs", Comparator::NEQ, TaskPropVariant::Boolean(false), id2, &db_conn);
+    super_make!(
+        id2,
+        &db_conn,
+        "task1",
+        true,
+        ("dogs", TaskPropVariant::Boolean(true))
+    );
+    super_make!(
+        id3,
+        &db_conn,
+        "task2",
+        true,
+        ("dogs", TaskPropVariant::Boolean(false))
+    );
+    simple_test!(
+        "dogs",
+        Comparator::EQ,
+        TaskPropVariant::Boolean(true),
+        id2,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::NEQ,
+        TaskPropVariant::Boolean(false),
+        id2,
+        &db_conn
+    );
     simple_make!(
         TaskPropVariant::String("a dude".to_string()),
         TaskPropVariant::String("c not that".to_string()),
@@ -232,87 +372,244 @@ async fn db_test() {
         id4,
         id5
     );
-    simple_test!("dogs", Comparator::LT, TaskPropVariant::String("b".to_string()), id4, &db_conn);
-    simple_test!("dogs", Comparator::LEQ, TaskPropVariant::String("b".to_string()), id4, &db_conn);
-    simple_test!("dogs", Comparator::GT, TaskPropVariant::String("b".to_string()), id5, &db_conn);
-    simple_test!("dogs", Comparator::GEQ, TaskPropVariant::String("b".to_string()), id5, &db_conn);
-    simple_test!("dogs", Comparator::EQ, TaskPropVariant::String("a dude".to_string()), id4, &db_conn);
-    simple_test!("dogs", Comparator::NEQ, TaskPropVariant::String("a dude".to_string()), id5, &db_conn);
-    simple_test!("dogs", Comparator::CONTAINS, TaskPropVariant::String("dude".to_string()), id4, &db_conn);
-    simple_test!("dogs", Comparator::NOTCONTAINS, TaskPropVariant::String("dude".to_string()), id5, &db_conn);
-    simple_test!("dogs", Comparator::LIKE, TaskPropVariant::String("%dude%".to_string()), id4, &db_conn);
+    simple_test!(
+        "dogs",
+        Comparator::LT,
+        TaskPropVariant::String("b".to_string()),
+        id4,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::LEQ,
+        TaskPropVariant::String("b".to_string()),
+        id4,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::GT,
+        TaskPropVariant::String("b".to_string()),
+        id5,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::GEQ,
+        TaskPropVariant::String("b".to_string()),
+        id5,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::EQ,
+        TaskPropVariant::String("a dude".to_string()),
+        id4,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::NEQ,
+        TaskPropVariant::String("a dude".to_string()),
+        id5,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::CONTAINS,
+        TaskPropVariant::String("dude".to_string()),
+        id4,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::NOTCONTAINS,
+        TaskPropVariant::String("dude".to_string()),
+        id5,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::LIKE,
+        TaskPropVariant::String("%dude%".to_string()),
+        id4,
+        &db_conn
+    );
     simple_make!(
-        TaskPropVariant::Date(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap()),
-        TaskPropVariant::Date(NaiveDate::from_ymd_opt(2024, 2, 1).unwrap().and_hms_opt(0, 0, 0).unwrap()),
+        TaskPropVariant::Date(
+            NaiveDate::from_ymd_opt(2024, 1, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+        ),
+        TaskPropVariant::Date(
+            NaiveDate::from_ymd_opt(2024, 2, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+        ),
         "dogs",
         &db_conn,
         id6,
         id7
     );
-    simple_test!("dogs", Comparator::LT, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2024, 1, 5).unwrap().and_hms_opt(0, 0, 0).unwrap()), id6, &db_conn);
-    simple_test!("dogs", Comparator::LEQ, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap()), id6, &db_conn);
-    simple_test!("dogs", Comparator::GT, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2024, 1, 5).unwrap().and_hms_opt(0, 0, 0).unwrap()), id7, &db_conn);
-    simple_test!("dogs", Comparator::GEQ, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2024, 2, 1).unwrap().and_hms_opt(0, 0, 0).unwrap()), id7, &db_conn);
-    simple_test!("dogs", Comparator::EQ, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap()), id6, &db_conn);
-    simple_test!("dogs", Comparator::NEQ, TaskPropVariant::Date(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap()), id7, &db_conn);
+    simple_test!(
+        "dogs",
+        Comparator::LT,
+        TaskPropVariant::Date(
+            NaiveDate::from_ymd_opt(2024, 1, 5)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+        ),
+        id6,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::LEQ,
+        TaskPropVariant::Date(
+            NaiveDate::from_ymd_opt(2024, 1, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+        ),
+        id6,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::GT,
+        TaskPropVariant::Date(
+            NaiveDate::from_ymd_opt(2024, 1, 5)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+        ),
+        id7,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::GEQ,
+        TaskPropVariant::Date(
+            NaiveDate::from_ymd_opt(2024, 2, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+        ),
+        id7,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::EQ,
+        TaskPropVariant::Date(
+            NaiveDate::from_ymd_opt(2024, 1, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+        ),
+        id6,
+        &db_conn
+    );
+    simple_test!(
+        "dogs",
+        Comparator::NEQ,
+        TaskPropVariant::Date(
+            NaiveDate::from_ymd_opt(2024, 1, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+        ),
+        id7,
+        &db_conn
+    );
 
-    super_make!(id8, &db_conn, "a dude", false, ("dog2s", TaskPropVariant::Number(3.0)), ("dog3s", TaskPropVariant::Boolean(true)));
-    super_make!(id9, &db_conn, "b not that", true, ("dog2s", TaskPropVariant::Number(2.0)), ("dog3s", TaskPropVariant::Boolean(false)));
-    let mut res = filter(&db_conn, &FilterRequest {
-        filter: Filter::Operator {
-            op: common::Operator::AND,
-            childs: vec![
-                Filter::Leaf {
-                    field: "dog2s".to_string(),
-                    comparator: Comparator::GT,
-                    immediate: TaskPropVariant::Number(1.0) 
-                },
-                Filter::Leaf {
-                    field: "dog3s".to_string(),
-                    comparator: Comparator::EQ,
-                    immediate: TaskPropVariant::Boolean(true) 
-                }
-            ],
+    super_make!(
+        id8,
+        &db_conn,
+        "a dude",
+        false,
+        ("dog2s", TaskPropVariant::Number(3.0)),
+        ("dog3s", TaskPropVariant::Boolean(true))
+    );
+    super_make!(
+        id9,
+        &db_conn,
+        "b not that",
+        true,
+        ("dog2s", TaskPropVariant::Number(2.0)),
+        ("dog3s", TaskPropVariant::Boolean(false))
+    );
+    let mut res = filter(
+        &db_conn,
+        &FilterRequest {
+            filter: Filter::Operator {
+                op: common::Operator::AND,
+                childs: vec![
+                    Filter::Leaf {
+                        field: "dog2s".to_string(),
+                        comparator: Comparator::GT,
+                        immediate: TaskPropVariant::Number(1.0),
+                    },
+                    Filter::Leaf {
+                        field: "dog3s".to_string(),
+                        comparator: Comparator::EQ,
+                        immediate: TaskPropVariant::Boolean(true),
+                    },
+                ],
+            },
         },
-    },).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     assert_eq!(res[0], id8);
     assert!(res.len() == 1);
 
-    res = filter(&db_conn, &FilterRequest {
-        filter: Filter::Operator {
-            op: common::Operator::OR,
-            childs: vec![
-                Filter::Leaf {
-                    field: "dog2s".to_string(),
-                    comparator: Comparator::EQ,
-                    immediate: TaskPropVariant::Number(3.0) 
-                },
-                Filter::Leaf {
-                    field: "dog3s".to_string(),
-                    comparator: Comparator::EQ,
-                    immediate: TaskPropVariant::Boolean(false) 
-                }
-            ],
+    res = filter(
+        &db_conn,
+        &FilterRequest {
+            filter: Filter::Operator {
+                op: common::Operator::OR,
+                childs: vec![
+                    Filter::Leaf {
+                        field: "dog2s".to_string(),
+                        comparator: Comparator::EQ,
+                        immediate: TaskPropVariant::Number(3.0),
+                    },
+                    Filter::Leaf {
+                        field: "dog3s".to_string(),
+                        comparator: Comparator::EQ,
+                        immediate: TaskPropVariant::Boolean(false),
+                    },
+                ],
+            },
         },
-    },).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     assert!(res.contains(&id8));
     assert!(res.contains(&id9));
     assert!(res.len() == 2);
 
-    res = filter(&db_conn, &FilterRequest {
-        filter: Filter::Operator {
-            op: common::Operator::NOT,
-            childs: vec![
-                Filter::Leaf {
+    res = filter(
+        &db_conn,
+        &FilterRequest {
+            filter: Filter::Operator {
+                op: common::Operator::NOT,
+                childs: vec![Filter::Leaf {
                     field: "dog3s".to_string(),
                     comparator: Comparator::EQ,
-                    immediate: TaskPropVariant::Boolean(false) 
-                }
-            ],
+                    immediate: TaskPropVariant::Boolean(false),
+                }],
+            },
         },
-    },).await.unwrap();
+    )
+    .await
+    .unwrap();
     assert!(!res.contains(&id9));
 
     info!("shutting down db");

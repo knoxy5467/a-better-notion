@@ -124,9 +124,9 @@ pub async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Re
     if req.checked.is_some() {
         task.completed = Set(req.checked.unwrap());
     }
-    if req.checked.is_some() || req.name.is_some() {
-        task.update(db).await.map_err(ErrorInternalServerError)?;
-    }
+    //if req.checked.is_some() || req.name.is_some() {
+    //    task.update(db).await.map_err(ErrorInternalServerError)?;
+    //}
     for prop in req.props_to_add.iter() {
         let model = task_property::Entity::find()
             .filter(
@@ -585,7 +585,6 @@ fn construct_filter(filter: &Filter) -> actix_web::Result<Condition> {
                 };
                 Ok(condition)
             }
-            _ => Err(ErrorInternalServerError("Invalid task property")),
         },
         Filter::Operator { op, childs } => {
             if let Operator::NOT = op {
@@ -795,3 +794,6 @@ mod test_props;
 #[cfg(test)]
 #[path = "./tests/test_update.rs"]
 mod test_update;
+#[cfg(test)]
+#[path = "./tests/test_filter.rs"]
+mod test_filter;

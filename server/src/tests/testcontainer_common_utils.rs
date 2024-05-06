@@ -1,8 +1,7 @@
 use testcontainers::{clients, Container, RunnableImage};
 use testcontainers_modules::postgres::Postgres;
 
-use std::sync::{Once, OnceLock};
-pub static INIT: Once = Once::new();
+use std::sync::OnceLock;
 pub static DB: OnceLock<Container<'static, Postgres>> = OnceLock::new();
 pub fn setup_db() {
     DB.get_or_init(|| {
