@@ -124,7 +124,9 @@ pub async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Re
     if req.checked.is_some() {
         task.completed = Set(req.checked.unwrap());
     }
-    task.update(db).await.map_err(ErrorInternalServerError)?;
+    if req.checked.is_some() || req.name.is_some() {
+        task.update(db).await.map_err(ErrorInternalServerError)?;
+    }
     for prop in req.props_to_add.iter() {
         let model = task_property::Entity::find()
             .filter(
