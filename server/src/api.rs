@@ -424,7 +424,7 @@ async fn delete_tasks_request(
 async fn get_filter_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<FilterRequest>,
-) -> Result<impl Responder> {
+) -> Result<web::Json<FilterResponse>> {
     //TODO: construct filter
 
     info!("get_filter_request, req: {:?}", req);
@@ -433,10 +433,11 @@ async fn get_filter_request(
         .await
         .map_err(|e| ErrorInternalServerError(format!("couldn't filter tasks: {}", e)))?;
 
-    info!("get_filter_request, found_tasks: {:?}", tasks);
-    Ok(web::Json(
-        tasks.iter().map(|a| a.id).collect::<FilterResponse>(),
-    ))
+
+    Ok(web::Json(FilterResponse {
+        tasks: tasks.iter().map(|a| a.id).collect(),
+        req_id: req.req_id,
+    }))
 }
 
 async fn get_property_or_err(
