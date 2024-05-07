@@ -2,8 +2,8 @@ use crate::database::*;
 use actix_web::error::{ErrorInternalServerError, ErrorNotFound};
 #[allow(unused)]
 use actix_web::{delete, get, post, put, web, Responder, Result};
-use log::info;
 use common::{backend::*, TaskID, TaskPropVariant, ViewData};
+use log::info;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Condition, IntoActiveModel, Set};
 
@@ -63,7 +63,7 @@ async fn get_tasks_request(
             None => res.push(Err("task not found by ID".to_string())),
         }
     }
-    info!("finished get_tasks_request, res: {:?}");
+    info!("finished get_tasks_request, res: {:?}", res);
 
     Ok(web::Json(res))
 }
