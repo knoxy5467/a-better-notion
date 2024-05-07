@@ -39,6 +39,12 @@ async fn name_changed() {
             completed: true,
             last_edited: chrono::NaiveDateTime::default(),
         }]])
+        .append_query_results([[task::Model {
+            id: 1,
+            title: "notdog".to_string(),
+            completed: true,
+            last_edited: chrono::NaiveDateTime::default(),
+        }]])
         .append_exec_results([MockExecResult {
             last_insert_id: 1,
             rows_affected: 1,
@@ -70,7 +76,13 @@ async fn checked_changed() {
     let db = MockDatabase::new(sea_orm::DatabaseBackend::Postgres)
         .append_query_results([[task::Model {
             id: 1,
-            title: "notdog".to_string(),
+            title: "notdog".to_owned(),
+            completed: true,
+            last_edited: chrono::NaiveDateTime::default(),
+        }]])
+        .append_query_results([[task::Model {
+            id: 1,
+            title: "notdog".to_owned(),
             completed: true,
             last_edited: chrono::NaiveDateTime::default(),
         }]])
@@ -116,7 +128,7 @@ async fn update_prop_string() {
         }]])
         .append_query_results([[task_string_property::Model {
             task_id: 1,
-            name: "name".to_string(),
+            task_property_name: "name".to_string(),
             value: "value".to_string(),
         }]])
         .append_exec_results([MockExecResult {
@@ -201,7 +213,7 @@ async fn update_prop_num() {
         }]])
         .append_query_results([[task_num_property::Model {
             task_id: 1,
-            name: "name".to_string(),
+            task_property_name: "name".to_string(),
             value: Decimal::from_f64(1.0).unwrap(),
         }]])
         .append_exec_results([MockExecResult {
@@ -286,7 +298,7 @@ async fn update_prop_date() {
         }]])
         .append_query_results([[task_date_property::Model {
             task_id: 1,
-            name: "name".to_string(),
+            task_property_name: "name".to_string(),
             value: chrono::NaiveDateTime::default(),
         }]])
         .append_exec_results([MockExecResult {
@@ -371,7 +383,7 @@ async fn update_prop_bool() {
         }]])
         .append_query_results([[task_bool_property::Model {
             task_id: 1,
-            name: "name".to_string(),
+            task_property_name: "name".to_string(),
             value: true,
         }]])
         .append_exec_results([MockExecResult {
@@ -438,6 +450,7 @@ async fn create_prop_bool() {
     )
     .await;
 
+    println!("{:?}", res);
     assert!(res.is_ok());
 }
 
@@ -714,6 +727,12 @@ async fn test_task_update_request() {
             completed: true,
             last_edited: chrono::NaiveDateTime::default(),
         }]])
+        .append_query_results([[task::Model {
+            id: 1,
+            title: "notdog".to_string(),
+            completed: true,
+            last_edited: chrono::NaiveDateTime::default(),
+        }]])
         .append_exec_results([MockExecResult {
             last_insert_id: 1,
             rows_affected: 1,
@@ -750,6 +769,18 @@ async fn test_tasks_update_request() {
     let db = MockDatabase::new(sea_orm::DatabaseBackend::Postgres)
         .append_query_results([[task::Model {
             id: 1,
+            title: "notdog".to_string(),
+            completed: true,
+            last_edited: chrono::NaiveDateTime::default(),
+        }]])
+        .append_query_results([[task::Model {
+            id: 1,
+            title: "notdog".to_string(),
+            completed: true,
+            last_edited: chrono::NaiveDateTime::default(),
+        }]])
+        .append_query_results([[task::Model {
+            id: 2,
             title: "notdog".to_string(),
             completed: true,
             last_edited: chrono::NaiveDateTime::default(),

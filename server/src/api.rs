@@ -2,10 +2,13 @@ use crate::database::*;
 use actix_web::error::{ErrorInternalServerError, ErrorNotFound};
 #[allow(unused)]
 use actix_web::{delete, get, post, put, web, Responder, Result};
+use common::{backend::*, Comparator, Filter, Operator, PrimitiveField, TaskID, TaskPropVariant};
 use common::{backend::*, TaskID, TaskPropVariant, ViewData};
 use log::info;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
-use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Condition, IntoActiveModel, Set};
+use sea_orm::{
+    entity::prelude::*, ActiveValue::NotSet, Condition, IntoActiveModel, QuerySelect, Set,
+};
 
 /// get /task endpoint for retrieving a single TaskShort
 #[get("/task")]
@@ -116,7 +119,7 @@ async fn create_tasks_request(
     Ok(web::Json(res))
 }
 
-/// put /task updates one task
+
 async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result<TaskID> {
     info!("update_task, req: {:?}", req);
     let task = task::Entity::find_by_id(req.task_id)
@@ -131,6 +134,9 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
     }
     if req.checked.is_some() {
         task.completed = Set(req.checked.unwrap());
+    }
+    if req.checked.is_some() || req.name.is_some() {
+        task.update(db).await.map_err(ErrorInternalServerError)?;
     }
     for prop in req.props_to_add.iter() {
         let model = task_property::Entity::find()
@@ -163,7 +169,10 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
                         .filter(
                             Condition::all()
                                 .add(task_string_property::Column::TaskId.eq(req.task_id))
-                                .add(task_string_property::Column::Name.eq(prop.name.to_owned())),
+                                .add(
+                                    task_string_property::Column::TaskPropertyName
+                                        .eq(prop.name.to_owned()),
+                                ),
                         )
                         .one(db)
                         .await
@@ -180,7 +189,10 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
                         .filter(
                             Condition::all()
                                 .add(task_date_property::Column::TaskId.eq(req.task_id))
-                                .add(task_date_property::Column::Name.eq(prop.name.to_owned())),
+                                .add(
+                                    task_date_property::Column::TaskPropertyName
+                                        .eq(prop.name.to_owned()),
+                                ),
                         )
                         .one(db)
                         .await
@@ -197,7 +209,10 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
                         .filter(
                             Condition::all()
                                 .add(task_num_property::Column::TaskId.eq(req.task_id))
-                                .add(task_num_property::Column::Name.eq(prop.name.to_owned())),
+                                .add(
+                                    task_num_property::Column::TaskPropertyName
+                                        .eq(prop.name.to_owned()),
+                                ),
                         )
                         .one(db)
                         .await
@@ -214,7 +229,10 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
                         .filter(
                             Condition::all()
                                 .add(task_bool_property::Column::TaskId.eq(req.task_id))
-                                .add(task_bool_property::Column::Name.eq(prop.name.to_owned())),
+                                .add(
+                                    task_bool_property::Column::TaskPropertyName
+                                        .eq(prop.name.to_owned()),
+                                ),
                         )
                         .one(db)
                         .await
@@ -236,7 +254,7 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
             TaskPropVariant::String(val) => {
                 task_string_property::Entity::insert(task_string_property::ActiveModel {
                     task_id: Set(req.task_id),
-                    name: Set(prop.name.to_owned()),
+                    task_property_name: Set(prop.name.to_owned()),
                     value: Set(val.to_string()),
                 })
                 .exec(db)
@@ -248,7 +266,7 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
             TaskPropVariant::Number(val) => {
                 task_num_property::Entity::insert(task_num_property::ActiveModel {
                     task_id: Set(req.task_id),
-                    name: Set(prop.name.to_owned()),
+                    task_property_name: Set(prop.name.to_owned()),
                     value: Set(Decimal::from_f64(*val).unwrap()),
                 })
                 .exec(db)
@@ -260,7 +278,7 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
             TaskPropVariant::Date(val) => {
                 task_date_property::Entity::insert(task_date_property::ActiveModel {
                     task_id: Set(req.task_id),
-                    name: Set(prop.name.to_owned()),
+                    task_property_name: Set(prop.name.to_owned()),
                     value: Set(val.to_owned()),
                 })
                 .exec(db)
@@ -272,7 +290,7 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
             TaskPropVariant::Boolean(val) => {
                 task_bool_property::Entity::insert(task_bool_property::ActiveModel {
                     task_id: Set(req.task_id),
-                    name: Set(prop.name.to_owned()),
+                    task_property_name: Set(prop.name.to_owned()),
                     value: Set(*val),
                 })
                 .exec(db)
@@ -418,6 +436,7 @@ async fn delete_tasks_request(
     Ok(web::Json(res))
 }
 
+
 /// get /filter endpoint for retrieving some number of TaskShorts
 #[allow(unused_variables)]
 #[get("/filter")]
@@ -429,15 +448,43 @@ async fn get_filter_request(
 
     info!("get_filter_request, req: {:?}", req);
     let tasks: Vec<task::Model> = task::Entity::find()
-        .all(data.as_ref())
+        .join(
+            sea_orm::JoinType::LeftJoin,
+            task::Relation::TaskNumProperty.def(),
+        )
+        .join(
+            sea_orm::JoinType::LeftJoin,
+            task::Relation::TaskBoolProperty.def(),
+        )
+        .join(
+            sea_orm::JoinType::LeftJoin,
+            task::Relation::TaskStringProperty.def(),
+        )
+        .join(
+            sea_orm::JoinType::LeftJoin,
+            task::Relation::TaskDateProperty.def(),
+        )
+        .filter(filter)
+        .all(db)
         .await
-        .map_err(|e| ErrorInternalServerError(format!("couldn't filter tasks: {}", e)))?;
+        .map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!("couldn't filter tasks: {}", e))
+        })?;
 
 
     Ok(web::Json(FilterResponse {
         tasks: tasks.iter().map(|a| a.id).collect(),
         req_id: req.req_id,
     }))
+}
+
+/// get /filter endpoint for retrieving some number of TaskShorts
+#[get("/filter")]
+async fn get_filter_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<FilterRequest>,
+) -> Result<impl Responder> {
+    filter(&data, &req).await
 }
 
 async fn get_property_or_err(
@@ -467,7 +514,7 @@ async fn get_property_or_err(
                 .filter(
                     Condition::all()
                         .add(task_string_property::Column::TaskId.eq(task_id))
-                        .add(task_string_property::Column::Name.eq(prop)),
+                        .add(task_string_property::Column::TaskPropertyName.eq(prop)),
                 )
                 .one(db)
                 .await
@@ -481,7 +528,7 @@ async fn get_property_or_err(
                     .filter(
                         Condition::all()
                             .add(task_num_property::Column::TaskId.eq(task_id))
-                            .add(task_num_property::Column::Name.eq(prop)),
+                            .add(task_num_property::Column::TaskPropertyName.eq(prop)),
                     )
                     .one(db)
                     .await
@@ -496,7 +543,7 @@ async fn get_property_or_err(
                 .filter(
                     Condition::all()
                         .add(task_date_property::Column::TaskId.eq(task_id))
-                        .add(task_date_property::Column::Name.eq(prop)),
+                        .add(task_date_property::Column::TaskPropertyName.eq(prop)),
                 )
                 .one(db)
                 .await
@@ -509,7 +556,7 @@ async fn get_property_or_err(
                 .filter(
                     Condition::all()
                         .add(task_bool_property::Column::TaskId.eq(task_id))
-                        .add(task_bool_property::Column::Name.eq(prop)),
+                        .add(task_bool_property::Column::TaskPropertyName.eq(prop)),
                 )
                 .one(db)
                 .await
@@ -664,6 +711,9 @@ mod test_create;
 #[cfg(test)]
 #[path = "./tests/test_delete.rs"]
 mod test_delete;
+#[cfg(test)]
+#[path = "./tests/test_filter.rs"]
+mod test_filter;
 #[cfg(test)]
 #[path = "./tests/test_props.rs"]
 mod test_props;
