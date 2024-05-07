@@ -199,7 +199,7 @@ pub struct GetViewResponse {
     /// the request id
     pub req_id: u64,
 }
-/// request for POST /views
+/// request for POST /view
 #[derive(Serialize, Deserialize)]
 pub struct CreateViewRequest {
     /// name of view
@@ -211,7 +211,7 @@ pub struct CreateViewRequest {
     /// the request id
     pub req_id: u64,
 }
-/// response for POST /views
+/// response for POST /view
 #[derive(Serialize, Deserialize)]
 pub struct CreateViewResponse {
     /// ID of view
@@ -219,18 +219,20 @@ pub struct CreateViewResponse {
     /// ID of request
     pub req_id: u64,
 }
-/// request for PUT /views
+/// request for PUT /view
 #[derive(Serialize, Deserialize)]
 pub struct UpdateViewRequest {
-    /// ID for view
-    pub view_id: i32,
     /// new view that we're setting
     pub view: ViewData,
     /// ID of request
     pub req_id: u64,
 }
-/// response for PUT /views
+/// response for PUT /view
 pub type UpdateViewResponse = u64;
+/// request for DELETE /view
+pub type DeleteViewRequest = i32;
+/// response for DELETE /view
+pub type DeleteViewResponse = ();
 
 #[cfg(test)]
 mod tests {

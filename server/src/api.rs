@@ -560,6 +560,7 @@ async fn get_views_request(
         views: views
             .iter()
             .map(|view| ViewData {
+                name: view.name.clone(),
                 view_id: view.id,
                 filter: serde_json::from_str(&view.filter).unwrap(),
                 props: view.properties.clone(),
@@ -592,7 +593,7 @@ async fn update_view_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<UpdateViewRequest>,
 ) -> Result<web::Json<UpdateViewResponse>> {
-    let view = view::Entity::find_by_id(req.view_id)
+    let view = view::Entity::find_by_id(req.view.view_id)
         .one(data.as_ref())
         .await
         .map_err(ErrorInternalServerError)?
@@ -604,9 +605,27 @@ async fn update_view_request(
     view.filter = Set(serde_json::to_string(&req.view.filter).unwrap());
     view.update(data.as_ref())
         .await
-        .map_err(ErrorInternalServerError);
+        .map_err(ErrorInternalServerError)?;
 
     Ok(web::Json(req.req_id))
+}
+
+#[delete("/view")]
+async fn delete_view_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<DeleteViewRequest>,
+) -> Result<web::Json<DeleteViewResponse>> {
+    view::Entity::find_by_id(req.to_owned())
+        .one(data.as_ref())
+        .await
+        .map_err(ErrorInternalServerError)?
+        .ok_or("couldn't find view by id")
+        .map_err(ErrorInternalServerError)?
+        .delete(data.as_ref())
+        .await
+        .map_err(ErrorInternalServerError)?;
+
+    Ok(web::Json(()))
 }
 
 #[cfg(test)]
@@ -621,3 +640,6 @@ mod test_props;
 #[cfg(test)]
 #[path = "./tests/test_update.rs"]
 mod test_update;
+#[cfg(test)]
+#[path = "./tests/test_views.rs"]
+mod test_views;
