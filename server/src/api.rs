@@ -183,7 +183,10 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
                         .filter(
                             Condition::all()
                                 .add(task_date_property::Column::TaskId.eq(req.task_id))
-                                .add(task_date_property::Column::Name.eq(prop.name.to_owned())),
+                                .add(
+                                    task_date_property::Column::TaskPropertyName
+                                        .eq(prop.name.to_owned()),
+                                ),
                         )
                         .one(db)
                         .await
@@ -200,7 +203,10 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
                         .filter(
                             Condition::all()
                                 .add(task_num_property::Column::TaskId.eq(req.task_id))
-                                .add(task_num_property::Column::Name.eq(prop.name.to_owned())),
+                                .add(
+                                    task_num_property::Column::TaskPropertyName
+                                        .eq(prop.name.to_owned()),
+                                ),
                         )
                         .one(db)
                         .await
@@ -217,7 +223,10 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
                         .filter(
                             Condition::all()
                                 .add(task_bool_property::Column::TaskId.eq(req.task_id))
-                                .add(task_bool_property::Column::Name.eq(prop.name.to_owned())),
+                                .add(
+                                    task_bool_property::Column::TaskPropertyName
+                                        .eq(prop.name.to_owned()),
+                                ),
                         )
                         .one(db)
                         .await
@@ -239,7 +248,7 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
             TaskPropVariant::String(val) => {
                 task_string_property::Entity::insert(task_string_property::ActiveModel {
                     task_id: Set(req.task_id),
-                    name: Set(prop.name.to_owned()),
+                    task_property_name: Set(prop.name.to_owned()),
                     value: Set(val.to_string()),
                 })
                 .exec(db)
@@ -251,7 +260,7 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
             TaskPropVariant::Number(val) => {
                 task_num_property::Entity::insert(task_num_property::ActiveModel {
                     task_id: Set(req.task_id),
-                    name: Set(prop.name.to_owned()),
+                    task_property_name: Set(prop.name.to_owned()),
                     value: Set(Decimal::from_f64(*val).unwrap()),
                 })
                 .exec(db)
@@ -275,7 +284,7 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
             TaskPropVariant::Boolean(val) => {
                 task_bool_property::Entity::insert(task_bool_property::ActiveModel {
                     task_id: Set(req.task_id),
-                    name: Set(prop.name.to_owned()),
+                    task_property_name: Set(prop.name.to_owned()),
                     value: Set(*val),
                 })
                 .exec(db)

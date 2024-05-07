@@ -22,7 +22,7 @@ async fn get_string() {
         }]])
         .append_query_results([[task_string_property::Model {
             task_id: 1,
-            name: "name".to_string(),
+            task_property_name: "name".to_string(),
             value: "value".to_string(),
         }]])
         .into_connection();
@@ -44,7 +44,7 @@ async fn get_number() {
         }]])
         .append_query_results([[task_num_property::Model {
             task_id: 1,
-            name: "name".to_string(),
+            task_property_name: "name".to_string(),
             value: Decimal::from_f64(1.0).unwrap(),
         }]])
         .into_connection();
@@ -64,7 +64,7 @@ async fn get_date() {
         }]])
         .append_query_results([[task_date_property::Model {
             task_id: 1,
-            name: "name".to_string(),
+            task_property_name: "name".to_string(),
             value: date,
         }]])
         .into_connection();
@@ -83,7 +83,7 @@ async fn get_bool() {
         }]])
         .append_query_results([[task_bool_property::Model {
             task_id: 1,
-            name: "boolean".to_string(),
+            task_property_name: "boolean".to_string(),
             value: true,
         }]])
         .into_connection();
@@ -112,7 +112,7 @@ async fn test_property_request() {
         }]])
         .append_query_results([[task_string_property::Model {
             task_id: 1,
-            name: "name".to_string(),
+            task_property_name: "name".to_string(),
             value: "value".to_string(),
         }]])
         .into_connection();
@@ -150,7 +150,7 @@ async fn test_properties_request() {
         }]])
         .append_query_results([[task_string_property::Model {
             task_id: 1,
-            name: "name".to_string(),
+            task_property_name: "name".to_string(),
             value: "value".to_string(),
         }]])
         .into_connection();
