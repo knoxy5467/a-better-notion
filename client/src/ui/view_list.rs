@@ -2,6 +2,7 @@ mod view_popup;
 
 use std::collections::BTreeSet;
 
+use common::Filter;
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
     buffer::Buffer,
@@ -11,7 +12,13 @@ use ratatui::{
     widgets::{Block, HighlightSpacing, List, ListState, Paragraph, StatefulWidget, Widget},
 };
 
-use crate::{mid::{State, Task, TaskKey, ViewKey}, ui::{report_error}};
+use crate::{
+    mid::{State, Task, TaskKey, ViewKey},
+    ui::{
+        report_error,
+        view_list::view_popup::{CreateState, States},
+    },
+};
 
 //use task_popup::TaskPopup;
 
@@ -40,7 +47,7 @@ impl ViewList {
     //             removed_count += 1;
     //         }
     //     });
-        
+
     //     let len = self.all_views.len();
     //     if len == 0 { // reset selection if needed
     //         self.list_state.select(None);
@@ -50,7 +57,7 @@ impl ViewList {
     //             *i = (i.saturating_sub(removed_count)).clamp(0, len.saturating_sub(1))
     //         }
     //     }
-        
+
     // }
     /// recreate view list
     pub fn rebuild_list(&mut self, state: &State) {
@@ -106,12 +113,26 @@ impl ViewList {
                     }
                     true
                 }
-            }
+            };
         }
-        let Event::Key(key_event) = event else {return false};
+        let Event::Key(key_event) = event else {
+            return false;
+        };
         // TODO: handle popup creates
         match key_event.code {
-            Char('c') => self.view_popup = Some(ViewPopup::Create(Default::default())), // create task
+            Char('c') => {
+                self.view_popup = Some(ViewPopup::Create {
+                    edit: "".to_string(),
+                    stat: States {
+                        line: 0,
+                        state: CreateState::Name,
+                    },
+                    err: "".to_string(),
+                    name: "".to_string(),
+                    props: vec![],
+                    fitler: Filter::None,
+                })
+            } // create task
             // Char('d') => { // delete task
             //     if let Some((key, task)) = self.selected_task(state) {
             //         self.task_popup = Some(TaskPopup::Delete(key, task.name.clone()));
@@ -143,24 +164,27 @@ impl ViewList {
     pub fn render(&mut self, state: &State, block: Block<'_>, area: Rect, buf: &mut Buffer) {
         // flat_map current views to make sure they're valid
         //self.prune_list(state); // TODO
-        let views = self.all_views.iter().flat_map(|key|
-            state.view_get(*key).ok().map(|t|(key, t))
-        );
+        let views = self
+            .all_views
+            .iter()
+            .flat_map(|key| state.view_get(*key).ok().map(|t| (key, t)));
 
         // take items from the current view and render them into a list
-        let lines = views.map(|(_key, view)| {
-            let mut text_style: Style = TEXT_COLOR.into();
-            // if !task.is_syncronized { text_style = GREYED_OUT_TEXT_COLOR.into(); }
-            // if task.pending_deletion { text_style = text_style.add_modifier(Modifier::CROSSED_OUT) }
+        let lines = views
+            .map(|(_key, view)| {
+                let mut text_style: Style = TEXT_COLOR.into();
+                // if !task.is_syncronized { text_style = GREYED_OUT_TEXT_COLOR.into(); }
+                // if task.pending_deletion { text_style = text_style.add_modifier(Modifier::CROSSED_OUT) }
 
-            let mut mark : &'static str = "☐";
-            // if task.completed { mark = "✓"; }
+                let mut mark: &'static str = "☐";
+                // if task.completed { mark = "✓"; }
 
-            return Line::styled(format!(" {mark} {}", view.name), text_style);
-        })
-        .collect::<Vec<Line>>();
+                return Line::styled(format!(" {mark} {}", view.name), text_style);
+            })
+            .collect::<Vec<Line>>();
 
-        if !lines.is_empty() { // if there are views to render
+        if !lines.is_empty() {
+            // if there are views to render
             // create the list from the list items and customize it
             let list = List::new(lines)
                 .block(block)
@@ -175,13 +199,16 @@ impl ViewList {
 
             // render the list using the list state
             StatefulWidget::render(list, area, buf, &mut self.list_state);
-        } else { // otherwise render "no tasks shown" text
-            let no_view_text = Text::from(vec![Line::from(vec!["No Views. Create one, if you wish...".into()])]);
+        } else {
+            // otherwise render "no tasks shown" text
+            let no_view_text = Text::from(vec![Line::from(vec![
+                "No Views. Create one, if you wish...".into(),
+            ])]);
             Paragraph::new(no_view_text)
                 .centered()
                 .block(block)
                 .render(area, buf);
-        }   
+        }
         // popup rendering
         if let Some(popup) = self.view_popup.as_mut() {
             popup.render(area, buf)

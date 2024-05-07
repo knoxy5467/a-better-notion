@@ -7,6 +7,8 @@
 
 pub mod backend;
 
+use std::{borrow::Borrow, fmt};
+
 use serde::{Deserialize, Serialize};
 
 /// Database Primary key for tasks
@@ -145,6 +147,51 @@ pub enum Filter {
     #[default]
     /// "Null" Filter (so we can implement Default)
     None,
+}
+impl fmt::Display for Filter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut res = String::new();
+        match self {
+            Filter::Leaf {
+                field,
+                comparator,
+                immediate,
+            } => {
+                res.push_str(field);
+                res.push_str(match comparator {
+                    Comparator::LT => "<",
+                    Comparator::LEQ => "<=",
+                    Comparator::GT => ">",
+                    Comparator::GEQ => ">=",
+                    Comparator::EQ => "=",
+                    Comparator::NEQ => "!=",
+                    Comparator::CONTAINS => " in ",
+                    Comparator::NOTCONTAINS => " !in ",
+                    Comparator::REGEX => " LIKE ",
+                });
+                res = format!("{}{}", res, immediate);
+            }
+            Filter::Operator { op, childs } => {
+                res.push_str(match op {
+                    Operator::AND => "AND",
+                    Operator::OR => "OR",
+                });
+            }
+            Filter::None => res.push_str("Empty"),
+        }
+        write!(f, "{}", res)
+    }
+}
+impl fmt::Display for TaskPropVariant {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let res = match self {
+            TaskPropVariant::Date(a) => a.to_string(),
+            TaskPropVariant::String(a) => a.clone(),
+            TaskPropVariant::Number(a) => a.to_string(),
+            TaskPropVariant::Boolean(a) => a.to_string(),
+        };
+        write!(f, "{}", res)
+    }
 }
 
 #[cfg(test)]
