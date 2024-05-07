@@ -79,7 +79,7 @@ async fn start_server() -> Server {
         App::new()
             .app_data(db_data)
             .service(get_task_request)
-            .service(get_tasks_request)
+            .service(get_task_request)
             .service(get_filter_request)
             .service(create_task_request)
             .service(get_tasks_request)
