@@ -877,7 +877,7 @@ mod tests {
     async fn test_tasks() {
         let (server, mut state, mut receiver, view_key) = test_init().await;
 
-        let view = state.view_get(view_key).unwrap();
+        let view: &View = state.view_get(view_key).unwrap();
         assert_eq!(view.name, "Main View");
         let mut tasks = view
             .tasks
@@ -893,7 +893,7 @@ mod tests {
         assert_eq!(state.task_get(tasks[0]).unwrap().name, "Eat Dinner");
 
         // test task_rm (& db key removal)
-        dbg!(receiver.next().await.unwrap()); // random error?
+        dbg!(receiver.next().await.unwrap()); // Update task response
         state.task_rm(tasks[1]).unwrap();
         state.handle_mid_event(receiver.next().await.unwrap()); // the delete task event
 
@@ -910,7 +910,7 @@ mod tests {
         state.task_mod(tasks[0], |t: &mut Task| {
             "Cook some lunch yo".clone_into(&mut t.name)
         });
-        dbg!(receiver.next().await.unwrap()); // skip state event
+        dbg!(receiver.next().await.unwrap()); // task update state event
         state.handle_mid_event(receiver.next().await.unwrap());
         // dbg!(receiver.next().await.unwrap());
         // dbg!(receiver.next().await.unwrap());
@@ -924,7 +924,7 @@ mod tests {
             completed: true,
             ..Default::default()
         });
-        dbg!(receiver.next().await.unwrap()); // catch state event
+        dbg!(receiver.next().await.unwrap()); // task update state event
         state.handle_mid_event(receiver.next().await.unwrap());
         assert_eq!(state.tasks[task1].name, "Eat Lunch");
     }

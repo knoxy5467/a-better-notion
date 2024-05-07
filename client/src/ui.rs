@@ -47,6 +47,7 @@ pub struct App {
     help_box_shown: bool,
 }
 
+#[derive(Debug)]
 pub enum UIEvent {
     UserEvent(Event),
     StateEvent(StateEvent),
@@ -77,7 +78,7 @@ impl App {
         // wait for events
         loop {
             tokio::select! {
-                Some(event) = events.next() => self.step(term, UIEvent::UserEvent(event?))?,
+                Some(event) = events.next() => {self.step(term, UIEvent::UserEvent(event?))?},
                 Some(mid_event) = state_events.next() => if let MidEvent::StateEvent(state_event) = mid_event {
                     self.step(term, UIEvent::StateEvent(state_event))?;
                 } else { // else handle middleware event
@@ -248,16 +249,166 @@ impl Widget for &mut App {
 mod tests {
     use std::time::Duration;
 
+    use common::backend::{CreateTaskRequest, CreateTaskResponse, DeleteTaskRequest, DeleteTaskResponse, FilterRequest, FilterResponse, ReadTaskShortResponse, ReadTasksShortResponse, UpdateTaskRequest, UpdateTaskResponse};
+    use crossterm::event::{KeyEvent, KeyEventState, KeyModifiers};
     use futures::SinkExt;
+    use mockito::{Server, ServerGuard};
     use ratatui::backend::TestBackend;
+    use serde_json::to_vec;
     use tracing_subscriber::fmt::format;
+    use tui_textarea::Key;
 
-    use crate::{mid::init_test, ui::UIEvent::UserEvent};
+    use crate::{mid::{self, init_test, ViewKey}, ui::UIEvent::UserEvent};
 
     use super::*;
 
+    async fn mockito_setup() -> ServerGuard {
+        let mut server = Server::new_async().await;
+
+        server
+            .mock("GET", "/filter")
+            // .match_body(Matcher::Json(to_value(FilterRequest { filter: Filter::None, req_id: 0 }).unwrap()))
+            .with_body_from_request(|req| {
+                let req: FilterRequest =
+                    serde_json::from_slice::<FilterRequest>(req.body().unwrap()).unwrap();
+                to_vec(&FilterResponse {
+                    tasks: vec![0, 1, 2],
+                    req_id: req.req_id,
+                })
+                .unwrap()
+            })
+            .expect(1)
+            .create_async()
+            .await;
+
+        server
+            .mock("GET", "/tasks")
+            //.match_body(Matcher::Json(to_value(&vec![0, 1, 2].into_iter().map(|task_id|ReadTaskShortRequest{task_id}).collect::<Vec<_>>()).unwrap()))
+            .with_body(
+                &to_vec::<ReadTasksShortResponse>(&vec![
+                    Ok(ReadTaskShortResponse {
+                        task_id: 0,
+                        name: "Test Task 1".into(),
+                        ..Default::default()
+                    }),
+                    Ok(ReadTaskShortResponse {
+                        task_id: 1,
+                        name: "Test Task 2".into(),
+                        ..Default::default()
+                    }),
+                    Err("random error message".into()),
+                    Ok(ReadTaskShortResponse {
+                        task_id: 2,
+                        name: "Test Task 3".into(),
+                        ..Default::default()
+                    }),
+                ])
+                .unwrap(),
+            )
+            .expect(1)
+            .create_async()
+            .await;
+
+        server
+            .mock("POST", "/task")
+            .with_body_from_request(|req| {
+                let req: CreateTaskRequest =
+                    serde_json::from_slice::<CreateTaskRequest>(req.body().unwrap()).unwrap();
+                to_vec(&CreateTaskResponse {
+                    req_id: req.req_id,
+                    task_id: 3,
+                })
+                .unwrap() // Note: This is mega sus b/c mock. Database ID is hardcoded!
+            })
+            .expect(1)
+            .create_async()
+            .await;
+
+        server
+            .mock("PUT", "/task")
+            .with_body_from_request(|req| {
+                let req = serde_json::from_slice::<UpdateTaskRequest>(req.body().unwrap()).unwrap();
+                to_vec(&UpdateTaskResponse {
+                    task_id: req.task_id,
+                    req_id: req.req_id,
+                })
+                .unwrap()
+            })
+            .expect(1)
+            .create_async()
+            .await;
+
+        server
+            .mock("DELETE", "/task")
+            // send back request
+            .with_body_from_request(|req| {
+                let req = serde_json::from_slice::<DeleteTaskRequest>(req.body().unwrap()).unwrap();
+                println!("req is {:?}", req);
+                let resp: DeleteTaskResponse = req.req_id;
+                let new_resp = to_vec::<DeleteTaskResponse>(&resp).unwrap();
+
+                println!("resp is {:?}", resp);
+                new_resp
+            })
+            .expect(1)
+            .create_async()
+            .await;
+
+        server
+            .mock("GET", mockito::Matcher::Any)
+            .with_body("TEST MAIN PATH")
+            .expect(0)
+            .create_async()
+            .await;
+        server
+    }
+
+    // tests the State init function, also used to init tests
+    async fn init_app() -> (ServerGuard, Receiver<MidEvent>, ViewKey, App) {
+        let server = mockito_setup().await;
+        let url = server.url();
+        println!("url: {url}");
+
+        // init state
+        let (mut state, mut receiver) = mid::init(&url).unwrap();
+        
+        // init app
+        let mut app = App::new(state);
+
+        // give source view to task list
+        app.task_list
+            .source_views_mod(&app.state, |s| s.extend(app.state.view_get_default()));
+
+        // await server response for FilterRequests
+        app.state.handle_mid_event(receiver.next().await.unwrap());
+        let mut mid_event = receiver.next().await.unwrap();
+        if let MidEvent::StateEvent(state_event) = mid_event  {
+            let mut ui_event = UIEvent::StateEvent(state_event);
+            dbg!(&ui_event);
+            app.handle_event(ui_event); // handle UI event
+        }
+        app.state.handle_mid_event(receiver.next().await.unwrap());
+        mid_event = receiver.next().await.unwrap();
+        if let MidEvent::StateEvent(state_event) = mid_event  {
+            let mut ui_event = UIEvent::StateEvent(state_event);
+            dbg!(&ui_event);
+            app.handle_event(ui_event); // handle UI event
+        }
+
+        // make sure view was created with correct state
+        let view_key = app.state.view_get_default().unwrap();
+        let view = app.state.view_get(view_key).unwrap();
+        let mut i = 0;
+        view.tasks.as_ref().unwrap().iter().for_each(|t| {
+            assert_eq!(app.state.task_get(*t).unwrap().db_id.unwrap(), i);
+            i += 1;
+        });
+
+        (server, receiver, view_key, app)
+    }
+    
     fn create_render_test(state: State, width: u16, height: u16) -> (App, term::Tui<TestBackend>) {
-        let mut term = Terminal::new(TestBackend::new(width, height)).unwrap();
+        let mut term: Terminal<TestBackend> = Terminal::new(TestBackend::new(width, height)).unwrap();
         let mut app = App::new(state);
         term.draw(|f| f.render_widget(&mut app, f.size())).unwrap();
         (app, term)
@@ -274,6 +425,19 @@ mod tests {
         term.backend_mut().draw(iter).unwrap();
     }
 
+    #[tokio::test]
+    async fn test_hitting_enter_does_not_give_eof_error() {
+        let (server, mut receiver, view_key, mut app) = init_app().await;
+        dbg!(&app);
+
+        // hit down twice, and then enter
+        let down_event = Event::Key(KeyEvent{code: KeyCode::Down, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::KEYPAD});
+        let enter_event = Event::Key(KeyEvent{code: KeyCode::Enter, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::KEYPAD});
+        app.handle_event(UIEvent::UserEvent(down_event));
+        app.handle_event(UIEvent::UserEvent(enter_event));
+        assert_eq!(1, 0);
+    }
+    
     #[tokio::test]
     async fn render_test() -> color_eyre::Result<()> {
         // test default state
