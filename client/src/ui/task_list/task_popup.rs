@@ -200,8 +200,8 @@ mod task_popup_tests {
             use super::super::super::TaskPopup;
             use crate::mid::{State, TaskKey};
 
-            #[test]
-            fn test_create_popup_yes() {
+            #[tokio::test]
+            async fn test_create_popup_yes() {
                 let mut task_popup: TaskPopup = TaskPopup::Create(String::from("Test Task")); // Initialize a TaskPopup object
                 let (mut state, _) = super::super::super::State::new();
                 let event = crossterm::event::Event::Key(crossterm::event::KeyEvent::new(
