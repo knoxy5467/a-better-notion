@@ -250,6 +250,7 @@ mod tests {
 
     use futures::SinkExt;
     use ratatui::backend::TestBackend;
+    use tracing_subscriber::fmt::format;
 
     use crate::{mid::init_test, ui::UIEvent::UserEvent};
 
@@ -358,5 +359,22 @@ mod tests {
         ]);
         term.backend().assert_buffer(&expected);
         Ok(())
+    }
+    #[tokio::test]
+    async fn test_render_help_box() {
+        let (_, mut term) = create_render_test(State::new().0, 55, 5);
+        reset_buffer_style(&mut term);
+        // test task state
+        let (state, _) = init_test();
+        let (mut app, mut term) = create_render_test(state, 55, 5);
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 100, 100));
+        app.help_box_shown = true;
+        app.render(Rect::new(0, 0, 100, 100), &mut buffer);
+        let debug_string = format!("{:?}", buffer);
+        assert!(debug_string.contains("Quit: "));
+        assert!(debug_string.contains("Help: "));
+        assert!(debug_string.contains("Create Task: "));
+        assert!(debug_string.contains("Delete Task: "));
+        assert!(debug_string.contains("Edit Task: "));
     }
 }
