@@ -469,7 +469,7 @@ async fn get_property_or_err(
                 .filter(
                     Condition::all()
                         .add(task_string_property::Column::TaskId.eq(task_id))
-                        .add(task_string_property::Column::Name.eq(prop)),
+                        .add(task_string_property::Column::TaskPropertyName.eq(prop)),
                 )
                 .one(db)
                 .await
@@ -483,7 +483,7 @@ async fn get_property_or_err(
                     .filter(
                         Condition::all()
                             .add(task_num_property::Column::TaskId.eq(task_id))
-                            .add(task_num_property::Column::Name.eq(prop)),
+                            .add(task_num_property::Column::TaskPropertyName.eq(prop)),
                     )
                     .one(db)
                     .await
@@ -498,7 +498,7 @@ async fn get_property_or_err(
                 .filter(
                     Condition::all()
                         .add(task_date_property::Column::TaskId.eq(task_id))
-                        .add(task_date_property::Column::Name.eq(prop)),
+                        .add(task_date_property::Column::TaskPropertyName.eq(prop)),
                 )
                 .one(db)
                 .await
@@ -511,7 +511,7 @@ async fn get_property_or_err(
                 .filter(
                     Condition::all()
                         .add(task_bool_property::Column::TaskId.eq(task_id))
-                        .add(task_bool_property::Column::Name.eq(prop)),
+                        .add(task_bool_property::Column::TaskPropertyName.eq(prop)),
                 )
                 .one(db)
                 .await
