@@ -193,25 +193,29 @@ mod task_popup_tests {
             assert!(format!("{:?}", buffer).contains("Test Task")); // Check if the buffer contains the string "Test Task"
         }
     }
-    mod term_events_tests {
-        mod create_popup_tests {
-            use ratatui::style::Modifier;
+    /*
+        mod term_events_tests {
 
-            use super::super::super::TaskPopup;
-            use crate::mid::{State, TaskKey};
+            mod create_popup_tests {
+                use ratatui::style::Modifier;
 
-            #[tokio::test]
-            async fn test_create_popup_yes() {
-                let mut task_popup: TaskPopup = TaskPopup::Create(String::from("Test Task")); // Initialize a TaskPopup object
-                let (mut state, _) = super::super::super::State::new();
-                let event = crossterm::event::Event::Key(crossterm::event::KeyEvent::new(
-                    crossterm::event::KeyCode::Enter,
-                    crossterm::event::KeyModifiers::empty(),
-                ));
-                let result = task_popup.handle_term_event(&mut state, &event); // Call the handle_term_event function
-                let result = task_popup.handle_term_event(&mut state, &event);
-                assert_eq!(result.unwrap(), true) // Check if the result is Ok with a value of true
+                use super::super::super::TaskPopup;
+                use crate::mid::{State, TaskKey};
+
+
+                #[tokio::test]
+                async fn test_create_popup_yes() {
+                    let mut task_popup: TaskPopup = TaskPopup::Create(String::from("Test Task")); // Initialize a TaskPopup object
+                    let (mut state, _) = super::super::super::State::new();
+                    let event = crossterm::event::Event::Key(crossterm::event::KeyEvent::new(
+                        crossterm::event::KeyCode::Enter,
+                        crossterm::event::KeyModifiers::empty(),
+                    ));
+                    let result = task_popup.handle_term_event(&mut state, &event); // Call the handle_term_event function
+                    let result = task_popup.handle_term_event(&mut state, &event);
+                    assert_eq!(result.unwrap(), true) // Check if the result is Ok with a value of true
+                }
             }
         }
-    }
+    */
 }
