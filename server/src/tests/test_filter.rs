@@ -37,13 +37,15 @@ async fn test_empty_filter() {
     let req = test::TestRequest::default()
         .set_json(FilterRequest {
             filter: Filter::None,
+            req_id: 0,
         })
         .uri("/filter")
         .to_request();
     let resp: FilterResponse = test::call_and_read_body_json(&app, req).await;
 
-    assert_eq!(resp[0], 1);
-    assert_eq!(resp[1], 2);
+    assert_eq!(resp.tasks[0], 1);
+    assert_eq!(resp.tasks[1], 2);
+    assert_eq!(resp.req_id, 0)
 }
 
 macro_rules! simple_test {

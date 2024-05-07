@@ -1,12 +1,14 @@
 //! This file outlines all the structures required for the middleware and backend to communicate via REST API
 
+use std::fs::read;
+
 use serde::{Deserialize, Serialize};
 
 use crate::*;
 
 /// # TASK API
 /// reawest::get("/task")
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ReadTaskShortRequest {
     /// task id to request
     pub task_id: TaskID,
@@ -14,7 +16,7 @@ pub struct ReadTaskShortRequest {
     pub req_id: u64,
 }
 /// response to GET /task
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ReadTaskShortResponse {
     /// task id of response, should be the same as request
     pub task_id: TaskID,
@@ -63,7 +65,7 @@ pub type CreateTasksRequest = Vec<CreateTaskRequest>;
 pub type CreateTasksResponse = Vec<CreateTaskResponse>;
 
 /// reqwest::put("/task")
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateTaskRequest {
     /// task id
     pub task_id: TaskID,
@@ -87,7 +89,7 @@ pub struct UpdateTaskRequest {
     pub req_id: u64,
 }
 /// respone is just taskid
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateTaskResponse {
     /// id of task
     pub task_id: TaskID,
@@ -99,7 +101,7 @@ pub type UpdateTasksRequest = Vec<UpdateTaskRequest>;
 /// response is just taskids
 pub type UpdateTasksResponse = Vec<UpdateTaskResponse>;
 /// reqwest::delete("/task")
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DeleteTaskRequest {
     /// id to delete
     pub task_id: TaskID,
@@ -116,7 +118,7 @@ pub type DeleteTasksResponse = Vec<u64>;
 /// # PROPERTIES API
 
 /// reqwest::get("/prop")
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PropertyRequest {
     /// task id
     pub task_id: TaskID,
@@ -126,7 +128,7 @@ pub struct PropertyRequest {
     pub req_id: u64,
 }
 /// response to GET /props
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PropertyResponse {
     /// actual result
     pub res: Vec<TaskPropOption>,
@@ -134,7 +136,7 @@ pub struct PropertyResponse {
     pub req_id: u64,
 }
 /// individual property but an option
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TaskPropOption {
     /// name of property
     pub name: String,
@@ -142,7 +144,7 @@ pub struct TaskPropOption {
     pub value: Option<TaskPropVariant>,
 }
 /// reqwest::get("/props")
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PropertiesRequest {
     /// list of task ids we want properties for
     pub task_ids: Vec<TaskID>,
@@ -152,7 +154,7 @@ pub struct PropertiesRequest {
     pub req_id: u64,
 }
 /// does smth
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PropertiesResponse {
     /// actual result
     pub res: Vec<TaskPropColumn>,
@@ -160,7 +162,7 @@ pub struct PropertiesResponse {
     pub req_id: u64,
 }
 /// column of task properties with name
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct TaskPropColumn {
     /// name of property
     pub name: String,
@@ -171,13 +173,21 @@ pub struct TaskPropColumn {
 /// # FILTER APIS
 
 /// reqwest::get("/filter")
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct FilterRequest {
     /// filter to apply
     pub filter: Filter,
+    /// request ID
+    pub req_id: u64,
 }
 /// responose to GET /filter
-pub type FilterResponse = Vec<TaskID>;
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FilterResponse {
+    /// list of task ids that match the filter
+    pub tasks: Vec<TaskID>,
+    /// id of request
+    pub req_id: u64,
+}
 /// reqwest::get("/filter")
 struct FilterTaskRequest {
     filter: Filter,
@@ -188,7 +198,7 @@ type FilterTaskRespone = Vec<TaskShort>;
 /// request for GET /views
 pub type GetViewRequest = u64;
 /// response for GET /views
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GetViewResponse {
     /// the views to be reutned
     pub views: Vec<ViewData>,
@@ -196,7 +206,7 @@ pub struct GetViewResponse {
     pub req_id: u64,
 }
 /// request for POST /view
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CreateViewRequest {
     /// name of view
     pub name: String,
@@ -208,7 +218,7 @@ pub struct CreateViewRequest {
     pub req_id: u64,
 }
 /// response for POST /view
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CreateViewResponse {
     /// ID of view
     pub view_id: i32,
@@ -216,7 +226,7 @@ pub struct CreateViewResponse {
     pub req_id: u64,
 }
 /// request for PUT /view
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateViewRequest {
     /// new view that we're setting
     pub view: ViewData,
