@@ -373,35 +373,76 @@ async fn ultra_test() {
     .unwrap();
 
     //test failures
-    ultra_filter_test!(&db, TaskPropVariant::Number(1.0), Comparator::LIKE);
-    ultra_filter_test!(&db, TaskPropVariant::Boolean(true), Comparator::LIKE);
-    ultra_filter_test!(
+    assert!(filter(
         &db,
-        TaskPropVariant::Date(
-            NaiveDate::from_ymd_opt(2024, 1, 1)
-                .unwrap()
-                .and_hms_opt(0, 0, 0)
-                .unwrap()
-        ),
-        Comparator::LIKE
-    );
-    ultra_filter_test2!(
+        &FilterRequest {
+            filter: Filter::Leaf {
+                field: "doesn't matter".to_owned(),
+                comparator: Comparator::LIKE,
+                immediate: TaskPropVariant::Number(1.0),
+            },
+        },
+    )
+    .await
+    .is_err());
+    assert!(filter(
         &db,
-        TaskPropVariant::Date(
-            NaiveDate::from_ymd_opt(2024, 1, 1)
-                .unwrap()
-                .and_hms_opt(0, 0, 0)
-                .unwrap()
-        ),
-        PrimitiveField::LASTEDITED,
-        Comparator::LIKE
-    );
-    ultra_filter_test2!(
+        &FilterRequest {
+            filter: Filter::Leaf {
+                field: "doesn't matter".to_owned(),
+                comparator: Comparator::LIKE,
+                immediate: TaskPropVariant::Boolean(true),
+            },
+        },
+    )
+    .await
+    .is_err());
+    assert!(filter(
         &db,
-        TaskPropVariant::Boolean(true),
-        PrimitiveField::COMPLETED,
-        Comparator::LIKE
-    );
+        &FilterRequest {
+            filter: Filter::Leaf {
+                field: "doesn't matter".to_owned(),
+                comparator: Comparator::LIKE,
+                immediate: TaskPropVariant::Date(
+                    NaiveDate::from_ymd_opt(2024, 1, 1)
+                        .unwrap()
+                        .and_hms_opt(0, 0, 0)
+                        .unwrap()
+                ),
+            },
+        },
+    )
+    .await
+    .is_err());
+    assert!(filter(
+        &db,
+        &FilterRequest {
+            filter: Filter::LeafPrimitive {
+                field: PrimitiveField::COMPLETED,
+                comparator: Comparator::LIKE,
+                immediate: TaskPropVariant::Boolean(true),
+            },
+        },
+    )
+    .await
+    .is_err());
+    assert!(filter(
+        &db,
+        &FilterRequest {
+            filter: Filter::LeafPrimitive {
+                field: PrimitiveField::LASTEDITED,
+                comparator: Comparator::LIKE,
+                immediate: TaskPropVariant::Date(
+                    NaiveDate::from_ymd_opt(2024, 1, 1)
+                        .unwrap()
+                        .and_hms_opt(0, 0, 0)
+                        .unwrap()
+                ),
+            },
+        },
+    )
+    .await
+    .is_err());
 }
 
 #[actix_web::test]
