@@ -688,7 +688,6 @@ pub fn init_test() -> (State, Receiver<MidEvent>) {
     state.view_mod(view_key, |v| v.tasks = Some(vec![task1, task2]));
     (state, receiver)
 }
-
 #[cfg(test)]
 mod tests {
     pub use super::*;
@@ -1274,7 +1273,7 @@ mod tests {
             .is_err());
     }
     #[tokio::test]
-   async fn test_task_rm_removes_task_if_not_in_db() {
+    async fn test_task_rm_removes_task_if_not_in_db() {
         let (mut state, _) = super::State::new();
         let task_key = state.task_def(super::Task::default());
         state.tasks.get_mut(task_key).unwrap().db_id = None;
