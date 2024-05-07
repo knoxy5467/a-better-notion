@@ -179,5 +179,12 @@ mod task_popup_tests {
         assert!(format!("{:?}", buffer).contains("Test Task")); // Check if the buffer contains the string "Test Task"
     }
     #[test]
-    fn test_delete() {}
+    fn test_delete() {
+        let mut task_popup: TaskPopup = TaskPopup::Delete(1, String::from("Test Task")); // Initialize a TaskPopup object
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 100, 10)); // Initialize a buffer with a certain size
+        let rect = Rect::new(0, 0, 100, 10); // Initialize a rectangle with a certain size
+        task_popup.render(rect, &mut buffer);
+        assert!(format!("{:?}", buffer).contains("Delete Task")); // Check if the buffer contains the string "Delete Task"
+        assert!(format!("{:?}", buffer).contains("Test Task")); // Check if the buffer contains the string "Test Task"
+    }
 }
