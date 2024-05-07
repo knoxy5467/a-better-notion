@@ -202,7 +202,7 @@ type FilterTaskRespone = Vec<TaskShort>;
 /// request for GET /views
 pub type GetViewRequest = u64;
 /// response for GET /views
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GetViewResponse {
     /// the views to be reutned
     pub views: Vec<ViewData>,
@@ -210,7 +210,7 @@ pub struct GetViewResponse {
     pub req_id: u64,
 }
 /// request for POST /view
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CreateViewRequest {
     /// name of view
     pub name: String,
@@ -222,7 +222,7 @@ pub struct CreateViewRequest {
     pub req_id: u64,
 }
 /// response for POST /view
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CreateViewResponse {
     /// ID of view
     pub view_id: i32,
@@ -230,7 +230,7 @@ pub struct CreateViewResponse {
     pub req_id: u64,
 }
 /// request for PUT /view
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateViewRequest {
     /// new view that we're setting
     pub view: ViewData,
