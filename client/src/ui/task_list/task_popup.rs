@@ -170,7 +170,7 @@ mod task_popup_tests {
     use super::TaskPopup;
 
     #[test]
-    fn test_delete() {
+    fn test_create() {
         let mut task_popup: TaskPopup = TaskPopup::Create(String::from("Test Task")); // Initialize a TaskPopup object
         let mut buffer = Buffer::empty(Rect::new(0, 0, 100, 10)); // Initialize a buffer with a certain size
         let rect = Rect::new(0, 0, 100, 10); // Initialize a rectangle with a certain size
@@ -178,4 +178,6 @@ mod task_popup_tests {
         assert!(format!("{:?}", buffer).contains("Create Task")); // Check if the buffer contains the string "Create Task"
         assert!(format!("{:?}", buffer).contains("Test Task")); // Check if the buffer contains the string "Test Task"
     }
+    #[test]
+    fn test_delete() {}
 }
