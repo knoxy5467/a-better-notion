@@ -213,6 +213,7 @@ SELECT task_id_tables();
 */
 CREATE TABLE IF NOT EXISTS "view" (
     "id" SERIAL PRIMARY KEY,
+    "name" text,
     "properties" text[]  NOT NULL,
     "filter" jsonb NOT NULL
 );
