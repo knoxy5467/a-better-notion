@@ -28,6 +28,8 @@ pub type PropName = String;
 pub struct ViewData {
     /// ID for view
     pub view_id: i32,
+    /// name of view
+    pub name: String,
     /// Filter for view
     pub filter: Filter,
     /// Properties shown in view

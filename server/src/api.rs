@@ -573,7 +573,7 @@ async fn create_view_request(
     req: web::Json<CreateViewRequest>,
 ) -> Result<web::Json<CreateViewResponse>> {
     let view_model = view::ActiveModel {
-        id: Set(0),
+        id: NotSet,
         name: Set(req.name.clone()),
         properties: Set(req.props.clone()),
         filter: Set(serde_json::to_string(&req.filter).unwrap()),
@@ -592,6 +592,21 @@ async fn update_view_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<UpdateViewRequest>,
 ) -> Result<web::Json<UpdateViewResponse>> {
+    let view = view::Entity::find_by_id(req.view_id)
+        .one(data.as_ref())
+        .await
+        .map_err(ErrorInternalServerError)?
+        .ok_or("couldn't find view by id")
+        .map_err(ErrorInternalServerError)?;
+    let mut view: view::ActiveModel = view.into();
+    view.name = Set(req.view.name.clone());
+    view.properties = Set(req.view.props.clone());
+    view.filter = Set(serde_json::to_string(&req.view.filter).unwrap());
+    view.update(data.as_ref())
+        .await
+        .map_err(ErrorInternalServerError);
+
+    Ok(web::Json(req.req_id))
 }
 
 #[cfg(test)]
