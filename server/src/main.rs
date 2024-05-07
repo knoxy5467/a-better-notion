@@ -5,6 +5,8 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 mod api;
 mod database;
+use std::env;
+
 use actix_settings::{ApplySettings as _, BasicSettings};
 use actix_web::{dev::Server, web::Data, App, HttpServer};
 use api::*;
@@ -62,6 +64,7 @@ async fn connect_to_database_exponential_backoff(
 }
 #[allow(clippy::needless_return)]
 async fn start_server() -> Server {
+    env::set_var("RUST_LOG", "info");
     initialize_logger();
     info!("starting server");
     let settings = load_settings().expect("could not load settings");
