@@ -192,12 +192,22 @@ type FilterTaskRespone = Vec<TaskShort>;
 /// request for GET /views
 pub type GetViewRequest = u64;
 /// response for GET /views
-pub type GetViewResponse = Vec<ViewData>;
+#[derive(Serialize, Deserialize)]
+pub struct GetViewResponse {
+    /// the views to be reutned
+    pub views: Vec<ViewData>,
+    /// the request id
+    pub req_id: u64,
+}
 /// request for POST /views
 #[derive(Serialize, Deserialize)]
 pub struct CreateViewRequest {
-    /// the view you want to create
-    pub view: ViewData,
+    /// name of view
+    pub name: String,
+    /// props you want to display
+    pub props: Vec<String>,
+    /// filter for view
+    pub filter: Filter,
     /// the request id
     pub req_id: u64,
 }

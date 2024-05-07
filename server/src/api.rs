@@ -2,7 +2,7 @@ use crate::database::*;
 use actix_web::error::{ErrorInternalServerError, ErrorNotFound};
 #[allow(unused)]
 use actix_web::{delete, get, post, put, web, Responder, Result};
-use common::{backend::*, TaskID, TaskPropVariant};
+use common::{backend::*, TaskID, TaskPropVariant, ViewData};
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Condition, IntoActiveModel, Set};
 
@@ -550,21 +550,48 @@ async fn get_views_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<GetViewRequest>,
 ) -> Result<web::Json<GetViewResponse>> {
-    Err(ErrorInternalServerError("heyo"))
+    let views = view::Entity::find()
+        .all(data.as_ref())
+        .await
+        .map_err(ErrorInternalServerError)?;
+
+    Ok(web::Json(GetViewResponse {
+        req_id: req.to_owned(),
+        views: views
+            .iter()
+            .map(|view| ViewData {
+                view_id: view.id,
+                filter: serde_json::from_str(&view.filter).unwrap(),
+                props: view.properties.clone(),
+            })
+            .collect(),
+    }))
 }
 #[post("/view")]
 async fn create_view_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<CreateViewRequest>,
 ) -> Result<web::Json<CreateViewResponse>> {
-    Err(ErrorInternalServerError("heyo"))
+    let view_model = view::ActiveModel {
+        id: Set(0),
+        name: Set(req.name.clone()),
+        properties: Set(req.props.clone()),
+        filter: Set(serde_json::to_string(&req.filter).unwrap()),
+    };
+    let res = view::Entity::insert(view_model)
+        .exec(data.as_ref())
+        .await
+        .map_err(|e| ErrorInternalServerError(format!("view not inserted: {}", e)))?;
+    Ok(web::Json(CreateViewResponse {
+        view_id: res.last_insert_id,
+        req_id: req.req_id,
+    }))
 }
 #[put("/view")]
 async fn update_view_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<UpdateViewRequest>,
 ) -> Result<web::Json<UpdateViewResponse>> {
-    Err(ErrorInternalServerError("heyo"))
 }
 
 #[cfg(test)]
