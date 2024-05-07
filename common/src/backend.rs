@@ -67,7 +67,7 @@ pub type CreateTasksRequest = Vec<CreateTaskRequest>;
 pub type CreateTasksResponse = Vec<CreateTaskResponse>;
 
 /// reqwest::put("/task")
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateTaskRequest {
     /// task id
     pub task_id: TaskID,
@@ -91,7 +91,7 @@ pub struct UpdateTaskRequest {
     pub req_id: u64,
 }
 /// respone is just taskid
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateTaskResponse {
     /// id of task
     pub task_id: TaskID,
@@ -103,7 +103,7 @@ pub type UpdateTasksRequest = Vec<UpdateTaskRequest>;
 /// response is just taskids
 pub type UpdateTasksResponse = Vec<UpdateTaskResponse>;
 /// reqwest::delete("/task")
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DeleteTaskRequest {
     /// id to delete
     pub task_id: TaskID,
@@ -120,7 +120,7 @@ pub type DeleteTasksResponse = Vec<u64>;
 /// # PROPERTIES API
 
 /// reqwest::get("/prop")
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PropertyRequest {
     /// task id
     pub task_id: TaskID,
@@ -130,7 +130,7 @@ pub struct PropertyRequest {
     pub req_id: u64,
 }
 /// response to GET /props
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PropertyResponse {
     /// actual result
     pub res: Vec<TaskPropOption>,
@@ -138,7 +138,7 @@ pub struct PropertyResponse {
     pub req_id: u64,
 }
 /// individual property but an option
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TaskPropOption {
     /// name of property
     pub name: String,
@@ -188,6 +188,51 @@ struct FilterTaskRequest {
     props: Vec<String>,
 }
 type FilterTaskRespone = Vec<TaskShort>;
+
+/// request for GET /views
+pub type GetViewRequest = u64;
+/// response for GET /views
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GetViewResponse {
+    /// the views to be reutned
+    pub views: Vec<ViewData>,
+    /// the request id
+    pub req_id: u64,
+}
+/// request for POST /view
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateViewRequest {
+    /// name of view
+    pub name: String,
+    /// props you want to display
+    pub props: Vec<String>,
+    /// filter for view
+    pub filter: Filter,
+    /// the request id
+    pub req_id: u64,
+}
+/// response for POST /view
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateViewResponse {
+    /// ID of view
+    pub view_id: i32,
+    /// ID of request
+    pub req_id: u64,
+}
+/// request for PUT /view
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateViewRequest {
+    /// new view that we're setting
+    pub view: ViewData,
+    /// ID of request
+    pub req_id: u64,
+}
+/// response for PUT /view
+pub type UpdateViewResponse = u64;
+/// request for DELETE /view
+pub type DeleteViewRequest = i32;
+/// response for DELETE /view
+pub type DeleteViewResponse = ();
 
 #[cfg(test)]
 mod tests {

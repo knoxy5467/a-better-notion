@@ -2,7 +2,8 @@ use crate::database::*;
 use actix_web::error::{ErrorInternalServerError, ErrorNotFound};
 #[allow(unused)]
 use actix_web::{delete, get, post, put, web, Responder, Result};
-use common::{backend::*, TaskID, TaskPropVariant};
+use common::{backend::*, TaskID, TaskPropVariant, ViewData};
+use log::info;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Condition, IntoActiveModel, Set};
 
@@ -12,11 +13,13 @@ async fn get_task_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<ReadTaskShortRequest>,
 ) -> Result<impl Responder> {
+    info!("get_task_request, req: {:?}", req);
     let db = data;
     let task = task::Entity::find_by_id(req.task_id)
         .one(db.as_ref())
         .await
         .map_err(|e| ErrorInternalServerError(format!("SQL error: {}", e)))?; // TODO handle this error better, if it does not exist then it should be a http 204 error
+    info!("get_task_request, found_task: {:?}", task);
     match task {
         Some(model) => Ok(web::Json(ReadTaskShortResponse {
             task_id: model.id,
@@ -38,6 +41,7 @@ async fn get_tasks_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<ReadTasksShortRequest>,
 ) -> Result<impl Responder> {
+    info!("get_tasks_request, req: {:?}", req);
     let mut res: ReadTasksShortResponse = Vec::new();
 
     for taskreq in req.iter() {
@@ -59,12 +63,14 @@ async fn get_tasks_request(
             None => res.push(Err("task not found by ID".to_string())),
         }
     }
+    info!("finished get_tasks_request, res: {:?}", res);
 
     Ok(web::Json(res))
 }
 
 /// post /task endpoint creates a single task
 async fn create_task(db: &DatabaseConnection, req: &CreateTaskRequest) -> Result<TaskID> {
+    info!("create_task, req: {:?}", req);
     let task_model = task::ActiveModel {
         id: NotSet,
         title: Set(req.name.clone()),
@@ -75,6 +81,7 @@ async fn create_task(db: &DatabaseConnection, req: &CreateTaskRequest) -> Result
         .exec(db)
         .await
         .map_err(|e| ErrorInternalServerError(format!("task not inserted: {}", e)))?; //TODO handle this error better, for example for unique constraint violation
+    info!("create_task, result_task: {:?}", result_task);
     Ok(result_task.last_insert_id)
 }
 
@@ -83,7 +90,9 @@ async fn create_task_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<CreateTaskRequest>,
 ) -> Result<web::Json<CreateTaskResponse>> {
+    info!("create_task_request, req: {:?}", req);
     let id = create_task(&data, &req).await?;
+    info!("created task with id: {:?}", id);
     Ok(web::Json(CreateTaskResponse {
         task_id: id,
         req_id: req.req_id,
@@ -95,6 +104,7 @@ async fn create_tasks_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<CreateTasksRequest>,
 ) -> Result<web::Json<CreateTasksResponse>> {
+    info!("create_tasks_request, req: {:?}", req);
     let mut res: CreateTasksResponse = Vec::new();
     for taskreq in req.iter() {
         let id = create_task(&data, taskreq).await?;
@@ -108,13 +118,13 @@ async fn create_tasks_request(
 
 /// put /task updates one task
 async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result<TaskID> {
+    info!("update_task, req: {:?}", req);
     let task = task::Entity::find_by_id(req.task_id)
         .one(db)
         .await
         .map_err(|e| ErrorInternalServerError(format!("couldn't fetch tasks: {}", e)))?
         .ok_or("no task by id")
         .map_err(ErrorInternalServerError)?;
-
     let mut task: task::ActiveModel = task.into();
     if req.name.is_some() {
         task.title = Set(req.name.to_owned().unwrap());
@@ -333,6 +343,7 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
         //TODO: implement scripts
     }*/
 
+    info!("update_task, updated task: {:?}", req.task_id);
     Ok(req.task_id)
 }
 #[put("/task")]
@@ -340,7 +351,9 @@ async fn update_task_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<UpdateTaskRequest>,
 ) -> Result<web::Json<UpdateTaskResponse>> {
+    info!("update_task_request, req: {:?}", req);
     let id = update_task(&data, &req).await?;
+    info!("update_task_request, completed id : {:?}", id);
     Ok(web::Json(UpdateTaskResponse {
         task_id: id,
         req_id: req.req_id,
@@ -351,6 +364,7 @@ async fn update_tasks_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<UpdateTasksRequest>,
 ) -> Result<web::Json<UpdateTasksResponse>> {
+    info!("update_tasks_request, req: {:?}", req);
     let mut res: UpdateTasksResponse = Vec::new();
     for taskreq in req.iter() {
         let id = update_task(&data, taskreq).await.unwrap_or(-1).to_owned();
@@ -359,6 +373,7 @@ async fn update_tasks_request(
             req_id: taskreq.req_id,
         });
     }
+    info!("update_tasks_request, completed res: {:?}", res);
     Ok(web::Json(res))
 }
 
@@ -366,6 +381,7 @@ async fn delete_task(
     db: &DatabaseConnection,
     req: &DeleteTaskRequest,
 ) -> Result<web::Json<DeleteTaskResponse>> {
+    info!("delete_task, req: {:?}", req);
     task::Entity::find_by_id(req.task_id)
         .one(db)
         .await
@@ -375,7 +391,7 @@ async fn delete_task(
         .delete(db)
         .await
         .map_err(|e| ErrorInternalServerError(format!("couldn't delete task: {}", e)))?;
-
+    info!("delete_task, deleted task: {:?}", req.task_id);
     Ok(web::Json(req.req_id))
 }
 
@@ -384,6 +400,7 @@ async fn delete_task_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<DeleteTaskRequest>,
 ) -> Result<web::Json<DeleteTaskResponse>> {
+    info!("delete_task_request, req: {:?}", req);
     delete_task(&data, &req).await
 }
 #[delete("/tasks")]
@@ -391,11 +408,13 @@ async fn delete_tasks_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<DeleteTasksRequest>,
 ) -> Result<web::Json<DeleteTasksResponse>> {
+    info!("delete_tasks_request, req: {:?}", req);
     let mut res: Vec<u64> = vec![];
     for task in req.iter() {
         delete_task(&data, task).await?;
         res.push(task.req_id);
     }
+    info!("delete_tasks_request, completed res: {:?}", res);
     Ok(web::Json(res))
 }
 
@@ -408,11 +427,13 @@ async fn get_filter_request(
 ) -> Result<impl Responder> {
     //TODO: construct filter
 
+    info!("get_filter_request, req: {:?}", req);
     let tasks: Vec<task::Model> = task::Entity::find()
         .all(data.as_ref())
         .await
         .map_err(|e| ErrorInternalServerError(format!("couldn't filter tasks: {}", e)))?;
 
+    info!("get_filter_request, found_tasks: {:?}", tasks);
     Ok(web::Json(
         tasks.iter().map(|a| a.id).collect::<FilterResponse>(),
     ))
@@ -423,6 +444,10 @@ async fn get_property_or_err(
     prop: &String,
     task_id: i32,
 ) -> Result<Option<TaskPropVariant>, ()> {
+    info!(
+        "get_property_or_err, prop: {:?}, task_id: {:?}",
+        prop, task_id
+    );
     let typ = task_property::Entity::find()
         .filter(
             Condition::all()
@@ -494,6 +519,7 @@ async fn get_property_or_err(
         _ => unreachable!(),
     };
 
+    info!("get_property_or_err, res: {:?}", res);
     Ok(Some(res))
 }
 
@@ -502,6 +528,7 @@ async fn get_property_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<PropertyRequest>,
 ) -> Result<web::Json<PropertyResponse>> {
+    info!("get_property_request, req: {:?}", req);
     let mut res = PropertyResponse {
         res: vec![],
         req_id: req.req_id,
@@ -515,7 +542,7 @@ async fn get_property_request(
             value: prop,
         });
     }
-
+    info!("get_property_request, res: {:?}", res);
     Ok(web::Json(res))
 }
 #[get("/props")]
@@ -523,6 +550,7 @@ async fn get_properties_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<PropertiesRequest>,
 ) -> Result<web::Json<PropertiesResponse>> {
+    info!("get_properties_request, req: {:?}", req);
     let mut res = PropertiesResponse {
         res: vec![],
         req_id: req.req_id,
@@ -542,7 +570,91 @@ async fn get_properties_request(
         res.res.push(prop_column);
     }
 
+    info!("get_properties_request, res: {:?}", res);
     Ok(web::Json(res))
+}
+
+#[get("/views")]
+async fn get_views_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<GetViewRequest>,
+) -> Result<web::Json<GetViewResponse>> {
+    let views = view::Entity::find()
+        .all(data.as_ref())
+        .await
+        .map_err(ErrorInternalServerError)?;
+
+    Ok(web::Json(GetViewResponse {
+        req_id: req.to_owned(),
+        views: views
+            .iter()
+            .map(|view| ViewData {
+                name: view.name.clone(),
+                view_id: view.id,
+                filter: serde_json::from_str(&view.filter).unwrap(),
+                props: view.properties.clone(),
+            })
+            .collect(),
+    }))
+}
+#[post("/view")]
+async fn create_view_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<CreateViewRequest>,
+) -> Result<web::Json<CreateViewResponse>> {
+    let view_model = view::ActiveModel {
+        id: NotSet,
+        name: Set(req.name.clone()),
+        properties: Set(req.props.clone()),
+        filter: Set(serde_json::to_string(&req.filter).unwrap()),
+    };
+    let res = view::Entity::insert(view_model)
+        .exec(data.as_ref())
+        .await
+        .map_err(|e| ErrorInternalServerError(format!("view not inserted: {}", e)))?;
+    Ok(web::Json(CreateViewResponse {
+        view_id: res.last_insert_id,
+        req_id: req.req_id,
+    }))
+}
+#[put("/view")]
+async fn update_view_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<UpdateViewRequest>,
+) -> Result<web::Json<UpdateViewResponse>> {
+    let view = view::Entity::find_by_id(req.view.view_id)
+        .one(data.as_ref())
+        .await
+        .map_err(ErrorInternalServerError)?
+        .ok_or("couldn't find view by id")
+        .map_err(ErrorInternalServerError)?;
+    let mut view: view::ActiveModel = view.into();
+    view.name = Set(req.view.name.clone());
+    view.properties = Set(req.view.props.clone());
+    view.filter = Set(serde_json::to_string(&req.view.filter).unwrap());
+    view.update(data.as_ref())
+        .await
+        .map_err(ErrorInternalServerError)?;
+
+    Ok(web::Json(req.req_id))
+}
+
+#[delete("/view")]
+async fn delete_view_request(
+    data: web::Data<DatabaseConnection>,
+    req: web::Json<DeleteViewRequest>,
+) -> Result<web::Json<DeleteViewResponse>> {
+    view::Entity::find_by_id(req.to_owned())
+        .one(data.as_ref())
+        .await
+        .map_err(ErrorInternalServerError)?
+        .ok_or("couldn't find view by id")
+        .map_err(ErrorInternalServerError)?
+        .delete(data.as_ref())
+        .await
+        .map_err(ErrorInternalServerError)?;
+
+    Ok(web::Json(()))
 }
 
 #[cfg(test)]
@@ -557,3 +669,6 @@ mod test_props;
 #[cfg(test)]
 #[path = "./tests/test_update.rs"]
 mod test_update;
+#[cfg(test)]
+#[path = "./tests/test_views.rs"]
+mod test_views;
