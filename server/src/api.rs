@@ -163,7 +163,10 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
                         .filter(
                             Condition::all()
                                 .add(task_string_property::Column::TaskId.eq(req.task_id))
-                                .add(task_string_property::Column::Name.eq(prop.name.to_owned())),
+                                .add(
+                                    task_string_property::Column::TaskPropertyName
+                                        .eq(prop.name.to_owned()),
+                                ),
                         )
                         .one(db)
                         .await
@@ -260,7 +263,7 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
             TaskPropVariant::Date(val) => {
                 task_date_property::Entity::insert(task_date_property::ActiveModel {
                     task_id: Set(req.task_id),
-                    name: Set(prop.name.to_owned()),
+                    task_property_name: Set(prop.name.to_owned()),
                     value: Set(val.to_owned()),
                 })
                 .exec(db)
@@ -432,7 +435,6 @@ async fn get_filter_request(
         .all(data.as_ref())
         .await
         .map_err(|e| ErrorInternalServerError(format!("couldn't filter tasks: {}", e)))?;
-
 
     Ok(web::Json(FilterResponse {
         tasks: tasks.iter().map(|a| a.id).collect(),
