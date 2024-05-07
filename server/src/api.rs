@@ -405,7 +405,7 @@ async fn delete_tasks_request(
 async fn get_filter_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<FilterRequest>,
-) -> Result<impl Responder> {
+) -> Result<web::Json<FilterResponse>> {
     //TODO: construct filter
 
     let tasks: Vec<task::Model> = task::Entity::find()
