@@ -1,10 +1,7 @@
 use std::env;
 
-#[allow(unused_imports)]
 use crate::connect_to_database_exponential_backoff;
-#[allow(unused_imports)]
 use crate::{database, initialize_logger, testcontainer_common_utils};
-#[allow(unused_imports)]
 use actix_web::{test, web::Data, App};
 use chrono::NaiveDate;
 use common::backend::*;
@@ -184,12 +181,236 @@ macro_rules! super_make {
     }
 }
 
+macro_rules! ultra_filter_test {
+    ($db:expr, $imm:expr, $($comp:expr),*) => {
+        $(
+            filter(
+                $db,
+                &FilterRequest {
+                    filter: Filter::Leaf {
+                        field: "doesn't matter".to_owned(),
+                        comparator: $comp,
+                        immediate: $imm,
+                    },
+                },
+            )
+            .await
+            .unwrap();
+        )*
+    }
+}
+macro_rules! ultra_filter_test2 {
+    ($db:expr, $imm:expr, $field:expr, $($comp:expr),*) => {
+        $(
+            filter(
+                $db,
+                &FilterRequest {
+                    filter: Filter::LeafPrimitive {
+                        field: $field,
+                        comparator: $comp,
+                        immediate: $imm,
+                    },
+                },
+            )
+            .await
+            .unwrap();
+        )*
+    }
+}
+
+#[actix_web::test]
+async fn ultra_test() {
+    let mut res = MockDatabase::new(sea_orm::DatabaseBackend::Postgres);
+    for _ in 0..45 {
+        res = res.append_query_results([[task::Model {
+            id: 1,
+            title: "title".to_string(),
+            completed: true,
+            last_edited: chrono::NaiveDateTime::default(),
+        }]]);
+    }
+
+    let db = res.into_connection();
+    ultra_filter_test!(
+        &db,
+        TaskPropVariant::Number(1.0),
+        Comparator::LT,
+        Comparator::LEQ,
+        Comparator::GT,
+        Comparator::GEQ,
+        Comparator::EQ,
+        Comparator::NEQ
+    );
+    ultra_filter_test!(
+        &db,
+        TaskPropVariant::Boolean(true),
+        Comparator::EQ,
+        Comparator::NEQ
+    );
+    ultra_filter_test!(
+        &db,
+        TaskPropVariant::Date(
+            NaiveDate::from_ymd_opt(2024, 1, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+        ),
+        Comparator::LT,
+        Comparator::LEQ,
+        Comparator::GT,
+        Comparator::GEQ,
+        Comparator::EQ,
+        Comparator::NEQ
+    );
+    ultra_filter_test!(
+        &db,
+        TaskPropVariant::String("heyo".to_owned()),
+        Comparator::LT,
+        Comparator::LEQ,
+        Comparator::GT,
+        Comparator::GEQ,
+        Comparator::EQ,
+        Comparator::NEQ,
+        Comparator::CONTAINS,
+        Comparator::NOTCONTAINS,
+        Comparator::LIKE
+    );
+    ultra_filter_test2!(
+        &db,
+        TaskPropVariant::String("heyo".to_owned()),
+        PrimitiveField::TITLE,
+        Comparator::LT,
+        Comparator::LEQ,
+        Comparator::GT,
+        Comparator::GEQ,
+        Comparator::EQ,
+        Comparator::NEQ,
+        Comparator::CONTAINS,
+        Comparator::NOTCONTAINS,
+        Comparator::LIKE
+    );
+    ultra_filter_test2!(
+        &db,
+        TaskPropVariant::Date(
+            NaiveDate::from_ymd_opt(2024, 1, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+        ),
+        PrimitiveField::LASTEDITED,
+        Comparator::LT,
+        Comparator::LEQ,
+        Comparator::GT,
+        Comparator::GEQ,
+        Comparator::EQ,
+        Comparator::NEQ
+    );
+    ultra_filter_test2!(
+        &db,
+        TaskPropVariant::Boolean(true),
+        PrimitiveField::COMPLETED,
+        Comparator::EQ,
+        Comparator::NEQ
+    );
+    filter(
+        &db,
+        &FilterRequest {
+            filter: Filter::Operator {
+                op: common::Operator::AND,
+                childs: vec![
+                    Filter::Leaf {
+                        field: "dog2s".to_string(),
+                        comparator: Comparator::GT,
+                        immediate: TaskPropVariant::Number(1.0),
+                    },
+                    Filter::Leaf {
+                        field: "dog3s".to_string(),
+                        comparator: Comparator::EQ,
+                        immediate: TaskPropVariant::Boolean(true),
+                    },
+                ],
+            },
+        },
+    )
+    .await
+    .unwrap();
+    filter(
+        &db,
+        &FilterRequest {
+            filter: Filter::Operator {
+                op: common::Operator::OR,
+                childs: vec![
+                    Filter::Leaf {
+                        field: "dog2s".to_string(),
+                        comparator: Comparator::EQ,
+                        immediate: TaskPropVariant::Number(3.0),
+                    },
+                    Filter::Leaf {
+                        field: "dog3s".to_string(),
+                        comparator: Comparator::EQ,
+                        immediate: TaskPropVariant::Boolean(false),
+                    },
+                ],
+            },
+        },
+    )
+    .await
+    .unwrap();
+    filter(
+        &db,
+        &FilterRequest {
+            filter: Filter::Operator {
+                op: common::Operator::NOT,
+                childs: vec![Filter::Leaf {
+                    field: "dog3s".to_string(),
+                    comparator: Comparator::EQ,
+                    immediate: TaskPropVariant::Boolean(false),
+                }],
+            },
+        },
+    )
+    .await
+    .unwrap();
+
+    //test failures
+    ultra_filter_test!(&db, TaskPropVariant::Number(1.0), Comparator::LIKE);
+    ultra_filter_test!(&db, TaskPropVariant::Boolean(true), Comparator::LIKE);
+    ultra_filter_test!(
+        &db,
+        TaskPropVariant::Date(
+            NaiveDate::from_ymd_opt(2024, 1, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+        ),
+        Comparator::LIKE
+    );
+    ultra_filter_test2!(
+        &db,
+        TaskPropVariant::Date(
+            NaiveDate::from_ymd_opt(2024, 1, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+        ),
+        PrimitiveField::LASTEDITED,
+        Comparator::LIKE
+    );
+    ultra_filter_test2!(
+        &db,
+        TaskPropVariant::Boolean(true),
+        PrimitiveField::COMPLETED,
+        Comparator::LIKE
+    );
+}
+
 #[actix_web::test]
 async fn db_test() {
     env::set_var("RUST_LOG", "info");
     initialize_logger();
-    info!("starting db");
+    info!("STARTING DB!!!!");
     setup_db();
+    info!("set up db");
     let db = DB.get().unwrap();
     let db_conn = connect_to_database_exponential_backoff(
         4,
@@ -197,8 +418,10 @@ async fn db_test() {
     )
     .await
     .unwrap();
+    info!("got connection");
 
     // run all my tests
+    info!("starting 1");
     super_make!(
         id0,
         &db_conn,
@@ -257,6 +480,7 @@ async fn db_test() {
         &db_conn
     );
 
+    info!("primitive tests");
     simple_primitive_test!(
         PrimitiveField::TITLE,
         Comparator::LT,
@@ -336,6 +560,7 @@ async fn db_test() {
         &db_conn
     );
 
+    info!("making bools");
     super_make!(
         id2,
         &db_conn,
@@ -364,6 +589,7 @@ async fn db_test() {
         id2,
         &db_conn
     );
+    info!("making strs");
     simple_make!(
         TaskPropVariant::String("a dude".to_string()),
         TaskPropVariant::String("c not that".to_string()),
@@ -435,6 +661,7 @@ async fn db_test() {
         id4,
         &db_conn
     );
+    info!("making dates");
     simple_make!(
         TaskPropVariant::Date(
             NaiveDate::from_ymd_opt(2024, 1, 1)
@@ -526,6 +753,7 @@ async fn db_test() {
         &db_conn
     );
 
+    info!("making hard tests");
     super_make!(
         id8,
         &db_conn,
@@ -542,6 +770,7 @@ async fn db_test() {
         ("dog2s", TaskPropVariant::Number(2.0)),
         ("dog3s", TaskPropVariant::Boolean(false))
     );
+    info!("complex filter 1");
     let mut res = filter(
         &db_conn,
         &FilterRequest {
@@ -568,6 +797,7 @@ async fn db_test() {
     assert_eq!(res[0], id8);
     assert!(res.len() == 1);
 
+    info!("complex filter 2");
     res = filter(
         &db_conn,
         &FilterRequest {
@@ -595,6 +825,7 @@ async fn db_test() {
     assert!(res.contains(&id9));
     assert!(res.len() == 2);
 
+    info!("complex filter 3");
     res = filter(
         &db_conn,
         &FilterRequest {

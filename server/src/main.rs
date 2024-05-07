@@ -99,9 +99,6 @@ async fn start_server() -> Server {
 }
 
 #[cfg(test)]
-#[path = "./tests/test_filter.rs"]
-mod test_filter;
-#[cfg(test)]
 #[path = "./tests/test_tasks.rs"]
 mod test_tasks;
 #[cfg(test)]

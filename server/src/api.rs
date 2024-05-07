@@ -639,7 +639,6 @@ pub async fn filter(
         .map_err(|e| {
             actix_web::error::ErrorInternalServerError(format!("couldn't filter tasks: {}", e))
         })?;
-    log::info!("{:?}", tasks);
 
     Ok(web::Json(
         tasks.iter().map(|a| a.id).collect::<FilterResponse>(),
@@ -789,11 +788,11 @@ mod test_create;
 #[path = "./tests/test_delete.rs"]
 mod test_delete;
 #[cfg(test)]
+#[path = "./tests/test_filter.rs"]
+mod test_filter;
+#[cfg(test)]
 #[path = "./tests/test_props.rs"]
 mod test_props;
 #[cfg(test)]
 #[path = "./tests/test_update.rs"]
 mod test_update;
-#[cfg(test)]
-#[path = "./tests/test_filter.rs"]
-mod test_filter;

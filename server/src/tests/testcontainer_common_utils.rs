@@ -1,3 +1,4 @@
+use log::info;
 use testcontainers::{clients, Container, RunnableImage};
 use testcontainers_modules::postgres::Postgres;
 
