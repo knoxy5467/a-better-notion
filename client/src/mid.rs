@@ -1273,8 +1273,8 @@ mod tests {
             .handle_mid_event(super::MidEvent::StateEvent(super::StateEvent::TasksUpdate))
             .is_err());
     }
-    #[test]
-    fn test_task_rm_removes_task_if_not_in_db() {
+    #[tokio::test]
+   async fn test_task_rm_removes_task_if_not_in_db() {
         let (mut state, _) = super::State::new();
         let task_key = state.task_def(super::Task::default());
         state.tasks.get_mut(task_key).unwrap().db_id = None;
