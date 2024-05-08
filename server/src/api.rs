@@ -660,7 +660,10 @@ pub async fn filter(
         })?;
 
     Ok(web::Json(
-        tasks.iter().map(|a| a.id).collect::<FilterResponse>(),
+        FilterResponse {
+            tasks: tasks.iter().map(|a| a.id).collect::<Vec<TaskID>>(),
+            req_id: req.req_id
+        }
     ))
 }
 

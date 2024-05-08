@@ -387,8 +387,8 @@ impl State {
             CreateTaskRequest {
                 name: task.name.clone(),
                 completed: task.completed,
-                properties: vec![],   // TODO: send props
-                dependencies: vec![], // TODO: send deps
+                // properties: vec![],   // TODO: send props
+                // dependencies: vec![], // TODO: send deps
                 req_id: key.0.as_ffi(),
             },
         );
@@ -440,7 +440,6 @@ impl State {
     }
     /// delete a task
     pub fn task_rm(&mut self, key: TaskKey) -> Result<(), NoTaskError> {
-        dbg!("removing a task!");
         if let Some(task) = self.tasks.get_mut(key) {
             if let Some(db_id) = task.db_id {
                 // mark pending deletion if in database

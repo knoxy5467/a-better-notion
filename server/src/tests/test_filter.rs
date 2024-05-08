@@ -58,14 +58,15 @@ macro_rules! simple_test {
                     comparator: $comp,
                     immediate: $imm,
                 },
+                req_id: 0,
             },
         )
         .await
         .unwrap();
 
-        println!("comparing {} {}", res[0], $res);
-        assert_eq!(res[0], $res);
-        assert!(res.len() == 1);
+        println!("comparing {} {}", res.tasks[0], $res);
+        assert_eq!(res.tasks[0], $res);
+        assert!(res.tasks.len() == 1);
     };
 }
 macro_rules! simple_primitive_test {
@@ -78,14 +79,15 @@ macro_rules! simple_primitive_test {
                     comparator: $comp,
                     immediate: $imm,
                 },
+                req_id: 0
             },
         )
         .await
         .unwrap();
 
-        println!("comparing {} {}", res[0], $res);
-        assert_eq!(res[0], $res);
-        assert!(res.len() == 1);
+        println!("comparing {} {}", res.tasks[0], $res);
+        assert_eq!(res.tasks[0], $res);
+        assert!(res.tasks.len() == 1);
     };
 }
 
@@ -194,6 +196,7 @@ macro_rules! ultra_filter_test {
                         comparator: $comp,
                         immediate: $imm,
                     },
+                    req_id: 0
                 },
             )
             .await
@@ -212,6 +215,7 @@ macro_rules! ultra_filter_test2 {
                         comparator: $comp,
                         immediate: $imm,
                     },
+                    req_id: 0
                 },
             )
             .await
@@ -332,6 +336,7 @@ async fn ultra_test() {
                     },
                 ],
             },
+            req_id: 0
         },
     )
     .await
@@ -354,6 +359,7 @@ async fn ultra_test() {
                     },
                 ],
             },
+            req_id: 0
         },
     )
     .await
@@ -369,6 +375,7 @@ async fn ultra_test() {
                     immediate: TaskPropVariant::Boolean(false),
                 }],
             },
+            req_id: 0
         },
     )
     .await
@@ -383,6 +390,7 @@ async fn ultra_test() {
                 comparator: Comparator::LIKE,
                 immediate: TaskPropVariant::Number(1.0),
             },
+            req_id: 0
         },
     )
     .await
@@ -395,6 +403,7 @@ async fn ultra_test() {
                 comparator: Comparator::LIKE,
                 immediate: TaskPropVariant::Boolean(true),
             },
+            req_id: 0
         },
     )
     .await
@@ -412,6 +421,7 @@ async fn ultra_test() {
                         .unwrap()
                 ),
             },
+            req_id: 0
         },
     )
     .await
@@ -424,6 +434,7 @@ async fn ultra_test() {
                 comparator: Comparator::LIKE,
                 immediate: TaskPropVariant::Boolean(true),
             },
+            req_id: 0
         },
     )
     .await
@@ -441,6 +452,7 @@ async fn ultra_test() {
                         .unwrap()
                 ),
             },
+            req_id: 0
         },
     )
     .await
@@ -832,13 +844,14 @@ async fn db_test() {
                     },
                 ],
             },
+            req_id: 0
         },
     )
     .await
     .unwrap();
 
-    assert_eq!(res[0], id8);
-    assert!(res.len() == 1);
+    assert_eq!(res.tasks[0], id8);
+    assert!(res.tasks.len() == 1);
 
     info!("complex filter 2");
     res = filter(
@@ -859,14 +872,15 @@ async fn db_test() {
                     },
                 ],
             },
+            req_id: 0
         },
     )
     .await
     .unwrap();
 
-    assert!(res.contains(&id8));
-    assert!(res.contains(&id9));
-    assert!(res.len() == 2);
+    assert!(res.tasks.contains(&id8));
+    assert!(res.tasks.contains(&id9));
+    assert!(res.tasks.len() == 2);
 
     info!("complex filter 3");
     res = filter(
@@ -880,11 +894,12 @@ async fn db_test() {
                     immediate: TaskPropVariant::Boolean(false),
                 }],
             },
+            req_id: 0
         },
     )
     .await
     .unwrap();
-    assert!(!res.contains(&id9));
+    assert!(!res.tasks.contains(&id9));
 
     info!("shutting down db");
     // if tests are async you must await all of them before running below this will shut down the docker container
