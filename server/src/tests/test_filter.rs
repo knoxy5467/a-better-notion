@@ -35,4 +35,5 @@ async fn test_empty_filter() {
 
     assert_eq!(resp.tasks[0], 1);
     assert_eq!(resp.tasks[1], 2);
+    assert_eq!(resp.req_id, 0)
 }

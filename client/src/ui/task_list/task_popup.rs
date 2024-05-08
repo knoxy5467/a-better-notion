@@ -161,3 +161,61 @@ mod tests {
 
     }
 } */
+
+#[cfg(test)]
+mod task_popup_tests {
+    mod render_tests {
+        use chrono::format;
+        use crossterm::event::{KeyCode, KeyEvent};
+        use ratatui::{buffer::Buffer, layout::Rect};
+
+        use crate::mid::TaskKey;
+
+        use super::super::TaskPopup;
+
+        #[test]
+        fn test_create() {
+            let mut task_popup: TaskPopup = TaskPopup::Create(String::from("Test Task")); // Initialize a TaskPopup object
+            let mut buffer = Buffer::empty(Rect::new(0, 0, 100, 10)); // Initialize a buffer with a certain size
+            let rect = Rect::new(0, 0, 100, 10); // Initialize a rectangle with a certain size
+            task_popup.render(rect, &mut buffer);
+            assert!(format!("{:?}", buffer).contains("Create Task")); // Check if the buffer contains the string "Create Task"
+            assert!(format!("{:?}", buffer).contains("Test Task")); // Check if the buffer contains the string "Test Task"
+        }
+        #[test]
+        fn test_delete() {
+            let mut task_popup: TaskPopup =
+                TaskPopup::Delete(TaskKey::default(), String::from("Test Task")); // Initialize a TaskPopup object
+            let mut buffer = Buffer::empty(Rect::new(0, 0, 100, 10)); // Initialize a buffer with a certain size
+            let rect = Rect::new(0, 0, 100, 10); // Initialize a rectangle with a certain size
+            task_popup.render(rect, &mut buffer);
+            assert!(format!("{:?}", buffer).contains("Delete Task")); // Check if the buffer contains the string "Delete Task"
+            assert!(format!("{:?}", buffer).contains("Test Task")); // Check if the buffer contains the string "Test Task"
+        }
+    }
+    /*
+        mod term_events_tests {
+
+            mod create_popup_tests {
+                use ratatui::style::Modifier;
+
+                use super::super::super::TaskPopup;
+                use crate::mid::{State, TaskKey};
+
+
+                #[tokio::test]
+                async fn test_create_popup_yes() {
+                    let mut task_popup: TaskPopup = TaskPopup::Create(String::from("Test Task")); // Initialize a TaskPopup object
+                    let (mut state, _) = super::super::super::State::new();
+                    let event = crossterm::event::Event::Key(crossterm::event::KeyEvent::new(
+                        crossterm::event::KeyCode::Enter,
+                        crossterm::event::KeyModifiers::empty(),
+                    ));
+                    let result = task_popup.handle_term_event(&mut state, &event); // Call the handle_term_event function
+                    let result = task_popup.handle_term_event(&mut state, &event);
+                    assert_eq!(result.unwrap(), true) // Check if the result is Ok with a value of true
+                }
+            }
+        }
+    */
+}

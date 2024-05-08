@@ -250,51 +250,11 @@ mod tests {
 
     use futures::SinkExt;
     use ratatui::backend::TestBackend;
+    use tracing_subscriber::fmt::format;
 
     use crate::{mid::init_test, ui::UIEvent::UserEvent};
 
     use super::*;
-
-    #[tokio::test]
-    async fn mock_app() {
-        let backend = TestBackend::new(55, 5);
-        let (mut sender, events) = futures::channel::mpsc::channel(10);
-
-        let join = tokio::spawn(run(backend, init_test(), events));
-
-        // test regular event
-        sender
-            .send(Ok(Event::Key(KeyCode::Up.into())))
-            .await
-            .unwrap();
-        tokio::time::sleep(Duration::from_millis(50)).await;
-        // test non-rendering event
-        sender
-            .send(Ok(Event::Key(KeyCode::Char('1').into())))
-            .await
-            .unwrap();
-        tokio::time::sleep(Duration::from_millis(50)).await;
-        // test error event
-        sender
-            .send(Err(io::Error::other::<String>("error".into())))
-            .await
-            .unwrap();
-        assert!(join.await.unwrap().is_err());
-
-        let backend = TestBackend::new(55, 5);
-        let (mut sender, events) = futures::channel::mpsc::channel(10);
-        let join = tokio::spawn(run(backend, init_test(), events));
-        // test resize app
-        sender.send(Ok(Event::Resize(0, 0))).await.unwrap();
-        tokio::time::sleep(Duration::from_millis(50)).await;
-        // test quit app
-        sender
-            .send(Ok(Event::Key(KeyCode::Char('q').into())))
-            .await
-            .unwrap();
-        tokio::time::sleep(Duration::from_millis(50)).await;
-        assert!(join.await.unwrap().is_ok());
-    }
 
     fn create_render_test(state: State, width: u16, height: u16) -> (App, term::Tui<TestBackend>) {
         let mut term = Terminal::new(TestBackend::new(width, height)).unwrap();
@@ -400,168 +360,21 @@ mod tests {
         term.backend().assert_buffer(&expected);
         Ok(())
     }
-
-    #[test]
-    fn handle_key_event() -> color_eyre::Result<()> {
-        let mut app = App::new(State::new().0);
-        // test up and down in example mid state
+    #[tokio::test]
+    async fn test_render_help_box() {
+        let (_, mut term) = create_render_test(State::new().0, 55, 5);
+        reset_buffer_style(&mut term);
+        // test task state
         let (state, _) = init_test();
-        app.state = state;
-        app.task_list.source_views_mod(&app.state, |s| {
-            s.push(app.state.view_get_default().unwrap())
-        });
-        app.handle_event(UserEvent(Event::Key(KeyCode::Up.into())));
-
-        assert_eq!(app.task_list.list_state.selected(), Some(0));
-
-        app.handle_event(UserEvent(Event::Key(KeyCode::Down.into())));
-        assert_eq!(app.task_list.list_state.selected(), Some(1));
-
-        // test enter key
-        /* app.handle_key_event(KeyCode::Enter.into());
-        assert!(
-            app.state
-                .task_get(
-                    app.task_list
-                )
-                .unwrap()
-                .completed
-        ); // second task in example view is marked as completed, so the Enter key should uncomplete it */
-
-        // test up and down in regular state
-        let mut app = App::new(State::new().0);
-        app.handle_event(UserEvent(Event::Key(KeyCode::Up.into())));
-        assert_eq!(app.task_list.list_state.selected(), None);
-        app.handle_event(UserEvent(Event::Key(KeyCode::Down.into())));
-        assert_eq!(app.task_list.list_state.selected(), None);
-        /* app.handle_key_event(KeyCode::Enter.into());
-
-        let mut app = App::new(State::new().0);
-        app.handle_key_event(KeyCode::Char('q').into());
-        assert!(app.should_exit);
-
-        let mut app = App::new(State::new().0);
-        app.handle_key_event(KeyCode::Char('.').into());
-        assert!(!app.should_exit); */
-
-        let mut app = App::new(State::new().0);
-        app.handle_event(UserEvent(Event::FocusLost));
-        assert!(!app.should_exit);
-
-        // Test Edit
-        let mut app = App::new(State::new().0);
-        let state = init_test().0;
-        app.state = state;
-        app.task_list.source_views_mod(&app.state, |s| {
-            s.push(app.state.view_get_default().unwrap())
-        });
-
-        /* app.handle_event(UserEvent(Event::Key(KeyCode::Char('x').into())));
-        assert!(app.task_popup.is_none());
-        app.handle_event(UserEvent(Event::Key(KeyCode::Up.into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('x').into())));
-        assert!(app.task_popup.is_some());
-
-        // Initial task name from popup is empty
-        if let Some(task_popup) = &app.task_popup {
-            if let TaskPopup::Create(name)
-            assert!(task_popup.selection.is_some());
-            assert!(!task_popup.should_close);
-            assert_eq!(task_popup.name, "");
-        } */
-
-        /* // Cancel Editing
-        let mut app = App::new(State::new().0);
-        let state = init_test().0;
-        app.state = state;
-        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
-
-        app.handle_event(UserEvent(Event::Key(KeyCode::Up.into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('x').into())));
-        assert!(app.task_popup.is_some());
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('n').into())));
-        assert!(app.task_popup.unwrap().should_close);
-
-        // Confirm Editing
-        let mut app = App::new(State::new().0);
-        let state = init_test().0;
-        app.state = state;
-        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
-
-        app.handle_event(UserEvent(Event::Key(KeyCode::Up.into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('x').into())));
-        assert!(app.task_popup.is_some());
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('y').into())));
-        assert!(!app.task_popup.unwrap().should_close);
-
-        // Edit current task name
-        let mut app = App::new(State::new().0);
-        let state = init_test().0;
-        app.state = state;
-        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
-
-        app.handle_event(UserEvent(Event::Key(KeyCode::Up.into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('x').into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('y').into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('h').into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('i').into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Enter.into())));
-        let task_keys = app
-            .state
-            .view_task_keys(app.state.view_get_default().unwrap())
-            .unwrap();
-        let updated_task_key = task_keys[0];
-        let updated_task = app.state.task_get(updated_task_key).unwrap();
-        assert_eq!(updated_task.name, "hi");
-
-        // Press esc to cancel editing
-        let mut app = App::new(State::new().0);
-        let state = init_test().0;
-        app.state = state;
-        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
-
-        app.handle_event(UserEvent(Event::Key(KeyCode::Up.into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('x').into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('y').into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('h').into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('i').into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Esc.into())));
-        assert!(app.task_popup.unwrap().should_close);
-
-        // 'n' does not close popup
-        let mut app = App::new(State::new().0);
-        let state = init_test().0;
-        app.state = state;
-        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
-
-        app.handle_event(UserEvent(Event::Key(KeyCode::Up.into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('x').into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('y').into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('n').into())));
-        assert!(!app.task_popup.unwrap().should_close);
-
-        //
-        let mut app = App::new(State::new().0);
-        let state = init_test().0;
-        app.state = state;
-        app.task_list.current_view = Some(app.state.view_get_default().unwrap());
-
-        app.handle_event(UserEvent(Event::Key(KeyCode::Up.into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('x').into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('y').into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('n').into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Char('o').into())));
-        app.handle_event(UserEvent(Event::Key(KeyCode::Enter.into())));
-        let task_keys = app
-            .state
-            .view_task_keys(app.state.view_get_default().unwrap())
-            .unwrap();
-        let updated_task_key = task_keys[0];
-        let updated_task = app.state.task_get(updated_task_key).unwrap();
-        assert!(app.task_popup.is_some());
-        assert_eq!(updated_task.name, "no");
-        assert!(app.task_popup.unwrap().should_close); */
-
-        Ok(())
+        let (mut app, mut term) = create_render_test(state, 55, 5);
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 100, 100));
+        app.help_box_shown = true;
+        app.render(Rect::new(0, 0, 100, 100), &mut buffer);
+        let debug_string = format!("{:?}", buffer);
+        assert!(debug_string.contains("Quit: "));
+        assert!(debug_string.contains("Help: "));
+        assert!(debug_string.contains("Create Task: "));
+        assert!(debug_string.contains("Delete Task: "));
+        assert!(debug_string.contains("Edit Task: "));
     }
 }

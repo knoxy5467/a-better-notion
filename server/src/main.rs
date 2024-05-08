@@ -5,6 +5,8 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 mod api;
 mod database;
+use std::env;
+
 use actix_settings::{ApplySettings as _, BasicSettings};
 use actix_web::{dev::Server, middleware::Logger, web::Data, App, HttpServer};
 use api::*;
@@ -40,10 +42,12 @@ async fn connect_to_database_exponential_backoff(
     attempts: u32,
     db_url: String,
 ) -> Result<DatabaseConnection, DbErr> {
+    info!("Attempting to connect to database in {} attempts", attempts);
     let mut attempt: u64 = 1;
     let base: u64 = 2;
     let total_attempts = base.pow(attempts);
     while attempt < total_attempts {
+        info!("Attempt {} to connect to database", attempt);
         tokio::time::sleep(Duration::from_secs(attempt)).await;
         match Database::connect(db_url.clone()).await {
             Ok(db) => return Ok(db),
@@ -60,29 +64,33 @@ async fn connect_to_database_exponential_backoff(
 }
 #[allow(clippy::needless_return)]
 async fn start_server() -> Server {
+    env::set_var("RUST_LOG", "info");
     initialize_logger();
+    info!("starting server");
     let settings = load_settings().expect("could not load settings");
+    info!("loaded settings");
     let db_url = settings.application.database_url.clone();
+    info!("connecting to database: {}", db_url.clone());
     let db_connection = connect_to_database_exponential_backoff(4_u32, db_url.clone())
         .await
         .unwrap();
     let db_data: Data<DatabaseConnection> = Data::new(db_connection);
-    println!("loaded settings");
-    println!("{:?}", settings);
+    info!("connected to database");
+    info!("creating server");
     let server = HttpServer::new(move || {
         let db_data = db_data.clone();
         App::new()
             .wrap(Logger::default())
             .app_data(db_data)
             .service(get_task_request)
-            .service(get_tasks_request)
+            .service(get_task_request)
+            .service(get_filter_request)
             .service(create_task_request)
-            .service(create_tasks_request)
+            .service(get_tasks_request)
             .service(update_task_request)
             .service(update_tasks_request)
             .service(delete_task_request)
             .service(delete_tasks_request)
-            .service(get_filter_request)
             .service(get_property_request)
             .service(get_properties_request)
     })

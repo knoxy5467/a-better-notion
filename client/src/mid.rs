@@ -29,7 +29,7 @@ new_key_type! { pub struct PropKey; }
 new_key_type! { pub struct TaskKey; }
 
 /// All data associated with tasks, except for properties
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct Task {
     /// Short name of the task (description is a property)
     pub name: String,
@@ -57,7 +57,7 @@ impl Task {
 }
 
 /// Middleware stored View
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct View {
     /// Name of the view
     pub name: String,
@@ -255,7 +255,7 @@ impl ServerResponse for ReadTasksShortResponse {
 impl ServerResponse for FilterResponse {
     fn update_state(self: Box<Self>, state: &mut State) -> color_eyre::Result<Option<StateEvent>> {
         // allocate server tasks
-        let tasks = self
+        let tasks: Vec<TaskKey> = self
             .tasks
             .into_iter()
             .map(|tid| state.new_server_task(tid).0)
@@ -1246,4 +1246,62 @@ mod tests {
         dbg!(PropDataError::Prop(tasks[0], name_key));
         println!("{}", PropDataError::Prop(tasks[1], invalid_name_key));
     } */
+    #[test]
+    fn test_view_new() {
+        let expected_view = super::View {
+            name: "test".to_owned(),
+            ..Default::default()
+        };
+        let new_view = super::View::new("test".to_string());
+        assert_eq!(expected_view, new_view)
+    }
+    #[test]
+    fn test_new_task() {
+        let expected_task = super::Task {
+            name: "test".to_owned(),
+            completed: false.to_owned(),
+            ..Default::default()
+        };
+        let new_task = super::Task::new("test".to_string(), false);
+        assert_eq!(expected_task, new_task)
+    }
+    #[test]
+    #[should_panic]
+    fn state_handle_mid_event_fails_on_state_event() {
+        let (mut state, _) = super::State::new();
+        assert!(state
+            .handle_mid_event(super::MidEvent::StateEvent(super::StateEvent::TasksUpdate))
+            .is_err());
+    }
+    #[tokio::test]
+    async fn test_task_rm_removes_task_if_not_in_db() {
+        let (mut state, _) = super::State::new();
+        let task_key = state.task_def(super::Task::default());
+        state.tasks.get_mut(task_key).unwrap().db_id = None;
+        state.task_rm(task_key).unwrap();
+        assert!(state.tasks.get(task_key).is_none());
+    }
+}
+#[cfg(test)]
+mod derive_tests {
+    use tracing_subscriber::fmt::format;
+
+    #[test]
+    fn test_no_task_error_debug_clone() {
+        let error = super::NoTaskError(super::TaskKey::default());
+        let clone = error.clone();
+        let debug_string = format!("{:?}", error);
+    }
+    #[test]
+    fn test_unsyncronized_task_error_debug_clone() {
+        let error = super::UnsyncronizedTaskError(super::TaskKey::default());
+        let clone = error.clone();
+        let debug_string = format!("{:?}", error);
+    }
+    #[test]
+    fn test_no_view_error_debug_clone() {
+        let error = super::NoViewError(super::ViewKey::default());
+        let clone = error.clone();
+        let debug_string = format!("{:?}", error);
+    }
 }
