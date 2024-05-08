@@ -131,11 +131,11 @@ pub struct TaskProp {
 }
 
 /// fields of tasks wihtout any properties
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum PrimitiveField {
     /// title
     TITLE,
-    /// completed 
+    /// completed
     COMPLETED,
     /// last edited
     LASTEDITED,
