@@ -20,6 +20,7 @@ lcov.info
 
 # log files
 logs/
+logs/rolling.log
 
 # mac garbo
 *.DS_STORE

@@ -1,5 +1,10 @@
+use std::{
+    cmp::{max, min},
+    ptr,
+};
+
 use color_eyre::owo_colors::OwoColorize;
-use common::Filter;
+use common::*;
 // TODO: view popups
 use crossterm::event::{Event, KeyCode, KeyEvent};
 use ratatui::{
@@ -24,15 +29,15 @@ pub enum ViewPopup {
         err: String,
         name: String,
         props: Vec<String>,
-        fitler: Filter,
     },
     Delete(ViewKey, String),
     Edit(ViewKey, Box<TextArea>),
 }
 #[derive(Debug, Clone)]
 pub struct States {
-    pub line: i32,
+    pub line: usize,
     pub state: CreateState,
+    pub filter: Filter,
 }
 
 #[derive(Debug, Clone)]
@@ -53,21 +58,80 @@ pub enum ViewPopupCloseError {
     AddView(ViewKey),
 }
 
-fn traverse_filter(res: &mut Vec<(i32, String, Filter)>, filter: Filter, depth: i32) {
-    match filter {
-        Filter::Leaf {
-            field: _,
-            comparator: _,
-            immediate: _,
-        } => res.push((depth, format!("{}", filter.clone()), filter)),
-        Filter::Operator { op, childs } => {
-            res.push((depth, format!("{}", filter.clone()), filter));
-            for child in childs {
-                traverse_filter(res, child, depth + 1);
-            }
+fn traverse_filter<'a>(
+    res: &mut Vec<(String, &'a Filter, &'a Filter)>,
+    filter: &'a Filter,
+    parent: &'a Filter,
+    depth: i32,
+) {
+    res.push((
+        format!("{}{}", "  ".repeat(depth as usize), filter),
+        filter,
+        parent,
+    ));
+    if let Filter::Operator { op: _, childs } = filter {
+        for child in childs {
+            traverse_filter(res, child, filter, depth + 1);
         }
-        Filter::None => todo!(),
+    };
+}
+
+fn delete_node_copy(
+    filter: &Filter,
+    parent: &Filter,
+    target: &Filter,
+) -> Result<Filter, &'static str> {
+    if let Filter::Operator { op, childs } = filter {
+        if ptr::eq(filter, parent) {
+            let mut new_children = vec![];
+            for child in childs {
+                if !ptr::eq(child, target) {
+                    new_children.push(child.clone())
+                }
+            }
+            return Ok(Filter::Operator {
+                op: op.clone(),
+                childs: new_children,
+            });
+        }
+        return Ok(Filter::Operator {
+            op: op.clone(),
+            childs: childs
+                .iter()
+                .map(|child| delete_node_copy(child, parent, target).unwrap())
+                .collect(),
+        });
     }
+
+    //if it's a leaf we can't find it here
+    Ok(filter.clone())
+}
+fn add_node_copy(
+    filter: &Filter,
+    parent: &Filter,
+    target: &Filter,
+) -> Result<Filter, &'static str> {
+    if let Filter::Operator { op, childs } = filter {
+        if ptr::eq(filter, parent) {
+            return Ok(Filter::Operator {
+                op: op.clone(),
+                childs: childs
+                    .iter()
+                    .map(|child| add_node_copy(child, filter, target).unwrap())
+                    .collect(),
+            });
+        }
+        return Ok(Filter::Operator {
+            op: op.clone(),
+            childs: childs
+                .iter()
+                .map(|child| delete_node_copy(child, parent, target).unwrap())
+                .collect(),
+        });
+    }
+
+    //if it's a leaf we can't find it here
+    Ok(filter.clone())
 }
 
 impl ViewPopup {
@@ -103,7 +167,6 @@ impl ViewPopup {
                 err,
                 name,
                 props,
-                fitler,
             } => {
                 let Event::Key(KeyEvent { code, .. }) = event else {
                     return Ok(false);
@@ -124,6 +187,23 @@ impl ViewPopup {
                         }
                         props.push(edit.clone());
                         edit.clear();
+                    }
+                    (CreateState::Filter, KeyCode::Up) => {
+                        stat.line -= 1;
+                    }
+                    (CreateState::Filter, KeyCode::Down) => {
+                        stat.line += 1;
+                    }
+                    (CreateState::Filter, KeyCode::Delete) => {
+                        let mut res: Vec<(String, &Filter, &Filter)> = vec![];
+                        traverse_filter(&mut res, &stat.filter, &Filter::None, 0);
+
+                        // remove child from parent
+                        if let Filter::Operator { op: _, childs: _ } = res[stat.line].2 {
+                            stat.filter =
+                                delete_node_copy(&stat.filter, res[stat.line].2, res[stat.line].1)
+                                    .unwrap();
+                        }
                     }
                     _ => (),
                 }
@@ -158,7 +238,6 @@ impl ViewPopup {
                 err,
                 name,
                 props,
-                fitler,
             } => match stat.state.clone() {
                 CreateState::Name => {
                     let block = Block::default()
@@ -181,11 +260,33 @@ impl ViewPopup {
                     text.push(Line::from(Span::raw(edit.clone())));
                     Paragraph::new(text).block(block).render(area, buf)
                 }
-                CreateState::Filter => {}
-                _ => {
-                    let block = Block::default();
-                    Paragraph::new("heyo").block(block).render(popup_area, buf);
+                CreateState::Filter => {
+                    let block = Block::default()
+                        .title("Create Filter")
+                        .borders(Borders::ALL)
+                        .border_set(border::ROUNDED);
+
+                    let mut res: Vec<(String, &Filter, &Filter)> = vec![];
+                    traverse_filter(&mut res, &stat.filter, &Filter::None, 0);
+
+                    // clamp the index please
+                    stat.line = min(max(0, stat.line), res.len());
+
+                    let text: Vec<Line> = res
+                        .iter()
+                        .enumerate()
+                        .map(|(i, (s, _, _))| {
+                            if i == stat.line {
+                                Line::from(Span::styled(s, Style::new().red().bold()))
+                            } else {
+                                Line::from(Span::raw(s))
+                            }
+                        })
+                        .collect();
+
+                    Paragraph::new(text).block(block).render(area, buf);
                 }
+                _ => {}
             },
             Self::Delete(_, name) => {
                 let block = Block::default()
@@ -214,5 +315,59 @@ impl ViewPopup {
                 StatefulWidget::render(widget, popup_area, buf, textarea)
             }
         };
+    }
+}
+
+#[cfg(test)]
+mod test_stuff {
+    use common::*;
+
+    use crate::ui::view_list::view_popup::delete_node_copy;
+
+    use super::traverse_filter;
+
+    #[test]
+    fn test_filter_stuff() {
+        let filter = Filter::Operator {
+            op: Operator::AND,
+            childs: vec![
+                Filter::Operator {
+                    op: Operator::OR,
+                    childs: vec![
+                        Filter::Leaf {
+                            field: "dogs".to_string(),
+                            comparator: Comparator::EQ,
+                            immediate: TaskPropVariant::Boolean(true),
+                        },
+                        Filter::Leaf {
+                            field: "dogs".to_string(),
+                            comparator: Comparator::EQ,
+                            immediate: TaskPropVariant::Boolean(true),
+                        },
+                    ],
+                },
+                Filter::Leaf {
+                    field: "dogs".to_string(),
+                    comparator: Comparator::EQ,
+                    immediate: TaskPropVariant::Boolean(true),
+                },
+            ],
+        };
+        //get vec
+        let mut res: Vec<(String, &Filter, &Filter)> = vec![];
+        traverse_filter(&mut res, &filter, &Filter::None, 0);
+        for (s, _, _) in res.iter() {
+            println!("{}", s);
+        }
+        println!("{}{}", res[3].2, res[3].1);
+        println!("BREAK");
+
+        //try to delete things
+        let new_filter = delete_node_copy(&filter, res[3].2, res[3].1).unwrap();
+        res.clear();
+        traverse_filter(&mut res, &new_filter, &Filter::None, 0);
+        for (s, _, _) in res.iter() {
+            println!("{}", s);
+        }
     }
 }

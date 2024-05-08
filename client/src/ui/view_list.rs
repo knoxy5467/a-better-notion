@@ -2,7 +2,7 @@ mod view_popup;
 
 use std::collections::BTreeSet;
 
-use common::Filter;
+use common::{Comparator, Filter, Operator, TaskPropVariant};
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
     buffer::Buffer,
@@ -123,14 +123,39 @@ impl ViewList {
             Char('c') => {
                 self.view_popup = Some(ViewPopup::Create {
                     edit: "".to_string(),
+                    err: "".to_string(),
+                    name: "".to_string(),
+                    edit_leaf: Filter::None,
+                    props: vec![],
                     stat: States {
                         line: 0,
                         state: CreateState::Name,
+                        filter: Filter::Operator {
+                            op: Operator::AND,
+                            childs: vec![
+                                Filter::Operator {
+                                    op: Operator::OR,
+                                    childs: vec![
+                                        Filter::Leaf {
+                                            field: "dogs".to_string(),
+                                            comparator: Comparator::EQ,
+                                            immediate: TaskPropVariant::Boolean(true),
+                                        },
+                                        Filter::Leaf {
+                                            field: "dogs".to_string(),
+                                            comparator: Comparator::EQ,
+                                            immediate: TaskPropVariant::Boolean(true),
+                                        },
+                                    ],
+                                },
+                                Filter::Leaf {
+                                    field: "dogs".to_string(),
+                                    comparator: Comparator::EQ,
+                                    immediate: TaskPropVariant::Boolean(true),
+                                },
+                            ],
+                        },
                     },
-                    err: "".to_string(),
-                    name: "".to_string(),
-                    props: vec![],
-                    fitler: Filter::None,
                 })
             } // create task
             // Char('d') => { // delete task
