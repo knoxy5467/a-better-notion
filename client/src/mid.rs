@@ -440,7 +440,7 @@ impl State {
     }
     /// delete a task
     pub fn task_rm(&mut self, key: TaskKey) -> Result<(), NoTaskError> {
-        dbg!("removing a task!");
+        // dbg!("removing a task!");
         if let Some(task) = self.tasks.get_mut(key) {
             if let Some(db_id) = task.db_id {
                 // mark pending deletion if in database
@@ -893,12 +893,12 @@ mod tests {
         assert_eq!(state.task_get(tasks[0]).unwrap().name, "Eat Dinner");
 
         // test task_rm (& db key removal)
-        dbg!(receiver.next().await.unwrap()); // random error?
+        // dbg!(receiver.next().await.unwrap()); // random error?
         state.task_rm(tasks[1]).unwrap();
         state.handle_mid_event(receiver.next().await.unwrap()); // the delete task event
 
         // test get function fail
-        dbg!(state.task_get(tasks[1]));
+        // dbg!(state.task_get(tasks[1]));
         state.task_get(tasks[1]).unwrap_err();
 
         // test mod function fail
@@ -910,7 +910,7 @@ mod tests {
         state.task_mod(tasks[0], |t: &mut Task| {
             "Cook some lunch yo".clone_into(&mut t.name)
         });
-        dbg!(receiver.next().await.unwrap()); // skip state event
+        // dbg!(receiver.next().await.unwrap()); // skip state event
         state.handle_mid_event(receiver.next().await.unwrap());
         // dbg!(receiver.next().await.unwrap());
         // dbg!(receiver.next().await.unwrap());
@@ -924,7 +924,7 @@ mod tests {
             completed: true,
             ..Default::default()
         });
-        dbg!(receiver.next().await.unwrap()); // catch state event
+        // dbg!(receiver.next().await.unwrap()); // catch state event
         state.handle_mid_event(receiver.next().await.unwrap());
         assert_eq!(state.tasks[task1].name, "Eat Lunch");
     }
