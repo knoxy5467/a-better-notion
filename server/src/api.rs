@@ -43,7 +43,7 @@ async fn get_tasks_request(
 ) -> Result<impl Responder> {
     info!("get_tasks_request, req: {:?}", req);
     let mut res: ReadTasksShortResponse = Vec::new();
-
+    log::debug!("getting tasks from req: {req:?}");
     for taskreq in req.iter() {
         let task = task::Entity::find_by_id(taskreq.task_id)
             .one(data.as_ref())
@@ -63,7 +63,6 @@ async fn get_tasks_request(
             None => res.push(Err("task not found by ID".to_string())),
         }
     }
-    info!("finished get_tasks_request, res: {:?}", res);
 
     Ok(web::Json(res))
 }
@@ -132,6 +131,9 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
     if req.checked.is_some() {
         task.completed = Set(req.checked.unwrap());
     }
+    task.update(db)
+        .await
+        .map_err(|e| ErrorInternalServerError(format!("couldn't update task {}", e)))?;
     for prop in req.props_to_add.iter() {
         let model = task_property::Entity::find()
             .filter(
@@ -433,10 +435,10 @@ async fn get_filter_request(
         .await
         .map_err(|e| ErrorInternalServerError(format!("couldn't filter tasks: {}", e)))?;
 
-    info!("get_filter_request, found_tasks: {:?}", tasks);
-    Ok(web::Json(
-        tasks.iter().map(|a| a.id).collect::<FilterResponse>(),
-    ))
+    Ok(web::Json(FilterResponse {
+        tasks: tasks.iter().map(|a| a.id).collect::<Vec<i32>>(),
+        req_id: req.req_id,
+    }))
 }
 
 async fn get_property_or_err(

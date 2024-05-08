@@ -6,17 +6,17 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph, Widget},
 };
 
-use crate::mid::{State, Task};
+use crate::mid::{State, TaskKey};
 
 #[derive(Debug)]
-pub struct TaskCreatePopup {
-    name: String,
+pub struct TaskViewsPopup {
+    selected_task: TaskKey,
     pub should_close: bool,
 }
-impl TaskCreatePopup {
-    pub fn new() -> TaskCreatePopup {
+impl TaskViewsPopup {
+    pub fn new(task_key: TaskKey) -> TaskViewsPopup {
         Self {
-            name: Default::default(),
+            selected_task: task_key,
             should_close: false,
         }
     }
@@ -32,34 +32,26 @@ impl TaskCreatePopup {
 
         Clear.render(popup_area, buf); // clear background of popup area
 
-        // create task popup block with rounded corners
-        let block = Block::default()
-            .title("Create Task")
+        // create task popup block
+
+        let list = List::new(items)
+            .title("Views Manager")
             .borders(Borders::ALL)
             .border_set(border::ROUNDED);
 
         // create paragraph containing current string state inside `block` & render
-        Paragraph::new(self.name.as_str())
+        Paragraph::new("You sure man? [Y/N]")
             .block(block)
             .render(popup_area, buf);
     }
     pub fn handle_key_event(&mut self, state: &mut State, key_code: KeyCode) -> bool {
         match key_code {
-            KeyCode::Esc => self.should_close = true,
-            KeyCode::Char(c) => {
-                self.name.push(c);
-            }
-            KeyCode::Backspace => {
-                self.name.pop();
-            }
-            KeyCode::Enter => {
-                let task_key = state.task_def(Task {
-                    name: self.name.clone(),
-                    ..Default::default()
-                });
-                state.view_mod(state.view_get_default().unwrap(), |v| {
-                    v.tasks.as_mut().unwrap().push(task_key)
-                });
+            KeyCode::Esc       => self.should_close = true,
+            KeyCode::Char('n') => self.should_close = true,
+            KeyCode::Char('y') => {
+                
+                state.task_rm(self.selected_task);
+
                 self.should_close = true;
             }
             _ => return false,
@@ -68,9 +60,3 @@ impl TaskCreatePopup {
     }
 }
 
-/* #[cfg(test)]
-mod tests {
-    async fn mock_popup() {
-
-    }
-} */
