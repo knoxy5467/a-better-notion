@@ -163,14 +163,14 @@ impl fmt::Display for Filter {
             } => {
                 res.push_str(field);
                 res.push_str(match comparator {
-                    Comparator::LT => "<",
-                    Comparator::LEQ => "<=",
-                    Comparator::GT => ">",
-                    Comparator::GEQ => ">=",
-                    Comparator::EQ => "=",
-                    Comparator::NEQ => "!=",
-                    Comparator::CONTAINS => " in ",
-                    Comparator::NOTCONTAINS => " !in ",
+                    Comparator::LT => " < ",
+                    Comparator::LEQ => " ≤ ",
+                    Comparator::GT => " > ",
+                    Comparator::GEQ => " ≥ ",
+                    Comparator::EQ => " = ",
+                    Comparator::NEQ => " ≠ ",
+                    Comparator::CONTAINS => " ∈ ",
+                    Comparator::NOTCONTAINS => " ∉ ",
                     Comparator::REGEX => " LIKE ",
                 });
                 res = format!("{}{}", res, immediate);

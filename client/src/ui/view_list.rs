@@ -125,9 +125,9 @@ impl ViewList {
                     edit: "".to_string(),
                     err: "".to_string(),
                     name: "".to_string(),
-                    edit_leaf: Filter::None,
                     props: vec![],
                     stat: States {
+                        edit_leaf: Filter::None,
                         line: 0,
                         state: CreateState::Name,
                         filter: Filter::Operator {
@@ -155,6 +155,8 @@ impl ViewList {
                                 },
                             ],
                         },
+                        is_editing: false,
+                        line_to_add_to: 0,
                     },
                 })
             } // create task
