@@ -754,6 +754,8 @@ pub fn init_test() -> (State, Receiver<MidEvent>) {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     pub use super::*;
     use chrono::{NaiveDate, NaiveDateTime};
     use common::backend::{
@@ -761,6 +763,7 @@ mod tests {
     };
     use mockito::{Matcher, Server, ServerGuard};
     use serde_json::{to_value, to_vec};
+    use tokio::time::timeout;
 
     async fn mockito_setup() -> ServerGuard {
         let mut server = Server::new_async().await;
@@ -940,6 +943,10 @@ mod tests {
     async fn test_tasks() {
         let (server, mut state, mut receiver, view_key) = test_init().await;
 
+        async fn get_event(receiver: &mut Receiver<MidEvent>) -> MidEvent {
+            timeout(Duration::from_millis(100), receiver.next()).await.unwrap().unwrap()
+        }
+
         let view = state.view_get(view_key).unwrap();
         assert_eq!(view.name, "Main View");
         let mut tasks = view
@@ -953,16 +960,17 @@ mod tests {
         tasks.sort(); // make keys are in sorted order
                       // test task_mod
         state.task_mod(tasks[0], |t| "Eat Dinner".clone_into(&mut t.name));
+        state.handle_mid_event(get_event(&mut receiver).await); // handle server response
+        println!("ui event {:?}", get_event(&mut receiver).await); // drop UI event
         assert_eq!(state.task_get(tasks[0]).unwrap().name, "Eat Dinner");
 
         // test task_rm (& db key removal)
         // dbg!(receiver.next().await.unwrap()); // random error?
         state.task_rm(tasks[1]).unwrap();
-        state.handle_mid_event(receiver.next().await.unwrap()); // the delete task event
+        state.handle_mid_event(get_event(&mut receiver).await); // handle server response
+        println!("ui event {:?}", get_event(&mut receiver).await); // drop UI event
 
-        // test get function fail
-        // dbg!(state.task_get(tasks[1]));
-        state.task_get(tasks[1]).unwrap_err();
+        state.task_get(tasks[1]).unwrap_err(); // check task not exist
 
         // test mod function fail
         let mut test = 0;
@@ -973,8 +981,8 @@ mod tests {
         state.task_mod(tasks[0], |t: &mut Task| {
             "Cook some lunch yo".clone_into(&mut t.name)
         });
-        dbg!(receiver.next().await.unwrap()); // skip state event
-        state.handle_mid_event(receiver.next().await.unwrap());
+        state.handle_mid_event(get_event(&mut receiver).await); // handle server response
+        println!("ui event {:?}", get_event(&mut receiver).await); // drop UI event
         // dbg!(receiver.next().await.unwrap());
         // dbg!(receiver.next().await.unwrap());
         // dbg!(receiver.next().await.unwrap());
@@ -988,7 +996,8 @@ mod tests {
             ..Default::default()
         });
         // dbg!(receiver.next().await.unwrap()); // catch state event
-        state.handle_mid_event(receiver.next().await.unwrap());
+        state.handle_mid_event(get_event(&mut receiver).await); // handle server response
+        println!("ui event {:?}", get_event(&mut receiver).await); // drop UI event
         assert_eq!(state.tasks[task1].name, "Eat Lunch");
     }
 
