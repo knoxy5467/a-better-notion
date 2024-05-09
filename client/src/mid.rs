@@ -18,10 +18,7 @@ use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, RequestBuilder};
 use reqwest_tracing::{SpanBackendWithUrl, TracingMiddleware};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use slotmap::{new_key_type, KeyData, SlotMap};
-use std::{
-    collections::{HashMap, HashSet},
-    fmt,
-};
+use std::{collections::HashMap, fmt};
 use thiserror::Error;
 use tokio::task::JoinHandle;
 

@@ -17,7 +17,6 @@ mod task_list;
 
 const BACKGROUND: Color = Color::Reset;
 const TEXT_COLOR: Color = Color::White;
-const GREYED_OUT_TEXT_COLOR: Color = Color::Gray;
 const SELECTED_STYLE_FG: Color = Color::LightYellow;
 const COMPLETED_TEXT_COLOR: Color = Color::Green;
 

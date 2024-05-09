@@ -18,7 +18,7 @@ use crate::{
 
 use task_popup::TaskPopup;
 
-use super::{COMPLETED_TEXT_COLOR, GREYED_OUT_TEXT_COLOR, SELECTED_STYLE_FG, TEXT_COLOR};
+use super::{COMPLETED_TEXT_COLOR, SELECTED_STYLE_FG, TEXT_COLOR};
 
 #[derive(Default, Debug)]
 /// Task list widget
@@ -217,9 +217,6 @@ impl TaskList {
                 } else {
                     TEXT_COLOR.into()
                 };
-                if !task.is_syncronized {
-                    text_style = GREYED_OUT_TEXT_COLOR.into();
-                }
                 if task.pending_deletion {
                     text_style = text_style.add_modifier(Modifier::CROSSED_OUT)
                 }
@@ -237,7 +234,7 @@ impl TaskList {
                         .prop_get(*task_key, *name_key)
                         .ok()
                         .map(|prop| Span::raw(format!("{prop}")))
-                        .unwrap_or(Span::default())
+                        .unwrap_or_default()
                 });
                 // create row, optionally with a prop of prop_key is not None
                 Row::new(
