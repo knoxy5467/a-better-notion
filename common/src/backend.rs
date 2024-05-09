@@ -185,7 +185,7 @@ pub struct FilterRequest {
 pub struct FilterResponse {
     /// list of task ids that match the filter
     pub tasks: Vec<TaskID>,
-    /// id of request
+    /// request id for middleware
     pub req_id: u64,
 }
 /// reqwest::get("/filter")

@@ -1,18 +1,18 @@
 mod task_popup;
 
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, iter::once};
 
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
     buffer::Buffer,
-    layout::Rect,
+    layout::{Constraint, Rect},
     style::{Modifier, Style},
-    text::{Line, Text},
-    widgets::{Block, HighlightSpacing, List, ListState, Paragraph, StatefulWidget, Widget},
+    text::{Line, Span, Text},
+    widgets::{Block, HighlightSpacing, Paragraph, Row, StatefulWidget, Table, TableState, Widget},
 };
 
 use crate::{
-    mid::{State, Task, TaskKey, ViewKey},
+    mid::{PropNameKey, State, Task, TaskKey, ViewKey},
     ui::{report_error, task_list::task_popup::CloseError},
 };
 
@@ -23,10 +23,16 @@ use super::{COMPLETED_TEXT_COLOR, GREYED_OUT_TEXT_COLOR, SELECTED_STYLE_FG, TEXT
 #[derive(Default, Debug)]
 /// Task list widget
 pub struct TaskList {
-    pub list_state: ListState,
+    pub table_state: TableState,
     /// views that we source the task list from
     source_views: Vec<ViewKey>,
+    /// tasks to display
     shown_tasks: Vec<TaskKey>,
+    /// property types
+    prop_cols: Vec<PropNameKey>,
+    col_idx: usize,
+
+    /// whether we are currently interacting with a task.
     task_popup: Option<TaskPopup>,
 }
 impl TaskList {
@@ -36,8 +42,7 @@ impl TaskList {
         let mut removed_count = 0;
         let mut did_switch = false;
         let current_task = self
-            .list_state
-            .selected()
+            .get_task_idx()
             .and_then(|s| self.shown_tasks.get(s).cloned());
         self.shown_tasks
             .extract_if(|k| state.task_get(*k).is_err())
@@ -53,13 +58,15 @@ impl TaskList {
         let len = self.shown_tasks.len();
         if len == 0 {
             // reset selection if neeeded
-            self.list_state.select(None);
+            self.set_task_idx(None);
         } else {
             // if not empty list
             // decrement current selected by amt_removed, ensuring selection is within span of list
-            if let Some(i) = self.list_state.selected_mut().as_mut() {
-                *i = (i.saturating_sub(removed_count)).clamp(0, len.saturating_sub(1))
-            }
+            let new_idx = self.get_task_idx().map(|idx| {
+                idx.saturating_sub(removed_count)
+                    .clamp(0, len.saturating_sub(1))
+            });
+            self.set_task_idx(new_idx);
         }
     }
     /// update views that tasks to be shown are sourced from
@@ -79,7 +86,13 @@ impl TaskList {
         // clear tasks and extend it with the generated set
         self.shown_tasks.clear();
         self.shown_tasks.extend(set.iter());
-        self.list_state.select(None); // clear selection
+        self.set_task_idx(None); // clear selection
+    }
+    fn set_task_idx(&mut self, idx: Option<usize>) {
+        self.table_state.select(idx.map(|i| i + 1)); // add 1 to ignore table top bar
+    }
+    fn get_task_idx(&mut self) -> Option<usize> {
+        self.table_state.selected().map(|i| i - 1) // minus 1 so that calculations don't factor in table top bar
     }
     /// get currently selected task
     pub fn selected_task<'a>(&mut self, state: &'a State) -> Option<(TaskKey, &'a Task)> {
@@ -87,7 +100,7 @@ impl TaskList {
         if self.shown_tasks.is_empty() {
             return None;
         } // error if no tasks
-        self.list_state.selected().and_then(|r| {
+        self.get_task_idx().and_then(|r| {
             let key = self.shown_tasks[r];
             state.task_get(key).ok().map(|t| (key, t))
         })
@@ -101,7 +114,7 @@ impl TaskList {
         }
 
         // get current selected task, or if none currently selected, get last or first task depending on amt
-        let cur_index = self.list_state.selected().unwrap_or(match amt.cmp(&0) {
+        let cur_index = self.get_task_idx().unwrap_or(match amt.cmp(&0) {
             std::cmp::Ordering::Less => len.saturating_sub(1),
             std::cmp::Ordering::Greater => 0,
             _ => return, // early return if amt=0
@@ -118,7 +131,7 @@ impl TaskList {
             new_index.clamp(0, len.saturating_sub(1) as isize) as usize
         };
         // set selection
-        self.list_state.select(Some(bounded_index));
+        self.set_task_idx(Some(bounded_index)); // +1 to ignore top row (i.e. column name)
     }
     pub fn handle_term_event(&mut self, state: &mut State, event: &Event) -> bool {
         use KeyCode::*;
@@ -183,15 +196,28 @@ impl TaskList {
             .iter()
             .flat_map(|key| state.task_get(*key).ok().map(|t| (key, t)));
 
+        // get selected column property name
+        let prop_col_key = self.prop_cols.get(self.col_idx);
+        // string form of key
+        let prop_col_name =
+            prop_col_key.map(|&key| state.prop_get_name(key).expect("invalid prop name key"));
+
+        // table top column names
+        // abusing iterator combinators be like: (as opposed to doing the sane thing and matching on prop_col_name)
+        let top = Row::new(once("Tasks").chain(prop_col_name).collect::<Vec<&str>>());
+
+        // Columns widths are constrained in the same way as Layout...
+        let widths = [Constraint::Percentage(50), Constraint::Percentage(50)];
+
         // take items from the current view and render them into a list
-        let lines = valid_tasks
-            .map(|(_key, task)| {
+        let mut data_rows = valid_tasks
+            .map(|(task_key, task)| {
                 let mut text_style: Style = if task.completed {
                     COMPLETED_TEXT_COLOR.into()
                 } else {
                     TEXT_COLOR.into()
                 };
-                if task.current_rollback.is_some() {
+                if !task.is_syncronized {
                     text_style = GREYED_OUT_TEXT_COLOR.into();
                 }
                 if task.pending_deletion {
@@ -205,15 +231,25 @@ impl TaskList {
                 if task.completed {
                     mark = "✓";
                 }
-
-                Line::styled(format!(" {mark} {}", task.name), text_style)
+                // format prop
+                let prop_data = prop_col_key.map(|name_key| {
+                    state
+                        .prop_get(*task_key, *name_key)
+                        .ok()
+                        .map(|prop| Span::raw(format!("{prop}")))
+                        .unwrap_or(Span::default())
+                });
+                // create row, optionally with a prop of prop_key is not None
+                Row::new(
+                    once(Span::styled(format!(" {mark} {}", task.name), text_style))
+                        .chain(prop_data),
+                )
             })
-            .collect::<Vec<Line>>();
-
-        if !lines.is_empty() {
+            .peekable();
+        if data_rows.peek().is_some() {
             // if there are tasks to render
             // create the list from the list items and customize it
-            let list = List::new(lines)
+            let table = Table::new(once(top).chain(data_rows), widths)
                 .block(block)
                 .highlight_style(
                     Style::default()
@@ -225,7 +261,7 @@ impl TaskList {
                 .highlight_spacing(HighlightSpacing::Always);
 
             // render the list using the list state
-            StatefulWidget::render(list, area, buf, &mut self.list_state);
+            StatefulWidget::render(table, area, buf, &mut self.table_state);
         } else {
             // otherwise render "no tasks shown" text
             let no_view_text = Text::from(vec![Line::from(vec![
