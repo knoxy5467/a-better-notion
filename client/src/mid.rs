@@ -1163,13 +1163,6 @@ pub(crate) mod tests {
                 TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into()),
             )
             .unwrap();
-        state
-            .prop_def(
-                tasks[2],
-                name_key,
-                TaskPropVariant::Date(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().into()),
-            )
-            .unwrap();
 
         state.prop_rm_name(name_key);
         assert!(state.prop_get(tasks[0], name_key).is_err()); // these should all be errors
@@ -1216,14 +1209,14 @@ pub(crate) mod tests {
     async fn test_view_task_keys() {
         let (server, mut state, mut receiver, view_key) = test_init().await;
         let task_key_iter = state.view_task_keys(view_key).unwrap();
-        assert_eq!(task_key_iter.clone().count(), 3);
+        assert_eq!(task_key_iter.clone().count(), 2);
     }
 
     #[tokio::test]
     async fn test_view_tasks() {
         let (server, mut state, mut receiver, view_key) = test_init().await;
         let task_key_iter = state.view_tasks(view_key).unwrap();
-        assert_eq!(task_key_iter.clone().count(), 3);
+        assert_eq!(task_key_iter.clone().count(), 2);
     }
 
     #[test]
