@@ -191,12 +191,15 @@ impl TaskList {
                 } else {
                     TEXT_COLOR.into()
                 };
-                if !task.is_syncronized {
+                if !task.current_rollback.is_none() {
                     text_style = GREYED_OUT_TEXT_COLOR.into();
                 }
                 if task.pending_deletion {
                     text_style = text_style.add_modifier(Modifier::CROSSED_OUT)
                 }
+                if task.current_rollback.is_some() || task.db_id.is_none() {
+                    text_style = text_style.add_modifier(Modifier::ITALIC)
+                } // if pending modification or creation
 
                 let mut mark: &'static str = "☐";
                 if task.completed {

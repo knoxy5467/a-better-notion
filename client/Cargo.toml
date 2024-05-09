@@ -38,6 +38,7 @@ actix-settings = "0.7.1"
 server = { version = "0.1.0", path = "../server" }
 chrono = "0.4.38"
 tui-textarea = { git = "https://github.com/zontasticality/tui-textarea" }
+chrono = "0.4.38"
 
 [profile.dev.package.backtrace]
 opt-level = 3

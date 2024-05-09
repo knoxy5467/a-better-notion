@@ -42,7 +42,7 @@ pub struct Task {
     /// if it is stored in the database, it will have a unique task_id.
     pub db_id: Option<TaskID>,
     /// latest should be set to true if this value matches server (if false and needed, it should be fetched and updated as soon as possible)
-    pub is_syncronized: bool,
+    pub current_rollback: Option<Box<Task>>,
     /// if task is pending deletion request
     pub pending_deletion: bool,
 }
@@ -52,6 +52,11 @@ impl Task {
             name,
             completed,
             ..Default::default()
+        }
+    }
+    fn revert(&mut self) {
+        if let Some(old) = self.current_rollback.take() {
+            *self = *old;
         }
     }
 }
@@ -114,10 +119,20 @@ pub struct State {
     status: bool,
     mid_event_sender: Sender<MidEvent>,
 }
+
+/// reverts some state given a server error
+#[derive(Debug)]
+enum RevertError {
+    Task(TaskKey),
+    Tasks(Vec<TaskKey>),
+    Filter(ViewKey),
+}
+
 #[derive(Debug)]
 /// Events to be handled by the middleware
 pub enum MidEvent {
-    ServerResponse(Result<Box<dyn ServerResponse>, reqwest_middleware::Error>),
+    #[allow(private_interfaces)]
+    ServerResponse(Result<Box<dyn ServerResponse>, RevertError>),
     StateEvent(StateEvent), // events to be handled by the ui
 }
 impl State {
@@ -130,7 +145,15 @@ impl State {
                         .try_send(MidEvent::StateEvent(event))?;
                 }
             }
-            MidEvent::ServerResponse(Err(err)) => Err(err)?,
+            MidEvent::ServerResponse(Err(err)) => match err {
+                RevertError::Task(key) => self.revert_task(key),
+                RevertError::Tasks(tasks) => {
+                    tasks.iter().for_each(|key| self.revert_task(*key));
+                }
+                RevertError::Filter(_) => {
+                    tracing::debug!("cannot revert filter request")
+                }
+            },
             MidEvent::StateEvent(_) => panic!("middleware does not handle state events"),
         }
         Ok(())
@@ -190,7 +213,7 @@ impl ServerResponse for ReadTaskShortResponse {
                 .collect::<Vec<TaskKey>>(),
             scripts: self.scripts,
             db_id: Some(self.task_id),
-            is_syncronized: true,
+            current_rollback: None,
             pending_deletion: false,
         };
         // create/update existing task with read task
@@ -209,7 +232,7 @@ impl ServerResponse for UpdateTaskResponse {
         })?;
         if let Some(task) = state.tasks.get_mut(*task_key) {
             task.db_id = Some(self.task_id);
-            task.is_syncronized = true;
+            task.current_rollback = None;
         } else {
             panic!(
                 "fatal: DB id {:?} was associated with task key {:?} but task didn't exist",
@@ -225,7 +248,7 @@ impl ServerResponse for CreateTaskResponse {
         let task = state.tasks.get_mut(task_key).with_context(||format!("req_id received from CreateTaskResponse does not match a local task key: {task_key:?}"))?;
         task.db_id = Some(self.task_id); // record db ID
         state.task_map.insert(self.task_id, task_key); // record in db map
-        task.is_syncronized = true; // flag syncronized
+        task.current_rollback = None; // flag syncronized
         Ok(Some(StateEvent::TasksUpdate))
     }
 }
@@ -272,14 +295,18 @@ impl ServerResponse for FilterResponse {
 
         // get tasks
         let view_tasks = state.view_task_keys(view_key).unwrap();
+        let tasks_to_revert = view_tasks.clone().collect::<Vec<TaskKey>>();
         // calculate which tasks we have and which need fetching using is_syncronized
         let tasks_to_fetch = view_tasks
             .filter_map(|tkey| {
-                state
-                    .tasks
-                    .get(tkey)
-                    .and_then(|t| if !t.is_syncronized { t.db_id } else { None })
-            })
+                state.tasks.get(tkey).and_then(|t| {
+                    if t.current_rollback.is_none() {
+                        t.db_id
+                    } else {
+                        None
+                    }
+                })
+            }) // only fetch tasks that are syncronized
             .map(|task_id| ReadTaskShortRequest { task_id, req_id: 0 })
             .collect::<Vec<ReadTaskShortRequest>>();
 
@@ -289,6 +316,7 @@ impl ServerResponse for FilterResponse {
             state.spawn_request::<ReadTasksShortRequest, ReadTasksShortResponse>(
                 state.client.get(format!("{}/tasks", state.url)),
                 tasks_to_fetch,
+                RevertError::Tasks(tasks_to_revert),
             );
         }
         Ok(Some(StateEvent::ViewsUpdate))
@@ -337,10 +365,35 @@ impl State {
             (key, task)
         }
     }
+    fn revert_task(&mut self, key: TaskKey) {
+        if let Some(task) = self.tasks.get_mut(key) {
+            if task.db_id.is_some() {
+                // if task exists on server, revert it
+                task.revert();
+                tracing::info!("task {key:?} deleted because could not syncronize");
+                self.mid_event_sender
+                    .try_send(MidEvent::StateEvent(StateEvent::TasksUpdate))
+                    .expect("failed to send client event");
+            } else {
+                self.tasks.remove(key); // otherwise remove it
+                tracing::info!(
+                    "task {key:?} reverted to previous version because could not syncronize"
+                );
+                self.mid_event_sender
+                    .try_send(MidEvent::StateEvent(StateEvent::TasksUpdate))
+                    .expect("failed to send client event");
+            }
+        }
+    }
     /// schedule task to wait for response from server and the notifies the client via mid_event_sender when received.
     /// TODO: Configure request timeouts
     #[tracing::instrument]
-    fn spawn_request<Req, Res>(&mut self, req_builder: RequestBuilder, req: Req) -> JoinHandle<()>
+    fn spawn_request<Req, Res>(
+        &mut self,
+        req_builder: RequestBuilder,
+        req: Req,
+        revert_err: RevertError,
+    ) -> JoinHandle<()>
     where
         Req: Serialize + std::fmt::Debug + Send + Sync + 'static,
         Res: ServerResponse + for<'d> Deserialize<'d>,
@@ -351,7 +404,9 @@ impl State {
             let resp = do_request::<Req, Res>(req_builder, req).await;
             let resp = resp.map(|e| Box::new(e) as Box<dyn ServerResponse>);
             tracing::debug!("received a response: {:?}", resp);
-            sender.send(MidEvent::ServerResponse(resp)).await;
+            sender
+                .send(MidEvent::ServerResponse(resp.map_err(|_| revert_err)))
+                .await;
         })
     }
 }
@@ -391,6 +446,7 @@ impl State {
                 dependencies: vec![], // TODO: send deps
                 req_id: key.0.as_ffi(),
             },
+            RevertError::Task(key),
         );
         key
     }
@@ -406,13 +462,17 @@ impl State {
         edit_fn: impl FnOnce(&mut Task),
     ) -> Result<(), ModifyTaskError> {
         if let Some(task) = self.tasks.get_mut(key) {
-            if task.is_syncronized {
+            if task.current_rollback.is_none() {
                 // get previous task state
                 let bef = task.clone();
                 edit_fn(task); // modify task
                                // send only difference between task before and after to server.
                 let name = (bef.name != task.name).then_some(task.name.clone());
                 let completed = (bef.completed != task.completed).then_some(task.completed);
+                // if changed, store old task version
+                if (name.is_some() || completed.is_some()) {
+                    task.current_rollback = Some(Box::new(bef));
+                }
                 if let Some(db_id) = task.db_id {
                     self.spawn_request::<UpdateTaskRequest, UpdateTaskResponse>(
                         self.client.put(format!("{}/task", self.url)),
@@ -428,6 +488,7 @@ impl State {
                             scripts_to_remove: vec![],
                             req_id: key.0.as_ffi(),
                         },
+                        RevertError::Task(key),
                     );
                 }
                 Ok(())
@@ -451,6 +512,7 @@ impl State {
                         task_id: db_id,
                         req_id: key.0.as_ffi(),
                     },
+                    RevertError::Task(key),
                 );
             } else {
                 // if not in database, remove immediately
@@ -665,6 +727,7 @@ pub fn init(url: &str) -> color_eyre::Result<(State, Receiver<MidEvent>)> {
             filter: Filter::None,
             req_id: view_key.0.as_ffi(),
         },
+        RevertError::Filter(view_key),
     );
 
     Ok((state, receiver))
@@ -910,7 +973,7 @@ mod tests {
         state.task_mod(tasks[0], |t: &mut Task| {
             "Cook some lunch yo".clone_into(&mut t.name)
         });
-        // dbg!(receiver.next().await.unwrap()); // skip state event
+        dbg!(receiver.next().await.unwrap()); // skip state event
         state.handle_mid_event(receiver.next().await.unwrap());
         // dbg!(receiver.next().await.unwrap());
         // dbg!(receiver.next().await.unwrap());
