@@ -165,8 +165,6 @@ mod tests {
 #[cfg(test)]
 mod task_popup_tests {
     mod render_tests {
-        use chrono::format;
-        use crossterm::event::{KeyCode, KeyEvent};
         use ratatui::{buffer::Buffer, layout::Rect};
 
         use crate::mid::TaskKey;

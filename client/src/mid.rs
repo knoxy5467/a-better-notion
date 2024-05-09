@@ -1002,7 +1002,6 @@ mod tests {
     #[tokio::test]
     async fn test_revert_task() {
         let (server, mut state, mut receiver, view_key) = test_init().await;
-
     }
 
     #[tokio::test]

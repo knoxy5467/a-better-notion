@@ -246,11 +246,7 @@ impl Widget for &mut App {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
-    use futures::SinkExt;
     use ratatui::backend::TestBackend;
-    use tracing_subscriber::fmt::format;
 
     use crate::{mid::init_test, ui::UIEvent::UserEvent};
 
@@ -366,7 +362,7 @@ mod tests {
         reset_buffer_style(&mut term);
         // test task state
         let (state, _) = init_test();
-        let (mut app, mut term) = create_render_test(state, 55, 5);
+        let (mut app, _) = create_render_test(state, 55, 5);
         let mut buffer = Buffer::empty(Rect::new(0, 0, 100, 100));
         app.help_box_shown = true;
         app.render(Rect::new(0, 0, 100, 100), &mut buffer);
