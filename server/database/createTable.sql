@@ -166,12 +166,12 @@ $$;
 CREATE OR REPLACE FUNCTION check_property() RETURNS TRIGGER AS $$ BEGIN IF EXISTS (
         SELECT 1
         FROM task_property
-        WHERE id = NEW.task_id
-            AND name = NEW.name
+        WHERE task_id = NEW.task_id
+            AND name = NEW.task_property_name
     ) THEN RAISE EXCEPTION 'Primary key already exists in task_property table';
 ELSE
-INSERT INTO task_property(id, name, type)
-VALUES (NEW.task_id, NEW.name, TG_ARGV [0]);
+INSERT INTO task_property(task_id, name, type)
+VALUES (NEW.task_id, NEW.task_property_name, TG_ARGV [0]);
 RETURN NEW;
 END IF;
 END;
@@ -184,7 +184,7 @@ CREATE TRIGGER date_property_trigger BEFORE
 INSERT ON task_date_property FOR EACH ROW EXECUTE FUNCTION check_property("timestamp");
 CREATE TRIGGER bool_property_trigger BEFORE
 INSERT ON task_bool_property FOR EACH ROW EXECUTE FUNCTION check_property("boolean");
-CREATE OR REPLACE FUNCTION update_last_edited() RETURNS TRIGGER AS $$ BEGIN
+/*CREATE OR REPLACE FUNCTION update_last_edited() RETURNS TRIGGER AS $$ BEGIN
 UPDATE task
 SET last_edited = NOW()
 WHERE id = NEW.task_id;
@@ -210,10 +210,13 @@ WHERE column_name = 'task_id' LOOP EXECUTE format(
 END LOOP;
 END $$ LANGUAGE plpgsql;
 SELECT task_id_tables();
+
+*/
+
 INSERT INTO task (completed, title)
 VALUES (
         true,
-        'give ABN an A for their Alpha Release!',
+        'give ABN an A for their Alpha Release!'
     );
 INSERT INTO task (completed, title)
 VALUES (false, 'make dinner');

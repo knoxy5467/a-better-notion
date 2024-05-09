@@ -16,6 +16,10 @@ a-better-notion.code-workspace
 lcov.info
 *.profraw
 .vscode/*
+.cargo/config.toml
+
+# log files
+logs/
 
 # mac garbo
 *.DS_STORE

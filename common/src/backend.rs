@@ -1,12 +1,14 @@
 //! This file outlines all the structures required for the middleware and backend to communicate via REST API
 
+use std::fs::read;
+
 use serde::{Deserialize, Serialize};
 
 use crate::*;
 
 /// # TASK API
 /// reawest::get("/task")
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ReadTaskShortRequest {
     /// task id to request
     pub task_id: TaskID,
@@ -14,7 +16,7 @@ pub struct ReadTaskShortRequest {
     pub req_id: u64,
 }
 /// response to GET /task
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ReadTaskShortResponse {
     /// task id of response, should be the same as request
     pub task_id: TaskID,
@@ -45,10 +47,6 @@ pub struct CreateTaskRequest {
     pub name: String,
     /// completion status of task
     pub completed: bool,
-    /// list of properties to add to task
-    pub properties: Vec<TaskProp>,
-    /// [name, date, value]
-    pub dependencies: Vec<TaskID>,
     /// id of request
     pub req_id: u64,
 }
@@ -107,14 +105,14 @@ pub type UpdateTasksResponse = Vec<UpdateTaskResponse>;
 pub struct DeleteTaskRequest {
     /// id to delete
     pub task_id: TaskID,
-    /// id of request
+    /// client-side id of request (encoded TaskKey)
     pub req_id: u64,
 }
-/// response is empty
+/// response encodes client-side TaskKey to delete
 pub type DeleteTaskResponse = u64;
 /// reawest::delete("/tasks")
 pub type DeleteTasksRequest = Vec<DeleteTaskRequest>;
-/// response is empty
+/// response encodes list of client-side TaskKeys to delete
 pub type DeleteTasksResponse = Vec<u64>;
 
 /// # PROPERTIES API
@@ -146,7 +144,7 @@ pub struct TaskPropOption {
     pub value: Option<TaskPropVariant>,
 }
 /// reqwest::get("/props")
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PropertiesRequest {
     /// list of task ids we want properties for
     pub task_ids: Vec<TaskID>,
@@ -156,7 +154,7 @@ pub struct PropertiesRequest {
     pub req_id: u64,
 }
 /// does smth
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PropertiesResponse {
     /// actual result
     pub res: Vec<TaskPropColumn>,
@@ -164,7 +162,7 @@ pub struct PropertiesResponse {
     pub req_id: u64,
 }
 /// column of task properties with name
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct TaskPropColumn {
     /// name of property
     pub name: String,
@@ -175,13 +173,21 @@ pub struct TaskPropColumn {
 /// # FILTER APIS
 
 /// reqwest::get("/filter")
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct FilterRequest {
     /// filter to apply
     pub filter: Filter,
+    /// request ID
+    pub req_id: u64,
 }
 /// responose to GET /filter
-pub type FilterResponse = Vec<TaskID>;
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FilterResponse {
+    /// list of task ids that match the filter
+    pub tasks: Vec<TaskID>,
+    /// id of request
+    pub req_id: u64,
+}
 /// reqwest::get("/filter")
 struct FilterTaskRequest {
     filter: Filter,
@@ -253,8 +259,6 @@ mod tests {
         test_serde_commutes(CreateTaskRequest {
             name: "test".to_owned(),
             completed: false,
-            properties: vec![],
-            dependencies: vec![],
             req_id: 0,
         });
     }
