@@ -944,7 +944,10 @@ mod tests {
         let (server, mut state, mut receiver, view_key) = test_init().await;
 
         async fn get_event(receiver: &mut Receiver<MidEvent>) -> MidEvent {
-            timeout(Duration::from_millis(100), receiver.next()).await.unwrap().unwrap()
+            timeout(Duration::from_millis(100), receiver.next())
+                .await
+                .unwrap()
+                .unwrap()
         }
 
         let view = state.view_get(view_key).unwrap();
@@ -983,10 +986,10 @@ mod tests {
         });
         state.handle_mid_event(get_event(&mut receiver).await); // handle server response
         println!("ui event {:?}", get_event(&mut receiver).await); // drop UI event
-        // dbg!(receiver.next().await.unwrap());
-        // dbg!(receiver.next().await.unwrap());
-        // dbg!(receiver.next().await.unwrap());
-        //assert_eq!(1, 0);
+                                                                   // dbg!(receiver.next().await.unwrap());
+                                                                   // dbg!(receiver.next().await.unwrap());
+                                                                   // dbg!(receiver.next().await.unwrap());
+                                                                   //assert_eq!(1, 0);
         assert_eq!(state.task_get(tasks[0]).unwrap().name, "Cook some lunch yo");
 
         // test create task works

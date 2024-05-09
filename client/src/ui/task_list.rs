@@ -191,7 +191,7 @@ impl TaskList {
                 } else {
                     TEXT_COLOR.into()
                 };
-                if !task.current_rollback.is_none() {
+                if task.current_rollback.is_some() {
                     text_style = GREYED_OUT_TEXT_COLOR.into();
                 }
                 if task.pending_deletion {
