@@ -53,6 +53,7 @@ macro_rules! simple_test {
         let res = filter(
             $db_conn,
             &FilterRequest {
+                req_id: 0,
                 filter: Filter::Leaf {
                     field: $name.to_string(),
                     comparator: $comp,
@@ -63,9 +64,9 @@ macro_rules! simple_test {
         .await
         .unwrap();
 
-        println!("comparing {} {}", res[0], $res);
-        assert_eq!(res[0], $res);
-        assert!(res.len() == 1);
+        println!("comparing {} {}", res.tasks[0], $res);
+        assert_eq!(res.tasks[0], $res);
+        assert!(res.tasks.len() == 1);
     };
 }
 macro_rules! simple_primitive_test {
@@ -73,6 +74,7 @@ macro_rules! simple_primitive_test {
         let res = filter(
             $db_conn,
             &FilterRequest {
+                req_id: 0,
                 filter: Filter::LeafPrimitive {
                     field: $name,
                     comparator: $comp,
@@ -83,9 +85,9 @@ macro_rules! simple_primitive_test {
         .await
         .unwrap();
 
-        println!("comparing {} {}", res[0], $res);
-        assert_eq!(res[0], $res);
-        assert!(res.len() == 1);
+        println!("comparing {} {}", res.tasks[0], $res);
+        assert_eq!(res.tasks[0], $res);
+        assert!(res.tasks.len() == 1);
     };
 }
 
@@ -189,6 +191,7 @@ macro_rules! ultra_filter_test {
             filter(
                 $db,
                 &FilterRequest {
+                req_id: 0,
                     filter: Filter::Leaf {
                         field: "doesn't matter".to_owned(),
                         comparator: $comp,
@@ -207,6 +210,7 @@ macro_rules! ultra_filter_test2 {
             filter(
                 $db,
                 &FilterRequest {
+                req_id: 0,
                     filter: Filter::LeafPrimitive {
                         field: $field,
                         comparator: $comp,
@@ -317,6 +321,7 @@ async fn ultra_test() {
     filter(
         &db,
         &FilterRequest {
+            req_id: 0,
             filter: Filter::Operator {
                 op: common::Operator::AND,
                 childs: vec![
@@ -339,6 +344,7 @@ async fn ultra_test() {
     filter(
         &db,
         &FilterRequest {
+            req_id: 0,
             filter: Filter::Operator {
                 op: common::Operator::OR,
                 childs: vec![
@@ -361,6 +367,7 @@ async fn ultra_test() {
     filter(
         &db,
         &FilterRequest {
+            req_id: 0,
             filter: Filter::Operator {
                 op: common::Operator::NOT,
                 childs: vec![Filter::Leaf {
@@ -378,6 +385,7 @@ async fn ultra_test() {
     assert!(filter(
         &db,
         &FilterRequest {
+            req_id: 0,
             filter: Filter::Leaf {
                 field: "doesn't matter".to_owned(),
                 comparator: Comparator::LIKE,
@@ -390,6 +398,7 @@ async fn ultra_test() {
     assert!(filter(
         &db,
         &FilterRequest {
+            req_id: 0,
             filter: Filter::Leaf {
                 field: "doesn't matter".to_owned(),
                 comparator: Comparator::LIKE,
@@ -402,6 +411,7 @@ async fn ultra_test() {
     assert!(filter(
         &db,
         &FilterRequest {
+            req_id: 0,
             filter: Filter::Leaf {
                 field: "doesn't matter".to_owned(),
                 comparator: Comparator::LIKE,
@@ -419,6 +429,7 @@ async fn ultra_test() {
     assert!(filter(
         &db,
         &FilterRequest {
+            req_id: 0,
             filter: Filter::LeafPrimitive {
                 field: PrimitiveField::COMPLETED,
                 comparator: Comparator::LIKE,
@@ -431,6 +442,7 @@ async fn ultra_test() {
     assert!(filter(
         &db,
         &FilterRequest {
+            req_id: 0,
             filter: Filter::LeafPrimitive {
                 field: PrimitiveField::LASTEDITED,
                 comparator: Comparator::LIKE,
@@ -817,6 +829,7 @@ async fn db_test() {
     let mut res = filter(
         &db_conn,
         &FilterRequest {
+            req_id: 0,
             filter: Filter::Operator {
                 op: common::Operator::AND,
                 childs: vec![
@@ -837,13 +850,14 @@ async fn db_test() {
     .await
     .unwrap();
 
-    assert_eq!(res[0], id8);
-    assert!(res.len() == 1);
+    assert_eq!(res.tasks[0], id8);
+    assert!(res.tasks.len() == 1);
 
     info!("complex filter 2");
     res = filter(
         &db_conn,
         &FilterRequest {
+            req_id: 0,
             filter: Filter::Operator {
                 op: common::Operator::OR,
                 childs: vec![
@@ -864,14 +878,15 @@ async fn db_test() {
     .await
     .unwrap();
 
-    assert!(res.contains(&id8));
-    assert!(res.contains(&id9));
-    assert!(res.len() == 2);
+    assert!(res.tasks.contains(&id8));
+    assert!(res.tasks.contains(&id9));
+    assert!(res.tasks.len() == 2);
 
     info!("complex filter 3");
     res = filter(
         &db_conn,
         &FilterRequest {
+            req_id: 0,
             filter: Filter::Operator {
                 op: common::Operator::NOT,
                 childs: vec![Filter::Leaf {
@@ -884,7 +899,7 @@ async fn db_test() {
     )
     .await
     .unwrap();
-    assert!(!res.contains(&id9));
+    assert!(!res.tasks.contains(&id9));
 
     info!("shutting down db");
     // if tests are async you must await all of them before running below this will shut down the docker container

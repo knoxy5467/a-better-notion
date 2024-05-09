@@ -633,6 +633,20 @@ pub async fn filter(
     db: &DatabaseConnection,
     req: &FilterRequest,
 ) -> Result<web::Json<FilterResponse>> {
+    if let Filter::None = req.filter {
+        let tasks = task::Entity::find()
+            .all(db)
+            .await
+            .map_err(ErrorInternalServerError)?
+            .iter()
+            .map(|a| a.id)
+            .collect();
+        return Ok(web::Json(FilterResponse {
+            tasks,
+            req_id: req.req_id,
+        }));
+    }
+
     let filter = construct_filter(&req.filter)?;
 
     let tasks: Vec<task::Model> = task::Entity::find()
@@ -659,12 +673,10 @@ pub async fn filter(
             actix_web::error::ErrorInternalServerError(format!("couldn't filter tasks: {}", e))
         })?;
 
-    Ok(web::Json(
-        FilterResponse {
-            tasks: tasks.iter().map(|a| a.id).collect::<Vec<i32>>(),
-            req_id: req.req_id,
-        }
-    ))
+    Ok(web::Json(FilterResponse {
+        tasks: tasks.iter().map(|a| a.id).collect::<Vec<i32>>(),
+        req_id: req.req_id,
+    }))
 }
 
 /// get /filter endpoint for retrieving some number of TaskShorts
