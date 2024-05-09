@@ -750,7 +750,7 @@ pub fn init_test() -> (State, Receiver<MidEvent>) {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use std::time::Duration;
 
     pub use super::*;
@@ -762,7 +762,7 @@ mod tests {
     use serde_json::{to_value, to_vec};
     use tokio::time::timeout;
 
-    async fn mockito_setup() -> ServerGuard {
+    pub async fn mockito_setup() -> ServerGuard {
         let mut server = Server::new_async().await;
 
         server
@@ -772,7 +772,7 @@ mod tests {
                 let req: FilterRequest =
                     serde_json::from_slice::<FilterRequest>(req.body().unwrap()).unwrap();
                 to_vec(&FilterResponse {
-                    tasks: vec![0, 1, 2],
+                    tasks: vec![0, 1],
                     req_id: req.req_id,
                 })
                 .unwrap()
@@ -788,20 +788,16 @@ mod tests {
                 &to_vec::<ReadTasksShortResponse>(&vec![
                     Ok(ReadTaskShortResponse {
                         task_id: 0,
-                        name: "Test Task 1".into(),
+                        name: "Eat Lunch".into(),
+                        completed: true,
                         ..Default::default()
                     }),
                     Ok(ReadTaskShortResponse {
                         task_id: 1,
-                        name: "Test Task 2".into(),
+                        name: "Finish ABN".into(),
                         ..Default::default()
                     }),
                     Err("random error message".into()),
-                    Ok(ReadTaskShortResponse {
-                        task_id: 2,
-                        name: "Test Task 3".into(),
-                        ..Default::default()
-                    }),
                 ])
                 .unwrap(),
             )
@@ -936,7 +932,7 @@ mod tests {
     }
 
     /// get event with timeout from midevent receiver
-    async fn get_event(receiver: &mut Receiver<MidEvent>) -> MidEvent {
+    pub async fn get_event(receiver: &mut Receiver<MidEvent>) -> MidEvent {
         timeout(Duration::from_millis(100), receiver.next())
             .await
             .unwrap()

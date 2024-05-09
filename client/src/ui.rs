@@ -78,16 +78,25 @@ impl App {
         loop {
             tokio::select! {
                 Some(event) = events.next() => self.step(term, UIEvent::UserEvent(event?))?,
-                Some(mid_event) = state_events.next() => if let MidEvent::StateEvent(state_event) = mid_event {
-                    self.step(term, UIEvent::StateEvent(state_event))?;
-                } else { // else handle middleware event
-                    self.state.handle_mid_event(mid_event)?;
-                },
+                Some(mid_event) = state_events.next() => self.handle_mid_event(term, mid_event)?,
                 else => break,
             }
             if self.should_exit {
                 break;
             }
+        }
+        Ok(())
+    }
+    pub fn handle_mid_event<B: Backend>(
+        &mut self,
+        term: &mut term::Tui<B>,
+        mid_event: MidEvent,
+    ) -> color_eyre::Result<()> {
+        if let MidEvent::StateEvent(state_event) = mid_event {
+            self.step(term, UIEvent::StateEvent(state_event))?;
+        } else {
+            // else handle middleware event
+            self.state.handle_mid_event(mid_event)?;
         }
         Ok(())
     }
@@ -248,7 +257,13 @@ impl Widget for &mut App {
 mod tests {
     use ratatui::backend::TestBackend;
 
-    use crate::{mid::init_test, ui::UIEvent::UserEvent};
+    use crate::{
+        mid::{
+            init_test,
+            tests::{get_event, mockito_setup},
+        },
+        ui::UIEvent::UserEvent,
+    };
 
     use super::*;
 
@@ -285,9 +300,19 @@ mod tests {
         ]);
         term.backend_mut().assert_buffer(&expected);
 
-        // test task state
-        let (state, _) = init_test();
+        let server = mockito_setup().await;
+        let (state, mut receiver) = crate::mid::init(&server.url()).unwrap();
+
         let (mut app, mut term) = create_render_test(state, 55, 5);
+        app.handle_mid_event(&mut term, get_event(&mut receiver).await)
+            .unwrap(); // state update
+        app.handle_mid_event(&mut term, get_event(&mut receiver).await)
+            .unwrap(); // app update
+        app.handle_mid_event(&mut term, get_event(&mut receiver).await)
+            .unwrap(); // state update
+        app.handle_mid_event(&mut term, get_event(&mut receiver).await)
+            .unwrap(); // app update
+
         app.task_list
             .source_views_mod(&app.state, |s| s.extend(app.state.view_get_default())); // set the view key as is currently done in run()
         println!("{:?}", app);
@@ -300,7 +325,7 @@ mod tests {
             "│  ✓ Eat Lunch                                        │",
             "│> ☐ Finish ABN                                       │",
             "│                                                     │",
-            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> es: 2╯",
+            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> es: 4╯",
         ]);
         term.backend().assert_buffer(&expected);
 
@@ -316,7 +341,7 @@ mod tests {
             "│                                                     │",
             "│                                                     │",
             "│                                                     │",
-            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> es: 3╯",
+            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> es: 5╯",
         ]);
         term.backend().assert_buffer(&expected);
 
@@ -335,7 +360,7 @@ mod tests {
             "│             │Finish ABNhi             │             │",
             "│             ╰─────────────────────────╯             │",
             "│                                                     │",
-            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> es: 8╯",
+            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> s: 10╯",
         ]);
         term.backend().assert_buffer(&expected);
 
@@ -343,6 +368,13 @@ mod tests {
         app.step(&mut term, UserEvent(Event::Key(KeyCode::Enter.into())))?;
         app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('e').into())))?;
         app.step(&mut term, UserEvent(Event::Key(KeyCode::Esc.into())))?;
+
+        app.handle_mid_event(&mut term, get_event(&mut receiver).await)
+            .unwrap(); // state update
+
+        app.handle_mid_event(&mut term, get_event(&mut receiver).await)
+            .unwrap(); // app update
+
         reset_buffer_style(&mut term);
         let expected = Buffer::with_lines(vec![
             "╭────────────────── Task Management ──────────────────╮",
@@ -352,10 +384,10 @@ mod tests {
             "│                                                     │",
             "│                                                     │",
             "│                                                     │",
-            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> s: 11╯",
+            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> s: 14╯",
         ]);
         term.backend().assert_buffer(&expected);
-        
+
         // test creation
         app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('c').into())))?;
         app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('n').into())))?;
@@ -376,7 +408,7 @@ mod tests {
             "│                                                     │",
             "│                                                     │",
             "│                                                     │",
-            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> s: 19╯",
+            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> s: 22╯",
         ]);
         term.backend().assert_buffer(&expected);
 
@@ -393,7 +425,22 @@ mod tests {
             "│                                                     │",
             "│                                                     │",
             "│                                                     │",
-            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> s: 22╯",
+            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> s: 25╯",
+        ]);
+        term.backend().assert_buffer(&expected);
+
+        // test checking
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Enter.into())))?;
+        reset_buffer_style(&mut term);
+        let expected = Buffer::with_lines(vec![
+            "╭────────────────── Task Management ──────────────────╮",
+            "│  ✓ Eat Lunch                                        │",
+            "│> ✓ Finish ABNhi                                     │",
+            "│                                                     │",
+            "│                                                     │",
+            "│                                                     │",
+            "│                                                     │",
+            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> s: 26╯",
         ]);
         term.backend().assert_buffer(&expected);
         Ok(())
