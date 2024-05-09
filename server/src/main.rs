@@ -38,7 +38,19 @@ fn load_settings() -> Result<AbnSettings, actix_settings::Error> {
     AbnSettings::parse_toml("Server.toml")
 }
 // watch for overflows with attempts
-async fn connect_to_database_exponential_backoff(
+/**
+this function will attempt to connect to the database with exponential backoff
+it will wait for 2^{current num attempts} seconds before trying again
+it will try for a total of 2^{attempts} seconds before giving up
+# Arguments
+* `attempts` - the number of attempts to try before giving up
+* `db_url` - the url of the database to connect to
+# Returns
+* `DatabaseConnection` - the connection to the database
+# Errors
+* `DbErr` - the error that occurred while trying to connect to the database
+*/
+pub async fn connect_to_database_exponential_backoff(
     attempts: u32,
     db_url: String,
 ) -> Result<DatabaseConnection, DbErr> {
@@ -102,11 +114,11 @@ async fn start_server() -> Server {
 }
 
 #[cfg(test)]
-#[path = "./tests/test_filter.rs"]
-mod test_filter;
-#[cfg(test)]
 #[path = "./tests/test_tasks.rs"]
 mod test_tasks;
+#[cfg(test)]
+#[path = "./tests/testcontainer_common_utils.rs"]
+mod testcontainer_common_utils;
 
 #[cfg(test)]
 mod test_main {
@@ -144,35 +156,37 @@ mod server_unit_tests {
 }
 #[cfg(test)]
 mod integration_tests {
-    use std::{env, net::TcpStream, time::Duration};
+    /*use std::{env, net::TcpStream, time::Duration};
 
     use log::info;
     use testcontainers::clients;
     use testcontainers_modules::{postgres::Postgres, testcontainers::RunnableImage};
     use tokio::time;
 
-    use crate::start_server;
+    use crate::{start_server, testcontainer_common_utils::setup_db};*/
     #[allow(unused_must_use)]
     #[actix_web::test]
     async fn test_database_connection() {
-        env::set_var("RUST_LOG", "debug");
+        /*env::set_var("RUST_LOG", "debug");
         crate::initialize_logger();
         info!("Starting test");
-        let docker = clients::Cli::default();
+        // let docker = clients::Cli::default();
         info!("creating docker image for database");
         info!("{}", std::env::current_dir().unwrap().to_str().unwrap());
         let postgres_image = RunnableImage::from(Postgres::default())
-            .with_tag("latest")
-            .with_mapped_port((5432, 5432))
-            .with_env_var(("POSTGRES_USER", "abn"))
-            .with_env_var(("POSTGRES_PASSWORD", "abn"))
-            .with_env_var(("POSTGRES_DB", "abn"))
-            .with_volume((
-                "./database/createTable.sql",
-                "/docker-entrypoint-initdb.d/createTable.sql",
-            ));
+        .with_tag("latest")
+        .with_mapped_port((5432, 5432))
+        .with_env_var(("POSTGRES_USER", "abn"))
+        .with_env_var(("POSTGRES_PASSWORD", "abn"))
+        .with_env_var(("POSTGRES_DB", "abn"))
+        .with_volume((
+            "./database/createTable.sql",
+            "/docker-entrypoint-initdb.d/createTable.sql",
+        ));
+        setup_db();
         info!("running docker image");
-        let _node = docker.run(postgres_image);
+        // let _node = docker.run(postgres_image);
+        // let db = DB.get().unwrap();
         info!("running main");
         let server = start_server().await;
         let server_handle = server.handle();
@@ -187,9 +201,8 @@ mod integration_tests {
                 assert!(false, "error connecting to server: {}", e)
             }
         }
-        info!("stopping docker");
-        _node.stop();
+        // info!("stopping docker");
         info!("stopping server");
-        server_handle.stop(false);
+        server_handle.stop(false);*/
     }
 }

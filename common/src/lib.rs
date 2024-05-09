@@ -81,7 +81,9 @@ pub enum Comparator {
     /// Does not contain
     NOTCONTAINS,
     /// Regular expression match
-    REGEX,
+    // REGEX,
+    /// Like SQL query
+    LIKE,
 }
 
 /// Operator that combines multiple Filters
@@ -91,6 +93,8 @@ pub enum Operator {
     AND,
     /// OR operator, appends the results of all the filters to each other.
     OR,
+    /// NOT operator, negates the first child
+    NOT,
 }
 
 /// The variants of Task Properties
@@ -126,6 +130,17 @@ pub struct TaskProp {
     pub value: TaskPropVariant,
 }
 
+/// fields of tasks wihtout any properties
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+pub enum PrimitiveField {
+    /// title
+    TITLE,
+    /// completed
+    COMPLETED,
+    /// last edited
+    LASTEDITED,
+}
+
 /// Represents a filter on tasks using their properties that the database computes.
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 pub enum Filter {
@@ -137,6 +152,15 @@ pub enum Filter {
         /// property should be filtered out or not.
         comparator: Comparator,
         /// Immediate value to use with the comparator
+        immediate: TaskPropVariant,
+    },
+    /// property of the task itself
+    LeafPrimitive {
+        /// property name for whatever
+        field: PrimitiveField,
+        /// the comparator
+        comparator: Comparator,
+        /// what we compare against
         immediate: TaskPropVariant,
     },
     /// Filter branch, combines multiple leaves based on Operator.

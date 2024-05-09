@@ -2,10 +2,14 @@ use crate::database::*;
 use actix_web::error::{ErrorInternalServerError, ErrorNotFound};
 #[allow(unused)]
 use actix_web::{delete, get, post, put, web, Responder, Result};
-use common::{backend::*, TaskID, TaskPropVariant, ViewData};
+use common::{
+    backend::*, Comparator, Filter, Operator, PrimitiveField, TaskID, TaskPropVariant, ViewData,
+};
 use log::info;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
-use sea_orm::{entity::prelude::*, ActiveValue::NotSet, Condition, IntoActiveModel, Set};
+use sea_orm::{
+    entity::prelude::*, ActiveValue::NotSet, Condition, IntoActiveModel, QuerySelect, Set,
+};
 
 /// get /task endpoint for retrieving a single TaskShort
 #[get("/task")]
@@ -69,8 +73,7 @@ async fn get_tasks_request(
 }
 
 /// post /task endpoint creates a single task
-async fn create_task(db: &DatabaseConnection, req: &CreateTaskRequest) -> Result<TaskID> {
-    info!("create_task, req: {:?}", req);
+pub async fn create_task(db: &DatabaseConnection, req: &CreateTaskRequest) -> Result<TaskID> {
     let task_model = task::ActiveModel {
         id: NotSet,
         title: Set(req.name.clone()),
@@ -117,8 +120,7 @@ async fn create_tasks_request(
 }
 
 /// put /task updates one task
-async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result<TaskID> {
-    info!("update_task, req: {:?}", req);
+pub async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result<TaskID> {
     let task = task::Entity::find_by_id(req.task_id)
         .one(db)
         .await
@@ -132,9 +134,9 @@ async fn update_task(db: &DatabaseConnection, req: &UpdateTaskRequest) -> Result
     if req.checked.is_some() {
         task.completed = Set(req.checked.unwrap());
     }
-    task.update(db)
-        .await
-        .map_err(|e| ErrorInternalServerError(format!("couldn't update task {}", e)))?;
+    if req.checked.is_some() || req.name.is_some() {
+        task.update(db).await.map_err(ErrorInternalServerError)?;
+    }
     for prop in req.props_to_add.iter() {
         let model = task_property::Entity::find()
             .filter(
@@ -433,25 +435,245 @@ async fn delete_tasks_request(
     Ok(web::Json(res))
 }
 
+fn construct_filter(filter: &Filter) -> actix_web::Result<Condition> {
+    match filter {
+        Filter::Leaf {
+            field,
+            comparator,
+            immediate,
+        } => {
+            let mut condition = Condition::all();
+            match immediate {
+                TaskPropVariant::Number(imm) => {
+                    condition =
+                        condition.add(task_num_property::Column::TaskPropertyName.eq(field));
+                    condition = match comparator {
+                        Comparator::LT => condition.add(task_num_property::Column::Value.lt(*imm)),
+                        Comparator::LEQ => {
+                            condition.add(task_num_property::Column::Value.lte(*imm))
+                        }
+                        Comparator::GT => condition.add(task_num_property::Column::Value.gt(*imm)),
+                        Comparator::GEQ => {
+                            condition.add(task_num_property::Column::Value.gte(*imm))
+                        }
+                        Comparator::EQ => condition.add(task_num_property::Column::Value.eq(*imm)),
+                        Comparator::NEQ => condition.add(task_num_property::Column::Value.ne(*imm)),
+                        _ => {
+                            return Err(actix_web::error::ErrorInternalServerError(format!(
+                                "Invalid comparator {:?} for type number",
+                                {}
+                            )))
+                        }
+                    };
+                }
+                TaskPropVariant::Date(imm) => {
+                    condition =
+                        condition.add(task_date_property::Column::TaskPropertyName.eq(field));
+                    condition = match comparator {
+                        Comparator::LT => condition.add(task_date_property::Column::Value.lt(*imm)),
+                        Comparator::LEQ => {
+                            condition.add(task_date_property::Column::Value.lte(*imm))
+                        }
+                        Comparator::GT => condition.add(task_date_property::Column::Value.gt(*imm)),
+                        Comparator::GEQ => {
+                            condition.add(task_date_property::Column::Value.gte(*imm))
+                        }
+                        Comparator::EQ => condition.add(task_date_property::Column::Value.eq(*imm)),
+                        Comparator::NEQ => {
+                            condition.add(task_date_property::Column::Value.ne(*imm))
+                        }
+                        _ => {
+                            return Err(actix_web::error::ErrorInternalServerError(format!(
+                                "Invalid comparator {:?} for type date",
+                                {}
+                            )))
+                        }
+                    };
+                }
+                TaskPropVariant::Boolean(imm) => {
+                    condition =
+                        condition.add(task_bool_property::Column::TaskPropertyName.eq(field));
+                    condition = match comparator {
+                        Comparator::EQ => condition.add(task_bool_property::Column::Value.eq(*imm)),
+                        Comparator::NEQ => {
+                            condition.add(task_bool_property::Column::Value.ne(*imm))
+                        }
+                        _ => {
+                            return Err(actix_web::error::ErrorInternalServerError(format!(
+                                "Invalid comparator {:?} for type boolean",
+                                {}
+                            )))
+                        }
+                    }
+                }
+                TaskPropVariant::String(imm) => {
+                    condition =
+                        condition.add(task_string_property::Column::TaskPropertyName.eq(field));
+                    condition = match comparator {
+                        Comparator::LT => {
+                            condition.add(task_string_property::Column::Value.lt(imm.clone()))
+                        }
+                        Comparator::LEQ => {
+                            condition.add(task_string_property::Column::Value.lte(imm.clone()))
+                        }
+                        Comparator::GT => {
+                            condition.add(task_string_property::Column::Value.gt(imm.clone()))
+                        }
+                        Comparator::GEQ => {
+                            condition.add(task_string_property::Column::Value.gte(imm.clone()))
+                        }
+                        Comparator::EQ => {
+                            condition.add(task_string_property::Column::Value.eq(imm.clone()))
+                        }
+                        Comparator::NEQ => {
+                            condition.add(task_string_property::Column::Value.ne(imm.clone()))
+                        }
+                        Comparator::CONTAINS => condition
+                            .add(task_string_property::Column::Value.like(format!("%{}%", imm))),
+                        Comparator::NOTCONTAINS => {
+                            condition.add(Condition::not(Condition::all().add(
+                                task_string_property::Column::Value.like(format!("%{}%", imm)),
+                            )))
+                        }
+                        Comparator::LIKE => {
+                            condition.add(task_string_property::Column::Value.like(imm.clone()))
+                        }
+                    }
+                }
+            };
+            Ok(condition)
+        }
+        Filter::LeafPrimitive {
+            field,
+            comparator,
+            immediate,
+        } => match field {
+            PrimitiveField::TITLE => {
+                let mut condition = Condition::all();
+                let imm = match immediate {
+                    TaskPropVariant::String(a) => a,
+                    _ => return Err(ErrorInternalServerError("die")),
+                };
+
+                condition = match comparator {
+                    Comparator::LT => condition.add(task::Column::Title.lt(imm.clone())),
+                    Comparator::LEQ => condition.add(task::Column::Title.lte(imm.clone())),
+                    Comparator::GT => condition.add(task::Column::Title.gt(imm.clone())),
+                    Comparator::GEQ => condition.add(task::Column::Title.gte(imm.clone())),
+                    Comparator::EQ => condition.add(task::Column::Title.eq(imm.clone())),
+                    Comparator::NEQ => condition.add(task::Column::Title.ne(imm.clone())),
+                    Comparator::CONTAINS => {
+                        condition.add(task::Column::Title.like(format!("%{}%", imm)))
+                    }
+                    Comparator::NOTCONTAINS => condition.add(Condition::not(
+                        Condition::all().add(task::Column::Title.like(format!("%{}%", imm))),
+                    )),
+                    Comparator::LIKE => condition.add(task::Column::Title.like(imm.clone())),
+                };
+                Ok(condition)
+            }
+            PrimitiveField::COMPLETED => {
+                let mut condition = Condition::all();
+                let imm = match immediate {
+                    TaskPropVariant::Boolean(a) => a,
+                    _ => return Err(ErrorInternalServerError("invalid type")),
+                };
+
+                condition = match comparator {
+                    Comparator::EQ => condition.add(task::Column::Completed.eq(*imm)),
+                    Comparator::NEQ => condition.add(task::Column::Completed.ne(*imm)),
+                    _ => return Err(ErrorInternalServerError("invalid comparator")),
+                };
+                Ok(condition)
+            }
+            PrimitiveField::LASTEDITED => {
+                let mut condition = Condition::all();
+                let imm = match immediate {
+                    TaskPropVariant::Date(a) => a,
+                    _ => return Err(ErrorInternalServerError("invalid type")),
+                };
+
+                condition = match comparator {
+                    Comparator::LT => condition.add(task::Column::LastEdited.lt(*imm)),
+                    Comparator::LEQ => condition.add(task::Column::LastEdited.lte(*imm)),
+                    Comparator::GT => condition.add(task::Column::LastEdited.gt(*imm)),
+                    Comparator::GEQ => condition.add(task::Column::LastEdited.gte(*imm)),
+                    Comparator::EQ => condition.add(task::Column::LastEdited.eq(*imm)),
+                    Comparator::NEQ => condition.add(task::Column::LastEdited.ne(*imm)),
+                    _ => return Err(ErrorInternalServerError("invalid comparator")),
+                };
+                Ok(condition)
+            }
+        },
+        Filter::Operator { op, childs } => {
+            if let Operator::NOT = op {
+                match construct_filter(&childs[0]) {
+                    Ok(filter) => return Ok(Condition::not(filter)),
+                    Err(err) => return Err(err),
+                }
+            }
+            let mut condition = match op {
+                Operator::AND => Condition::all(),
+                Operator::OR => Condition::any(),
+                _ => unreachable!(),
+            };
+            for child in childs.iter() {
+                match construct_filter(child) {
+                    Ok(filter) => condition = condition.add(filter),
+                    Err(err) => return Err(err),
+                }
+            }
+            Ok(condition)
+        }
+        Filter::None => Ok(Condition::any()),
+    }
+}
+
+pub async fn filter(
+    db: &DatabaseConnection,
+    req: &FilterRequest,
+) -> Result<web::Json<FilterResponse>> {
+    let filter = construct_filter(&req.filter)?;
+
+    let tasks: Vec<task::Model> = task::Entity::find()
+        .join(
+            sea_orm::JoinType::LeftJoin,
+            task::Relation::TaskNumProperty.def(),
+        )
+        .join(
+            sea_orm::JoinType::LeftJoin,
+            task::Relation::TaskBoolProperty.def(),
+        )
+        .join(
+            sea_orm::JoinType::LeftJoin,
+            task::Relation::TaskStringProperty.def(),
+        )
+        .join(
+            sea_orm::JoinType::LeftJoin,
+            task::Relation::TaskDateProperty.def(),
+        )
+        .filter(filter)
+        .all(db)
+        .await
+        .map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!("couldn't filter tasks: {}", e))
+        })?;
+
+    Ok(web::Json(
+        FilterResponse {
+            tasks: tasks.iter().map(|a| a.id).collect::<Vec<i32>>(),
+            req_id: req.req_id,
+        }
+    ))
+}
+
 /// get /filter endpoint for retrieving some number of TaskShorts
-#[allow(unused_variables)]
 #[get("/filter")]
 async fn get_filter_request(
     data: web::Data<DatabaseConnection>,
     req: web::Json<FilterRequest>,
-) -> Result<web::Json<FilterResponse>> {
-    //TODO: construct filter
-
-    info!("get_filter_request, req: {:?}", req);
-    let tasks: Vec<task::Model> = task::Entity::find()
-        .all(data.as_ref())
-        .await
-        .map_err(|e| ErrorInternalServerError(format!("couldn't filter tasks: {}", e)))?;
-
-    Ok(web::Json(FilterResponse {
-        tasks: tasks.iter().map(|a| a.id).collect(),
-        req_id: req.req_id,
-    }))
+) -> Result<impl Responder> {
+    filter(&data, &req).await
 }
 
 async fn get_property_or_err(
@@ -678,6 +900,9 @@ mod test_create;
 #[cfg(test)]
 #[path = "./tests/test_delete.rs"]
 mod test_delete;
+#[cfg(test)]
+#[path = "./tests/test_filter.rs"]
+mod test_filter;
 #[cfg(test)]
 #[path = "./tests/test_props.rs"]
 mod test_props;
