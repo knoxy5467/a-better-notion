@@ -320,7 +320,7 @@ mod tests {
         ]);
         term.backend().assert_buffer(&expected);
 
-        // test task creation
+        // test task edit box
         app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('e').into())))?;
         app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('h').into())))?;
         app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('i').into())))?;
@@ -339,6 +339,7 @@ mod tests {
         ]);
         term.backend().assert_buffer(&expected);
 
+        // test task edit
         app.step(&mut term, UserEvent(Event::Key(KeyCode::Enter.into())))?;
         app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('e').into())))?;
         app.step(&mut term, UserEvent(Event::Key(KeyCode::Esc.into())))?;
@@ -346,12 +347,53 @@ mod tests {
         let expected = Buffer::with_lines(vec![
             "╭────────────────── Task Management ──────────────────╮",
             "│  ✓ Eat Lunch                                        │",
-            "│> ☐ Finish ABN                                       │",
+            "│> ☐ Finish ABNhi                                     │",
             "│                                                     │",
             "│                                                     │",
             "│                                                     │",
             "│                                                     │",
             "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> s: 11╯",
+        ]);
+        term.backend().assert_buffer(&expected);
+        
+        // test creation
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('c').into())))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('n').into())))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('e').into())))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('t').into())))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('w').into())))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Left.into())))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Backspace.into())))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Right.into())))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('!').into())))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Enter.into())))?;
+        reset_buffer_style(&mut term);
+        let expected = Buffer::with_lines(vec![
+            "╭────────────────── Task Management ──────────────────╮",
+            "│  ✓ Eat Lunch                                        │",
+            "│> ☐ Finish ABNhi                                     │",
+            "│  ☐ net!                                             │",
+            "│                                                     │",
+            "│                                                     │",
+            "│                                                     │",
+            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> s: 19╯",
+        ]);
+        term.backend().assert_buffer(&expected);
+
+        // test deletion
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Down.into())))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('d').into())))?;
+        app.step(&mut term, UserEvent(Event::Key(KeyCode::Char('y').into())))?;
+        reset_buffer_style(&mut term);
+        let expected = Buffer::with_lines(vec![
+            "╭────────────────── Task Management ──────────────────╮",
+            "│  ✓ Eat Lunch                                        │",
+            "│> ☐ Finish ABNhi                                     │",
+            "│                                                     │",
+            "│                                                     │",
+            "│                                                     │",
+            "│                                                     │",
+            "╰───── Select: <Up>/<Down> Help: <h> , Quit: <q> s: 22╯",
         ]);
         term.backend().assert_buffer(&expected);
         Ok(())
