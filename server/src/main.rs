@@ -8,7 +8,7 @@ mod database;
 use std::env;
 
 use actix_settings::{ApplySettings as _, BasicSettings};
-use actix_web::{dev::Server, middleware::Logger, web::Data, App, HttpServer};
+use actix_web::{dev::Server, web::Data, App, HttpServer};
 use api::*;
 use log::{info, warn};
 use sea_orm::{Database, DatabaseConnection, DbErr, RuntimeErr};
@@ -80,7 +80,6 @@ async fn start_server() -> Server {
     let server = HttpServer::new(move || {
         let db_data = db_data.clone();
         App::new()
-            .wrap(Logger::default())
             .app_data(db_data)
             .service(get_task_request)
             .service(get_task_request)

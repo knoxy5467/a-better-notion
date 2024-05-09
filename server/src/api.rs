@@ -43,7 +43,7 @@ async fn get_tasks_request(
 ) -> Result<impl Responder> {
     info!("get_tasks_request, req: {:?}", req);
     let mut res: ReadTasksShortResponse = Vec::new();
-    log::debug!("getting tasks from req: {req:?}");
+
     for taskreq in req.iter() {
         let task = task::Entity::find_by_id(taskreq.task_id)
             .one(data.as_ref())

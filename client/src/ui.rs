@@ -274,7 +274,7 @@ mod tests {
         term.backend_mut().draw(iter).unwrap();
     }
 
-    /* #[tokio::test]
+    #[tokio::test]
     async fn render_test() -> color_eyre::Result<()> {
         // test default state
         let (_, mut term) = create_render_test(State::new().0, 55, 5);
@@ -359,7 +359,7 @@ mod tests {
         ]);
         term.backend().assert_buffer(&expected);
         Ok(())
-    } */
+    }
     #[tokio::test]
     async fn test_render_help_box() {
         let (_, mut term) = create_render_test(State::new().0, 55, 5);
