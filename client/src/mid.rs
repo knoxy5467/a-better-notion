@@ -938,17 +938,18 @@ mod tests {
         (server, state, receiver, view_key)
     }
 
+    /// get event with timeout from midevent receiver
+    async fn get_event(receiver: &mut Receiver<MidEvent>) -> MidEvent {
+        timeout(Duration::from_millis(100), receiver.next())
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
     #[tokio::test]
     // #[traced_test]
     async fn test_tasks() {
         let (server, mut state, mut receiver, view_key) = test_init().await;
-
-        async fn get_event(receiver: &mut Receiver<MidEvent>) -> MidEvent {
-            timeout(Duration::from_millis(100), receiver.next())
-                .await
-                .unwrap()
-                .unwrap()
-        }
 
         let view = state.view_get(view_key).unwrap();
         assert_eq!(view.name, "Main View");
@@ -986,10 +987,6 @@ mod tests {
         });
         state.handle_mid_event(get_event(&mut receiver).await); // handle server response
         println!("ui event {:?}", get_event(&mut receiver).await); // drop UI event
-                                                                   // dbg!(receiver.next().await.unwrap());
-                                                                   // dbg!(receiver.next().await.unwrap());
-                                                                   // dbg!(receiver.next().await.unwrap());
-                                                                   //assert_eq!(1, 0);
         assert_eq!(state.task_get(tasks[0]).unwrap().name, "Cook some lunch yo");
 
         // test create task works
@@ -1002,6 +999,11 @@ mod tests {
         state.handle_mid_event(get_event(&mut receiver).await); // handle server response
         println!("ui event {:?}", get_event(&mut receiver).await); // drop UI event
         assert_eq!(state.tasks[task1].name, "Eat Lunch");
+    }
+    #[tokio::test]
+    async fn test_revert_task() {
+        let (server, mut state, mut receiver, view_key) = test_init().await;
+
     }
 
     #[tokio::test]
@@ -1183,11 +1185,6 @@ mod tests {
         assert!(state.prop_get(tasks[1], name_key).is_err());
     }
 
-    // #[tokio::test]
-    // async fn test_remove_prop_name_deletes_props_prop_map_and_props() {
-    //     todo!();
-    // }
-
     #[tokio::test]
     async fn test_prop_def_twice() {
         let (server, mut state, mut receiver, view_key) = test_init().await;
@@ -1222,19 +1219,12 @@ mod tests {
             .unwrap();
         let old_prop_ref = &state.props[old_prop_key];
         let new_prop_ref = &state.props[prop_key];
-
-        // both should have type "string"
-        //assert_eq!(old_prop_ref.type_string(), new_prop_ref.type_string());
     }
     #[tokio::test]
     async fn test_view_task_keys() {
         let (server, mut state, mut receiver, view_key) = test_init().await;
         let task_key_iter = state.view_task_keys(view_key).unwrap();
         assert_eq!(task_key_iter.clone().count(), 3);
-        //let task_key1 = task_key_iter.clone().next();
-        //assert_eq!(task_key1, 1);
-        //let task_key2 =
-        //assert_eq!(1, 0);
     }
 
     #[tokio::test]
@@ -1242,85 +1232,8 @@ mod tests {
         let (server, mut state, mut receiver, view_key) = test_init().await;
         let task_key_iter = state.view_tasks(view_key).unwrap();
         assert_eq!(task_key_iter.clone().count(), 3);
-        //let task_key1 = task_key_iter.clone().next();
-        //assert_eq!(task_key1, 1);
-        //let task_key2 =
-        //assert_eq!(1, 0);
     }
 
-    /* #[tokio::test]
-    async fn test_frontend_api() {
-        let server = mockito_setup().await;
-        let url = server.url();
-        println!("url: {url}");
-
-
-
-        let name_key = state.prop_def_name("Due Date");
-        // test prop def removal
-        let invalid_name_key = state.prop_def_name("Invalid");
-        assert_eq!(state.prop_rm_name(invalid_name_key).unwrap(), "Invalid");
-        assert!(state.prop_rm_name(invalid_name_key).is_err());
-
-        // test prop_def
-        state
-            .prop_def(tasks[0], name_key, TaskPropVariant::Boolean(false))
-            .unwrap();
-        assert!(state
-            .prop_def(tasks[0], invalid_name_key, TaskPropVariant::Boolean(false))
-            .is_err());
-        assert!(state
-            .prop_def(tasks[1], name_key, TaskPropVariant::Boolean(false))
-            .is_err());
-
-        // test prop_mod
-        assert!(state
-            .prop_mod(tasks[1], name_key, |t| *t = TaskPropVariant::Boolean(true))
-            .is_err());
-        assert!(state
-            .prop_mod(tasks[0], invalid_name_key, |t| *t =
-                TaskPropVariant::Boolean(true))
-            .is_err());
-        assert!(state
-            .prop_mod(tasks[0], name_key, |t| *t = TaskPropVariant::Boolean(true))
-            .is_ok());
-        // test prop_get
-        assert_eq!(
-            state.prop_get(tasks[0], name_key).unwrap(),
-            &TaskPropVariant::Boolean(true)
-        );
-        assert!(state.prop_get(tasks[1], name_key).is_err());
-        assert!(state.prop_get(tasks[0], invalid_name_key).is_err());
-
-        // test prop_rm
-        assert!(state.prop_rm(tasks[0], invalid_name_key).is_err());
-        assert!(state.prop_rm(tasks[1], name_key).is_err());
-        assert_eq!(
-            state.prop_rm(tasks[0], name_key).unwrap(),
-            TaskPropVariant::Boolean(true)
-        );
-        assert!(state.prop_rm(tasks[0], name_key).is_err());
-
-        // script testing
-        let script_id = state.script_create();
-        state.script_mod(script_id, |s| {
-            "function do_lua()".clone_into(&mut s.content)
-        });
-        assert_eq!(
-            state.script_get(script_id).unwrap().content,
-            "function do_lua()"
-        );
-        state.script_rm(script_id);
-        assert!(state.script_get(script_id).is_none());
-
-        // test remove view
-        state.view_rm(view_key);
-        assert!(state.view_get(view_key).is_err());
-
-        // prop errors
-        dbg!(PropDataError::Prop(tasks[0], name_key));
-        println!("{}", PropDataError::Prop(tasks[1], invalid_name_key));
-    } */
     #[test]
     fn test_view_new() {
         let expected_view = super::View {
