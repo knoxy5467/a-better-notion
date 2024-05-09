@@ -442,8 +442,6 @@ impl State {
             CreateTaskRequest {
                 name: task.name.clone(),
                 completed: task.completed,
-                properties: vec![],   // TODO: send props
-                dependencies: vec![], // TODO: send deps
                 req_id: key.0.as_ffi(),
             },
             RevertError::Task(key),
