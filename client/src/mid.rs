@@ -440,7 +440,6 @@ impl State {
     }
     /// delete a task
     pub fn task_rm(&mut self, key: TaskKey) -> Result<(), NoTaskError> {
-        dbg!("removing a task!");
         if let Some(task) = self.tasks.get_mut(key) {
             if let Some(db_id) = task.db_id {
                 // mark pending deletion if in database
