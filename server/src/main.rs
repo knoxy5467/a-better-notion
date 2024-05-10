@@ -6,26 +6,20 @@
 mod api;
 mod database;
 use std::env;
-
-use actix_settings::{ApplySettings as _, BasicSettings};
+use actix_settings::ApplySettings;
 use actix_web::{dev::Server, web::Data, App, HttpServer};
 use api::*;
+use common::backend;
 use log::{info, warn};
 use sea_orm::{Database, DatabaseConnection, DbErr, RuntimeErr};
-use serde::Deserialize;
 use tokio::time::Duration;
+
 static INIT: std::sync::Once = std::sync::Once::new();
 fn initialize_logger() {
     INIT.call_once(|| {
         env_logger::init();
     });
 }
-
-#[derive(Debug, Deserialize)]
-struct DatabaseSettings {
-    database_url: String,
-}
-type AbnSettings = BasicSettings<DatabaseSettings>;
 
 #[coverage(off)]
 #[actix_web::main]
@@ -34,9 +28,6 @@ async fn main() -> () {
     server.await.unwrap();
 }
 
-fn load_settings() -> Result<AbnSettings, actix_settings::Error> {
-    AbnSettings::parse_toml("Server.toml")
-}
 // watch for overflows with attempts
 /**
 this function will attempt to connect to the database with exponential backoff
@@ -79,7 +70,7 @@ async fn start_server() -> Server {
     env::set_var("RUST_LOG", "info");
     initialize_logger();
     info!("starting server");
-    let settings = load_settings().expect("could not load settings");
+    let settings = backend::load_settings().expect("could not load settings");
     info!("loaded settings");
     let db_url = settings.application.database_url.clone();
     info!("connecting to database: {}", db_url.clone());
@@ -135,10 +126,6 @@ mod test_main {
             std::process::exit(0)
         });
         main();
-    }
-    #[test]
-    fn test_load_settings() {
-        load_settings().expect("failed to load settings");
     }
 }
 #[cfg(test)]

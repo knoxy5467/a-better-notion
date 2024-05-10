@@ -2,7 +2,7 @@
 # For more info, see: https://docs.rs/actix-web/4/actix_web/struct.HttpServer.html.
 
 hosts = [
-    ["127.0.0.1", 8080]      # This should work for both development and deployment...
+    ["0.0.0.0", 8080]      # This should work for both development and deployment...
     #                      # ... but other entries are possible, as well.
 ]
 mode = "development"       # Either "development" or "production".

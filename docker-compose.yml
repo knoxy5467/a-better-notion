@@ -11,6 +11,7 @@ services:
       - "5432:5432"
   server:
     build: .
+    image: abn-server
     ports:
       - "8080:8080"
     command: [ "/usr/local/bin/server" ]

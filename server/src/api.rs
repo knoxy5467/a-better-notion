@@ -3,7 +3,7 @@ use actix_web::error::{ErrorInternalServerError, ErrorNotFound};
 #[allow(unused)]
 use actix_web::{delete, get, post, put, web, Responder, Result};
 use common::{
-    backend::*, Comparator, Filter, Operator, PrimitiveField, TaskID, TaskPropVariant, ViewData,
+    backend::{*}, Comparator, Filter, Operator, PrimitiveField, TaskID, TaskPropVariant, ViewData,
 };
 use log::info;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};

@@ -5,9 +5,8 @@
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
 use std::{io::stdout, panic};
-
-use actix_settings::{NoSettings, Settings};
 use color_eyre::eyre;
+use common::backend;
 use crossterm::event::EventStream;
 use ratatui::backend::CrosstermBackend;
 use tracing::level_filters::LevelFilter;
@@ -16,9 +15,6 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 mod mid;
 mod term;
 mod ui;
-fn load_settings() -> Result<actix_settings::BasicSettings<NoSettings>, actix_settings::Error> {
-    Settings::parse_toml("Server.toml")
-}
 
 #[coverage(off)]
 fn main() -> color_eyre::Result<()> {
@@ -32,7 +28,7 @@ fn main() -> color_eyre::Result<()> {
             tracing::info!("Starting Client");
             tracing::info!("Use RUST_LOG=debug for debug logs!");
             term::enable()?;
-            let settings = load_settings().expect("could not load settings");
+            let settings = backend::load_settings().expect("could not load settings");
             let state = mid::init(&format!(
                 "http://{}:{}",
                 settings.actix.hosts[0].host, settings.actix.hosts[0].port
@@ -104,13 +100,4 @@ pub fn install_hooks() -> color_eyre::Result<()> {
     ))?;
 
     Ok(())
-}
-
-#[cfg(test)]
-mod test_main {
-    use super::*;
-    #[test]
-    fn test_load_settings() {
-        load_settings().expect("failed to load settings");
-    }
 }
