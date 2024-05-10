@@ -8,6 +8,7 @@ use std::{fs, io::stdout, panic, path::Path, io::Write};
 
 use actix_settings::{BasicSettings, NoSettings, Settings};
 use color_eyre::eyre;
+use common::backend;
 use crossterm::event::EventStream;
 use ratatui::backend::CrosstermBackend;
 use serde::Deserialize;
@@ -19,13 +20,13 @@ mod term;
 mod ui;
 
 #[derive(Debug, Deserialize)]
-pub struct DatabaseSettings {
-    pub database_url: String,
+struct DatabaseSettings {
+    database_url: String,
 }
 type AbnSettings = BasicSettings<DatabaseSettings>;
-pub fn load_settings() -> Result<AbnSettings, actix_settings::Error> {
+fn load_settings() -> Result<AbnSettings, actix_settings::Error> {
     // if Server.toml does not exist in working directory:
-    let settings_filepath = Path::new(".abn_settings").join("Server.toml");
+    let settings_filepath = Path::new(".abn_settings").join("Settings.toml");
     match fs::metadata(&settings_filepath) {
         Ok(_) => {
             return AbnSettings::parse_toml(&settings_filepath);
@@ -33,21 +34,8 @@ pub fn load_settings() -> Result<AbnSettings, actix_settings::Error> {
         Err(_) => {
             println!("creating directory");
             fs::create_dir(Path::new(".abn_settings")).unwrap();
-            let mut settings = AbnSettings::parse_toml(&settings_filepath);
-            // write database url to the file
-            // Open a file with append option
-            let mut settings_file = fs::OpenOptions::new()
-                .append(true)
-                .write(true)
-                .open(&settings_filepath)
-                .expect("cannot open file");
-
-            // Write db id to a file
-            settings_file
-                .write("\ndatabase_url = \"postgres://abn:abn@localhost:5432/abn?options=-c%20search_path%3Dtask\"".as_bytes())
-                .expect("write failed");
-            //fs::write(&settings_filepath, "postgres://abn:abn@localhost:5432/abn?options=-c%20search_path%3Dtask").unwrap();
-            
+            AbnSettings::write_toml_file(&settings_filepath).unwrap();
+            fs::write(&settings_filepath, backend::ABN_DEFAULT_TOML_TEMPLATE).unwrap();
             return AbnSettings::parse_toml(&settings_filepath);
         },
     }
