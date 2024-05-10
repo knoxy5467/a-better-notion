@@ -18,10 +18,7 @@ use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, RequestBuilder};
 use reqwest_tracing::{SpanBackendWithUrl, TracingMiddleware};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use slotmap::{new_key_type, KeyData, SlotMap};
-use std::{
-    collections::{HashMap, HashSet},
-    fmt,
-};
+use std::{collections::HashMap, fmt};
 use thiserror::Error;
 use tokio::task::JoinHandle;
 
@@ -545,6 +542,9 @@ impl State {
         self.prop_name_map.insert(name, key);
         key
     }
+    pub fn prop_get_name(&self, name_key: PropNameKey) -> Option<&str> {
+        self.prop_names.get(name_key).map(String::as_str)
+    }
     /// delete a property name
     pub fn prop_rm_name(&mut self, name_key: PropNameKey) -> Result<String, PropDataError> {
         let name = self
@@ -913,9 +913,9 @@ pub(crate) mod tests {
         let (mut state, mut receiver) = init(&url).unwrap();
         // await server response for FilterRequest
         state.handle_mid_event(receiver.next().await.unwrap());
+
+        // await server response for ReadTasksShortResponse (request automatically sent when handle_mid_event is called on FilterResponse)
         println!("ui event {:?}", receiver.next().await.unwrap()); // drop UI event
-                                                                   // // await server response for ReadTasksShortResponse (request automatically sent when handle_mid_event is called on FilterResponse)
-                                                                   //dbg!(receiver.next().await.unwrap());
         state.handle_mid_event(receiver.next().await.unwrap());
         println!("ui event {:?}", receiver.next().await.unwrap()); // drop UI event
 
