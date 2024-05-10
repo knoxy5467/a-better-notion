@@ -6,17 +6,13 @@
 mod api;
 mod database;
 use std::env;
-use std::fs;
-use actix_settings::{ApplySettings as _, BasicSettings};
+use actix_settings::ApplySettings;
 use actix_web::{dev::Server, web::Data, App, HttpServer};
 use api::*;
 use common::backend;
 use log::{info, warn};
 use sea_orm::{Database, DatabaseConnection, DbErr, RuntimeErr};
-use serde::Deserialize;
 use tokio::time::Duration;
-use std::path::Path;
-use std::io::Write;
 
 static INIT: std::sync::Once = std::sync::Once::new();
 fn initialize_logger() {
