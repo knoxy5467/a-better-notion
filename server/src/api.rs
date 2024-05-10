@@ -1,4 +1,7 @@
+use std::{fs, io::Write, path::Path};
+
 use crate::database::*;
+use actix_settings::BasicSettings;
 use actix_web::error::{ErrorInternalServerError, ErrorNotFound};
 #[allow(unused)]
 use actix_web::{delete, get, post, put, web, Responder, Result};
@@ -10,6 +13,43 @@ use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use sea_orm::{
     entity::prelude::*, ActiveValue::NotSet, Condition, IntoActiveModel, QuerySelect, Set,
 };
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+pub struct DatabaseSettings {
+    pub database_url: String,
+}
+type AbnSettings = BasicSettings<DatabaseSettings>;
+
+pub fn load_settings() -> Result<AbnSettings, actix_settings::Error> {
+    // if Server.toml does not exist in working directory:
+    let settings_filepath = Path::new(".abn_settings").join("Server.toml");
+    match fs::metadata(&settings_filepath) {
+        Ok(_) => {
+            return AbnSettings::parse_toml(&settings_filepath);
+        },
+        Err(_) => {
+            println!("creating directory");
+            fs::create_dir(Path::new(".abn_settings")).unwrap();
+            let mut settings = AbnSettings::parse_toml(&settings_filepath);
+            // write database url to the file
+            // Open a file with append option
+            let mut settings_file = fs::OpenOptions::new()
+                .append(true)
+                .write(true)
+                .open(&settings_filepath)
+                .expect("cannot open file");
+
+            // Write db id to a file
+            settings_file
+                .write("\ndatabase_url = \"postgres://abn:abn@localhost:5432/abn?options=-c%20search_path%3Dtask\"".as_bytes())
+                .expect("write failed");
+            //fs::write(&settings_filepath, "postgres://abn:abn@localhost:5432/abn?options=-c%20search_path%3Dtask").unwrap();
+            
+            return AbnSettings::parse_toml(&settings_filepath);
+        },
+    }
+}
 
 /// get /task endpoint for retrieving a single TaskShort
 #[get("/task")]
