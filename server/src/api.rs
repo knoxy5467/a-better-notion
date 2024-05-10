@@ -14,29 +14,6 @@ use sea_orm::{
 };
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
-pub struct DatabaseSettings {
-    pub database_url: String,
-}
-type AbnSettings = BasicSettings<DatabaseSettings>;
-
-pub fn load_settings() -> Result<AbnSettings, actix_settings::Error> {
-    // if Server.toml does not exist in working directory:
-    let settings_filepath = Path::new(".abn_settings").join("Server.toml");
-    match fs::metadata(&settings_filepath) {
-        Ok(_) => {
-            return AbnSettings::parse_toml(&settings_filepath);
-        },
-        Err(_) => {
-            println!("creating directory");
-            fs::create_dir(Path::new(".abn_settings")).unwrap();
-            AbnSettings::write_toml_file(&settings_filepath).unwrap();
-            fs::write(&settings_filepath, backend::ABN_DEFAULT_TOML_TEMPLATE).unwrap();
-            return AbnSettings::parse_toml(&settings_filepath);
-        },
-    }
-}
-
 /// get /task endpoint for retrieving a single TaskShort
 #[get("/task")]
 async fn get_task_request(

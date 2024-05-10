@@ -1,13 +1,42 @@
 //! This file outlines all the structures required for the middleware and backend to communicate via REST API
 
-use std::fs::read;
-
+use std::{fs::read, path::Path};
+use std::fs;
 use serde::{Deserialize, Serialize};
 
 use crate::*;
+use actix_settings::BasicSettings;
 
 /// Default toml template for server / client settings
 pub const ABN_DEFAULT_TOML_TEMPLATE: &'static str = "[actix]\n# For more info, see: https://docs.rs/actix-web/4/actix_web/struct.HttpServer.html.\n\nhosts = [\n    [\"0.0.0.0\", 8080]      # This should work for both development and deployment...\n    #                      # ... but other entries are possible, as well.\n]\nmode = \"development\"       # Either \"development\" or \"production\".\nenable-compression = true  # Toggle compression middleware.\nenable-log = true          # Toggle logging middleware.\n\n# The number of workers that the server should start.\n# By default the number of available logical cpu cores is used.\n# Takes a string value: Either \"default\", or an integer N > 0 e.g. \"6\".\nnum-workers = \"default\"\n\n# The maximum number of pending connections. This refers to the number of clients\n# that can be waiting to be served. Exceeding this number results in the client\n# getting an error when attempting to connect. It should only affect servers under\n# significant load. Generally set in the 64-2048 range. The default value is 2048.\n# Takes a string value: Either \"default\", or an integer N > 0 e.g. \"6\".\nbacklog = \"default\"\n\n# Sets the per-worker maximum number of concurrent connections. All socket listeners\n# will stop accepting connections when this limit is reached for each worker.\n# By default max connections is set to a 25k.\n# Takes a string value: Either \"default\", or an integer N > 0 e.g. \"6\".\nmax-connections = \"default\"\n\n# Sets the per-worker maximum concurrent connection establish process. All listeners\n# will stop accepting connections when this limit is reached. It can be used to limit\n# the global TLS CPU usage. By default max connections is set to a 256.\n# Takes a string value: Either \"default\", or an integer N > 0 e.g. \"6\".\nmax-connection-rate = \"default\"\n\n# Set server keep-alive preference. By default keep alive is set to 5 seconds.\n# Takes a string value: Either \"default\", \"disabled\", \"os\",\n# or a string of the format \"N seconds\" where N is an integer > 0 e.g. \"6 seconds\".\nkeep-alive = \"default\"\n\n# Set server client timeout in milliseconds for first request. Defines a timeout\n# for reading client request header. If a client does not transmit the entire set of\n# headers within this time, the request is terminated with the 408 (Request Time-out)\n# error. To disable timeout, set the value to 0.\n# By default client timeout is set to 5000 milliseconds.\n# Takes a string value: Either \"default\", or a string of the format \"N milliseconds\"\n# where N is an integer > 0 e.g. \"6 milliseconds\".\nclient-timeout = \"default\"\n\n# Set server connection shutdown timeout in milliseconds. Defines a timeout for\n# shutdown connection. If a shutdown procedure does not complete within this time,\n# the request is dropped. To disable timeout set value to 0.\n# By default client timeout is set to 5000 milliseconds.\n# Takes a string value: Either \"default\", or a string of the format \"N milliseconds\"\n# where N is an integer > 0 e.g. \"6 milliseconds\".\nclient-shutdown = \"default\"\n\n# Timeout for graceful workers shutdown. After receiving a stop signal, workers have\n# this much time to finish serving requests. Workers still alive after the timeout\n# are force dropped. By default shutdown timeout sets to 30 seconds.\n# Takes a string value: Either \"default\", or a string of the format \"N seconds\"\n# where N is an integer > 0 e.g. \"6 seconds\".\nshutdown-timeout = \"default\"\n\n[actix.tls] # TLS is disabled by default because the certs don't exist\nenabled = false\ncertificate = \"path/to/cert/cert.pem\"\nprivate-key = \"path/to/cert/key.pem\"\n\n# The `application` table be used to express application-specific settings.\n# See the `README.md` file for more details on how to use this.\n[application]\ndatabase_url = \"postgres://abn:abn@localhost:5432/abn?options=-c%20search_path%3Dtask\"";
+
+/// Struct for storing application-specific settings for ABN
+#[derive(Debug, Deserialize)]
+pub struct DatabaseSettings {
+    /// The url of the database
+    pub database_url: String,
+}
+
+/// ABN-Specific BasicSettings Type 
+pub type AbnSettings = BasicSettings<DatabaseSettings>;
+
+/// Function called by client / server main to load settings
+pub fn load_settings() -> Result<AbnSettings, actix_settings::Error> {
+    // if Server.toml does not exist in working directory, make a new one
+    let settings_filepath = Path::new(".abn_settings").join("Settings.toml");
+    match fs::metadata(&settings_filepath) {
+        Ok(_) => {
+            return AbnSettings::parse_toml(&settings_filepath);
+        },
+        Err(_) => {
+            println!("creating directory");
+            fs::create_dir(Path::new(".abn_settings")).unwrap();
+            AbnSettings::write_toml_file(&settings_filepath).unwrap();
+            fs::write(&settings_filepath, backend::ABN_DEFAULT_TOML_TEMPLATE).unwrap();
+            return AbnSettings::parse_toml(&settings_filepath);
+        },
+    }
+}
 
 /// # TASK API
 /// reawest::get("/task")

@@ -19,28 +19,6 @@ mod mid;
 mod term;
 mod ui;
 
-#[derive(Debug, Deserialize)]
-struct DatabaseSettings {
-    database_url: String,
-}
-type AbnSettings = BasicSettings<DatabaseSettings>;
-fn load_settings() -> Result<AbnSettings, actix_settings::Error> {
-    // if Server.toml does not exist in working directory:
-    let settings_filepath = Path::new(".abn_settings").join("Settings.toml");
-    match fs::metadata(&settings_filepath) {
-        Ok(_) => {
-            return AbnSettings::parse_toml(&settings_filepath);
-        },
-        Err(_) => {
-            println!("creating directory");
-            fs::create_dir(Path::new(".abn_settings")).unwrap();
-            AbnSettings::write_toml_file(&settings_filepath).unwrap();
-            fs::write(&settings_filepath, backend::ABN_DEFAULT_TOML_TEMPLATE).unwrap();
-            return AbnSettings::parse_toml(&settings_filepath);
-        },
-    }
-}
-
 #[coverage(off)]
 fn main() -> color_eyre::Result<()> {
     // manually create tokio runtime
@@ -53,7 +31,7 @@ fn main() -> color_eyre::Result<()> {
             tracing::info!("Starting Client");
             tracing::info!("Use RUST_LOG=debug for debug logs!");
             term::enable()?;
-            let settings = load_settings().expect("could not load settings");
+            let settings = backend::load_settings().expect("could not load settings");
             let state = mid::init(&format!(
                 "http://{}:{}",
                 settings.actix.hosts[0].host, settings.actix.hosts[0].port
@@ -125,13 +103,4 @@ pub fn install_hooks() -> color_eyre::Result<()> {
     ))?;
 
     Ok(())
-}
-
-#[cfg(test)]
-mod test_main {
-    use super::*;
-    #[test]
-    fn test_load_settings() {
-        load_settings().expect("failed to load settings");
-    }
 }
