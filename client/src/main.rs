@@ -4,14 +4,11 @@
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
-use std::{fs, io::stdout, panic, path::Path, io::Write};
-
-use actix_settings::{BasicSettings, NoSettings, Settings};
+use std::{io::stdout, panic};
 use color_eyre::eyre;
 use common::backend;
 use crossterm::event::EventStream;
 use ratatui::backend::CrosstermBackend;
-use serde::Deserialize;
 use tracing::level_filters::LevelFilter;
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
