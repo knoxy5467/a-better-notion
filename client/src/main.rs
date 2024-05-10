@@ -4,20 +4,53 @@
 #![warn(rustdoc::private_doc_tests)]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
-use std::{io::stdout, panic};
+use std::{fs, io::stdout, panic, path::Path, io::Write};
 
-use actix_settings::{NoSettings, Settings};
+use actix_settings::{BasicSettings, NoSettings, Settings};
 use color_eyre::eyre;
 use crossterm::event::EventStream;
 use ratatui::backend::CrosstermBackend;
+use serde::Deserialize;
 use tracing::level_filters::LevelFilter;
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 mod mid;
 mod term;
 mod ui;
-fn load_settings() -> Result<actix_settings::BasicSettings<NoSettings>, actix_settings::Error> {
-    Settings::parse_toml("Server.toml")
+
+#[derive(Debug, Deserialize)]
+pub struct DatabaseSettings {
+    pub database_url: String,
+}
+type AbnSettings = BasicSettings<DatabaseSettings>;
+pub fn load_settings() -> Result<AbnSettings, actix_settings::Error> {
+    // if Server.toml does not exist in working directory:
+    let settings_filepath = Path::new(".abn_settings").join("Server.toml");
+    match fs::metadata(&settings_filepath) {
+        Ok(_) => {
+            return AbnSettings::parse_toml(&settings_filepath);
+        },
+        Err(_) => {
+            println!("creating directory");
+            fs::create_dir(Path::new(".abn_settings")).unwrap();
+            let mut settings = AbnSettings::parse_toml(&settings_filepath);
+            // write database url to the file
+            // Open a file with append option
+            let mut settings_file = fs::OpenOptions::new()
+                .append(true)
+                .write(true)
+                .open(&settings_filepath)
+                .expect("cannot open file");
+
+            // Write db id to a file
+            settings_file
+                .write("\ndatabase_url = \"postgres://abn:abn@localhost:5432/abn?options=-c%20search_path%3Dtask\"".as_bytes())
+                .expect("write failed");
+            //fs::write(&settings_filepath, "postgres://abn:abn@localhost:5432/abn?options=-c%20search_path%3Dtask").unwrap();
+            
+            return AbnSettings::parse_toml(&settings_filepath);
+        },
+    }
 }
 
 #[coverage(off)]
