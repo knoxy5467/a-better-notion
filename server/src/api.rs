@@ -1,12 +1,11 @@
-use std::{fs, io::Write, path::Path};
-
+use std::{any::Any, fs, io::Write, path::Path};
 use crate::database::*;
 use actix_settings::BasicSettings;
 use actix_web::error::{ErrorInternalServerError, ErrorNotFound};
 #[allow(unused)]
 use actix_web::{delete, get, post, put, web, Responder, Result};
 use common::{
-    backend::*, Comparator, Filter, Operator, PrimitiveField, TaskID, TaskPropVariant, ViewData,
+    backend::{self, *}, Comparator, Filter, Operator, PrimitiveField, TaskID, TaskPropVariant, ViewData,
 };
 use log::info;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
@@ -31,21 +30,8 @@ pub fn load_settings() -> Result<AbnSettings, actix_settings::Error> {
         Err(_) => {
             println!("creating directory");
             fs::create_dir(Path::new(".abn_settings")).unwrap();
-            let mut settings = AbnSettings::parse_toml(&settings_filepath);
-            // write database url to the file
-            // Open a file with append option
-            let mut settings_file = fs::OpenOptions::new()
-                .append(true)
-                .write(true)
-                .open(&settings_filepath)
-                .expect("cannot open file");
-
-            // Write db id to a file
-            settings_file
-                .write("\ndatabase_url = \"postgres://abn:abn@localhost:5432/abn?options=-c%20search_path%3Dtask\"".as_bytes())
-                .expect("write failed");
-            //fs::write(&settings_filepath, "postgres://abn:abn@localhost:5432/abn?options=-c%20search_path%3Dtask").unwrap();
-            
+            AbnSettings::write_toml_file(&settings_filepath).unwrap();
+            fs::write(&settings_filepath, backend::ABN_DEFAULT_TOML_TEMPLATE).unwrap();
             return AbnSettings::parse_toml(&settings_filepath);
         },
     }
