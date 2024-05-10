@@ -10,6 +10,7 @@ use std::fs;
 use actix_settings::{ApplySettings as _, BasicSettings};
 use actix_web::{dev::Server, web::Data, App, HttpServer};
 use api::*;
+use common::backend;
 use log::{info, warn};
 use sea_orm::{Database, DatabaseConnection, DbErr, RuntimeErr};
 use serde::Deserialize;
@@ -73,7 +74,7 @@ async fn start_server() -> Server {
     env::set_var("RUST_LOG", "info");
     initialize_logger();
     info!("starting server");
-    let settings = api::load_settings().expect("could not load settings");
+    let settings = backend::load_settings().expect("could not load settings");
     info!("loaded settings");
     let db_url = settings.application.database_url.clone();
     info!("connecting to database: {}", db_url.clone());
@@ -129,10 +130,6 @@ mod test_main {
             std::process::exit(0)
         });
         main();
-    }
-    #[test]
-    fn test_load_settings() {
-        load_settings().expect("failed to load settings");
     }
 }
 #[cfg(test)]
